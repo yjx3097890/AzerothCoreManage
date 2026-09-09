@@ -25,7 +25,7 @@ import { ConfirmDanger } from '../components/ConfirmDanger'
 import { ItemSelect } from '../components/ItemSelect'
 import { TeleSelect } from '../components/PlaceSelect'
 import { RowActions, type RowActionItem } from '../components/RowActions'
-import { classLabel } from '../utils/wowLabels'
+import { classLabel, genderLabel } from '../utils/wowLabels'
 
 type Character = {
   guid: number
@@ -279,6 +279,12 @@ export function CharactersPage() {
             width: 110,
             render: (_: number, r: Character) => classLabel(r.class, i18n.language, r.class_name),
           },
+          {
+            title: t('common.gender'),
+            dataIndex: 'gender',
+            width: 70,
+            render: (v: number) => genderLabel(v, i18n.language),
+          },
           { title: t('characters.level'), dataIndex: 'level', width: 80 },
           {
             title: t('characters.online'),
@@ -474,6 +480,9 @@ export function CharactersPage() {
               <Descriptions.Item label={t('common.class')}>
                 {classLabel(detail.class, i18n.language, detail.class_name)}
                 {detail.class != null ? ` (#${detail.class})` : ''}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('common.gender')}>
+                {genderLabel(detail.gender, i18n.language)}
               </Descriptions.Item>
               <Descriptions.Item label={t('characters.money')}>
                 {moneyStr(inventory?.money ?? detail.money)}

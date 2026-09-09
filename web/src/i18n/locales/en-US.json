@@ -51,6 +51,7 @@
     "type": "Type",
     "slot": "Slot",
     "class": "Class",
+    "gender": "Gender",
     "key": "Key",
     "success": "OK",
     "fail": "Fail",

@@ -51,6 +51,7 @@
     "type": "类型",
     "slot": "栏位",
     "class": "职业",
+    "gender": "性别",
     "key": "密钥",
     "success": "成功",
     "fail": "失败",

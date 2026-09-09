@@ -32,3 +32,11 @@ export function classLabel(id: number, locale = 'zh-CN', fallbackName?: string):
   if (fallbackName) return fallbackName
   return String(id)
 }
+
+/** WotLK gender: 0 male, 1 female. */
+export function genderLabel(id: number, locale = 'zh-CN'): string {
+  const zh = locale.startsWith('zh')
+  if (id === 0) return zh ? '男' : 'Male'
+  if (id === 1) return zh ? '女' : 'Female'
+  return String(id)
+}
