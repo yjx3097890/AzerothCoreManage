@@ -50,9 +50,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           : role
 
   return (
-    <div className="min-h-screen flex bg-base-200">
-      <aside className="w-[220px] shrink-0 bg-neutral text-neutral-content flex flex-col">
-        <div className="p-4 font-semibold text-base">{t('app.name')}</div>
+    <div className="h-screen overflow-hidden flex bg-base-200">
+      <aside className="w-[220px] shrink-0 h-full overflow-y-auto bg-neutral text-neutral-content flex flex-col">
+        <div className="p-4 font-semibold text-base sticky top-0 bg-neutral z-10">{t('app.name')}</div>
         <ul className="menu menu-sm px-2 pb-4 gap-0.5 flex-1">
           {items.map((item) => (
             <li key={item.key}>
@@ -63,8 +63,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           ))}
         </ul>
       </aside>
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-base-100 border-b border-base-300 px-6 h-14 flex items-center justify-end gap-3">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <header className="shrink-0 bg-base-100 border-b border-base-300 px-6 h-14 flex items-center justify-end gap-3">
           <span className="badge badge-ghost">{roleLabel}</span>
           <ThemeSwitch />
           <LanguageSwitch />
@@ -79,7 +79,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             {t('common.logout')}
           </button>
         </header>
-        <main className="m-6 p-6 bg-base-100 rounded-box shadow-sm min-h-[calc(100vh-7rem)]">{children}</main>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <main className="m-6 p-6 bg-base-100 rounded-box shadow-sm min-h-[calc(100%-3rem)]">{children}</main>
+        </div>
       </div>
     </div>
   )
