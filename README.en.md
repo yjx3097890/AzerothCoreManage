@@ -56,6 +56,9 @@ make api   # API on :8080 by default
 make web   # Web on :5173 by default
 ```
 
+- Web: http://localhost:5173  
+- API: http://localhost:8080 (Vite proxies `/api` in dev)
+
 Open the Vite URL and sign in with `PANEL_ADMIN_*` from `.env`.
 
 ### 3. Docker deploy
@@ -64,9 +67,9 @@ Open the Vite URL and sign in with `PANEL_ADMIN_*` from `.env`.
 docker compose up -d --build
 ```
 
-- Web: http://localhost:5174  
-- API: http://localhost:8080  
-- Logs: `api/logs/` locally (Compose may also mount repo `logs/`)
+- Panel: http://localhost:${ACMANAGE_WEB_PORT:-8086} (default 8086)  
+- API is not published; nginx in the web container proxies `/api/`  
+- Logs: repo `logs/` (compose mount)
 
 ## Stack
 

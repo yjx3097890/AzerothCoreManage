@@ -56,6 +56,9 @@ make api   # API 默认 :8080
 make web   # 前端默认 :5173
 ```
 
+- 前端：http://localhost:5173  
+- API：http://localhost:8080（Vite 开发代理会转发 `/api`）
+
 浏览器打开前端地址，使用 `.env` 里 `PANEL_ADMIN_*` 登录。
 
 ### 3. Docker 部署
@@ -64,9 +67,9 @@ make web   # 前端默认 :5173
 docker compose up -d --build
 ```
 
-- 前端：http://localhost:5174  
-- API：http://localhost:8080  
-- 日志：本机 `api/logs/`（Compose 下也可挂到仓库 `logs/`）
+- 面板：http://localhost:${ACMANAGE_WEB_PORT:-8086}（默认 8086）  
+- API 不单独对外暴露，由 web 容器内 nginx 反代 `/api/`  
+- 日志：仓库 `logs/`（compose 挂载）/ 容器内也可写 `api/logs/`
 
 ## 技术选型
 
