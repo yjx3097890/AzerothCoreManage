@@ -59,7 +59,7 @@ export function ToastHost() {
   if (list.length === 0) return null
 
   return (
-    <div className="toast toast-top toast-end z-[100]">
+    <div className="toast toast-top toast-end z-[300]">
       {list.map((t) => (
         <div key={t.id} className={`alert ${alertClass[t.kind]} shadow-lg`}>
           <span>{t.content}</span>
