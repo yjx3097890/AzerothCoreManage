@@ -41,10 +41,13 @@ targets:
       world_db: "acore_world"
       playerbots_db: "acore_playerbots"
     conf:
-      etc_dir: ""
-      playerbots_conf: ""
-      worldserver_conf: ""
-      authserver_conf: ""
+      # 宿主机绝对路径（面板进程要能直接读/写）。Docker 示例：
+      #   ./conf/modules/playerbots.conf -> .../conf/modules/playerbots.conf
+      #   ./docker/vol/etc/*.conf        -> .../docker/vol/etc/
+      etc_dir: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc"
+      playerbots_conf: "/home/yjx/wow/azerothcore-wotlk/conf/modules/playerbots.conf"
+      worldserver_conf: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc/worldserver.conf"
+      authserver_conf: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc/authserver.conf"
     backup:
       dir: "./data/backups"
       mysqldump_path: "mysqldump"

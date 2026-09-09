@@ -27,6 +27,7 @@ type Props = {
 export function RowActions({ primary, primaryHint, items, moreLabel, moreHint }: Props) {
   const { t } = useTranslation()
   const menuItems = useMemo(() => buildMenuItems(items), [items])
+  const hasMore = menuItems.length > 0
 
   if (!primary && items.length === 0) {
     return null
@@ -39,7 +40,7 @@ export function RowActions({ primary, primaryHint, items, moreLabel, moreHint }:
   return (
     <Space size={4} wrap={false}>
       {primaryHint ? <Tooltip title={primaryHint}>{primary}</Tooltip> : primary}
-      {menuItems.length > 0 && (
+      {hasMore && (
         <Dropdown menu={{ items: menuItems }} trigger={['click']}>
           {moreHint ? <Tooltip title={moreHint}>{moreBtn}</Tooltip> : moreBtn}
         </Dropdown>
@@ -48,7 +49,7 @@ export function RowActions({ primary, primaryHint, items, moreLabel, moreHint }:
   )
 }
 
-function buildMenuItems(items: RowActionItem[]): MenuProps['items'] {
+function buildMenuItems(items: RowActionItem[]): NonNullable<MenuProps['items']> {
   if (items.length === 0) return []
 
   const order: string[] = []

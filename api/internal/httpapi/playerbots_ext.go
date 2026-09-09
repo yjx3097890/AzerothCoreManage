@@ -3,6 +3,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -282,7 +283,17 @@ func resolvePlayerbotsConfPath(conf config.ConfPaths) string {
 		return conf.PlayerbotsConf
 	}
 	if conf.EtcDir != "" {
-		return filepath.Join(conf.EtcDir, "playerbots.conf")
+		// Docker 常见：conf/modules/playerbots.conf；也兼容 etc 根目录。
+		candidates := []string{
+			filepath.Join(conf.EtcDir, "modules", "playerbots.conf"),
+			filepath.Join(conf.EtcDir, "playerbots.conf"),
+		}
+		for _, p := range candidates {
+			if st, err := os.Stat(p); err == nil && !st.IsDir() {
+				return p
+			}
+		}
+		return candidates[0]
 	}
 	return ""
 }
