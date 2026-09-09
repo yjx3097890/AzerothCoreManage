@@ -1,0 +1,81 @@
+# AzerothCore Manage Commercial License
+
+Copyright (c) 2026 AzerothCoreManage Author(s). All rights reserved.
+
+## 1. Definitions
+
+- **Software** means the AzerothCore Manage source code, binaries, documentation,
+  and related materials in this repository.
+- **Licensor** means the copyright holder(s) of the Software.
+- **You** means the individual or legal entity exercising rights under this License.
+- **Non-Commercial Use** means private use for learning, evaluation, or operating a
+  personal / hobby game server that is **not** offered as a paid product or service
+  and does **not** generate revenue (including subscriptions, donations tied to access,
+  advertising, or hosting fees).
+- **Commercial Use** means any use that is not Non-Commercial Use, including without
+  limitation: selling the Software; offering paid hosting or managed panels; operating
+  a revenue-generating game server that uses the Software; embedding the Software in a
+  commercial product; or providing the Software as a service to third parties.
+
+## 2. Grant for Non-Commercial Use
+
+Subject to this License, Licensor grants You a limited, non-exclusive,
+non-transferable, revocable license to use, copy, and modify the Software
+**solely for Non-Commercial Use**.
+
+You may not redistribute the Software (modified or unmodified) except to collaborators
+within the same Non-Commercial project, and only under this same License.
+
+## 3. Commercial Use Requires a Paid License
+
+**Commercial Use is prohibited** under this License unless You obtain a separate
+paid commercial license from the Licensor.
+
+To purchase a commercial license, or to discuss OEM / multi-server / white-label terms,
+contact the Licensor at: 315644588@qq.com
+
+## 4. Restrictions
+
+Except as expressly permitted by a separate written commercial license, You may not:
+
+1. Use the Software for Commercial Use;
+2. Sell, rent, lease, sublicense, or publicly redistribute the Software;
+3. Remove or alter copyright, license, or attribution notices;
+4. Misrepresent the origin of the Software;
+5. Use the Licensor’s name or trademarks to endorse derived products without permission.
+
+## 5. Ownership
+
+The Software is licensed, not sold. Licensor retains all right, title, and interest in
+and to the Software, including all intellectual property rights. This License does not
+grant any rights to AzerothCore, World of Warcraft, or other third-party trademarks
+or assets.
+
+## 6. No Warranty
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, AND NON-INFRINGEMENT. YOU USE THE SOFTWARE AT YOUR OWN RISK.
+
+## 7. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR SHALL NOT BE LIABLE FOR ANY
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF
+PROFITS, DATA, OR BUSINESS, ARISING OUT OF OR RELATED TO THE SOFTWARE OR THIS LICENSE.
+
+## 8. Termination
+
+This License terminates automatically if You breach it. Upon termination You must
+cease all use of the Software and destroy copies in Your possession, except that
+Sections 5–7 survive termination.
+
+## 9. Governing Law
+
+This License shall be governed by the laws of the People’s Republic of China,
+without regard to conflict-of-law principles, unless You and Licensor agree otherwise
+in a signed commercial agreement.
+
+## 10. Entire Agreement
+
+This License constitutes the entire agreement for Non-Commercial Use of the Software.
+Commercial terms are governed only by a separate paid license agreement with Licensor.

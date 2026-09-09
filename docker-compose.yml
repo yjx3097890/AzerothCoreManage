@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: acmanage-api
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/etc/acmanage/config.yaml:ro
+      - ./data:/data
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    networks:
+      - acmanage
+      - acore
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: acmanage-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "5174:80"
+    networks:
+      - acmanage
+
+networks:
+  acmanage:
+    driver: bridge
+  # 与游戏服 Docker 网络同名；不一致时改这里，并同步 config.yaml 的 docker.network
+  acore:
+    name: ac-network
+    external: true

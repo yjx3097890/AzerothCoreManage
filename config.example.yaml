@@ -1,0 +1,124 @@
+# 配置样例。复制为 config.yaml 后按环境改 host / 账号：
+#   cp config.example.yaml config.yaml
+#
+# soap.host / mysql.host 填法：
+#   - 本机开发（make api）：游戏服局域网 IP，或 127.0.0.1（同机映射端口）
+#   - Docker 部署：容器名，如 ac-worldserver / ac-database
+#
+# docker.enabled：
+#   - 远端游戏服、本机管不了对方容器 → false
+#   - 同机且要用启停/日志 → true，并填真实容器名与 network
+
+panel:
+  listen: ":8080"
+  jwt_secret: "change-me-before-deploy"
+  admin_username: "admin"
+  admin_password: "admin"
+
+targets:
+  - id: local
+    name: 游戏服
+    docker:
+      enabled: false
+      host: "unix:///var/run/docker.sock"
+      network: "ac-network"
+      containers:
+        worldserver: "ac-worldserver"
+        authserver: "ac-authserver"
+        database: "ac-database"
+    soap:
+      host: "192.168.1.50"   # 开发填 IP；部署改成 ac-worldserver
+      port: 7878
+      username: "admin"
+      password: "admin"
+    mysql:
+      host: "192.168.1.50"   # 开发填 IP；部署改成 ac-database
+      port: 3306             # 映射口可能是 63306
+      user: "acore"
+      password: "acore"
+      auth_db: "acore_auth"
+      characters_db: "acore_characters"
+      world_db: "acore_world"
+      playerbots_db: "acore_playerbots"
+    conf:
+      etc_dir: ""
+      playerbots_conf: ""
+      worldserver_conf: ""
+      authserver_conf: ""
+    backup:
+      dir: "./data/backups"
+      mysqldump_path: "mysqldump"
+    bots:
+      account_prefix: "rndbot"
+
+soap:
+  timeout_seconds: 10
+  allow:
+    - "server info"
+    - "server motd"
+    - "server set motd"
+    - "server restart"
+    - "server restart cancel"
+    - "server shutdown"
+    - "server shutdown cancel"
+    - "server idlerestart"
+    - "server idleshutdown"
+    - "server set closed"
+    - "server set security"
+    - "announce"
+    - "notify"
+    - "account create"
+    - "account set password"
+    - "account set gmlevel"
+    - "account set addon"
+    - "account lock"
+    - "account flag"
+    - "account delete"
+    - "account set 2fa"
+    - "kick"
+    - "teleport name"
+    - "tele name"
+    - "teleport del"
+    - "unstuck"
+    - "character level"
+    - "character rename"
+    - "character customize"
+    - "character changefaction"
+    - "character changerace"
+    - "character changeaccount"
+    - "character deleted"
+    - "character titles"
+    - "ban"
+    - "unban"
+    - "mute"
+    - "unmute"
+    - "freeze"
+    - "unfreeze"
+    - "revive"
+    - "reset"
+    - "quest"
+    - "send mail"
+    - "send items"
+    - "send money"
+    - "additem"
+    - "ticket"
+    - "guild"
+    - "arena"
+    - "event"
+    - "disable"
+    - "reload"
+    - "playerbot rndbot stats"
+    - "playerbot rndbot reload"
+    - "playerbot rndbot init"
+    - "playerbot rndbot reset"
+    - "playerbot rndbot level"
+    - "playerbot rndbot refresh"
+    - "playerbot rndbot teleport"
+    - "playerbot pmon"
+    - "playerbots bot"
+    - "playerbots account"
+
+soap_deny:
+  - "playerbot rndbot revive"
+  - "playerbot rndbot grind"
+  - "server exit"
