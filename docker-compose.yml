@@ -34,5 +34,5 @@ networks:
     driver: bridge
   # 与游戏服 Docker 网络同名；不一致时改这里，并同步 config.yaml 的 docker.network
   acore:
-    name: ac-network
+    name: azerothcore-wotlk_ac-network
     external: true
