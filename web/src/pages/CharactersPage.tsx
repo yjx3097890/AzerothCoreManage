@@ -416,6 +416,7 @@ export function CharactersPage() {
             label: t('characters.changeAccount'),
             hint: t('characters.changeAccountHint'),
             danger: true,
+            group: t('characters.groupAdmin'),
             onClick: () => setChangeAccountTarget(row),
           })
         }

@@ -199,6 +199,7 @@ export function AccountsPage() {
               key: 'gm',
               label: t('accounts.setGm'),
               hint: t('accounts.setGmHint'),
+              group: t('accounts.groupAdmin'),
               onClick: () => setGmTarget(row),
             },
             {
@@ -206,6 +207,7 @@ export function AccountsPage() {
               label: t('common.delete'),
               hint: t('accounts.deleteHint'),
               danger: true,
+              group: t('accounts.groupAdmin'),
               onClick: () => setPhraseTarget({ account: row, kind: 'delete' }),
             },
           )
