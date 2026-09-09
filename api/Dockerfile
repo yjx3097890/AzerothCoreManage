@@ -1,5 +1,9 @@
 FROM golang:1.26-alpine AS build
 WORKDIR /src
+# 国内构建默认走 goproxy.cn，避免 proxy.golang.org 超时
+ARG GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+ENV GOPROXY=${GOPROXY}
+ENV GOSUMDB=off
 COPY api/go.mod api/go.sum ./
 RUN go mod download
 COPY api/ ./
