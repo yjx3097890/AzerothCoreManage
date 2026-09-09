@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	cfgPath := flag.String("config", "../config.yaml", "path to config yaml")
+	cfgPath := flag.String("config", "config.yaml", "path to config yaml")
 	auditPath := flag.String("audit-db", "../data/audit.db", "sqlite path for audit log")
 	logDir := flag.String("log-dir", "logs", "directory for rolling log files (app.log / error.log)")
 	flag.Parse()

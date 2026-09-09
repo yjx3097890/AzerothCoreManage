@@ -5,11 +5,17 @@ services:
       dockerfile: api/Dockerfile
     container_name: acmanage-api
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
-      - ./config.yaml:/etc/acmanage/config.yaml:ro
+      - ./api/config.yaml:/etc/acmanage/config.yaml:ro
+      - ./.env:/etc/acmanage/.env:ro
       - ./data:/data
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
+      # 路径来自 .env 的 AC_ROOT，与 api/config.yaml conf.* 一致
+      - ${AC_ROOT}/docker/vol/etc:${AC_ROOT}/docker/vol/etc
+      - ${AC_ROOT}/conf/modules:${AC_ROOT}/conf/modules
     networks:
       - acmanage
       - acore
@@ -23,14 +29,14 @@ services:
     depends_on:
       - api
     ports:
-      - "8086:80"
+      - "${ACMANAGE_WEB_PORT:-8086}:80"
     networks:
       - acmanage
 
 networks:
   acmanage:
     driver: bridge
-  # 与游戏服 Docker 网络同名；不一致时改这里，并同步 config.yaml 的 docker.network
+  # 名称来自 .env 的 AC_NETWORK（须与游戏服 compose 网络一致）
   acore:
-    name: azerothcore-wotlk_ac-network
+    name: ${AC_NETWORK:-azerothcore-wotlk_ac-network}
     external: true

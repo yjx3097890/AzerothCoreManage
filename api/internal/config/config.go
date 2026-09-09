@@ -1,7 +1,11 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -78,20 +82,40 @@ type SOAPPolicy struct {
 }
 
 func Load(path string) (*Config, error) {
+	loadDotEnvFiles(path)
+
 	v := viper.New()
 	v.SetConfigType("yaml")
 
 	if path != "" {
-		v.SetConfigFile(path)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read config: %w", err)
+		}
+		expanded := os.ExpandEnv(string(raw))
+		if err := v.ReadConfig(strings.NewReader(expanded)); err != nil {
+			return nil, fmt.Errorf("parse config: %w", err)
+		}
 	} else {
 		v.SetConfigName("config")
 		v.AddConfigPath(".")
 		v.AddConfigPath("..")
 		v.AddConfigPath("/etc/acmanage")
-	}
-
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		if err := v.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("read config: %w", err)
+		}
+		// Re-read with env expansion when path was discovered by viper.
+		if cfgFile := v.ConfigFileUsed(); cfgFile != "" {
+			raw, err := os.ReadFile(cfgFile)
+			if err != nil {
+				return nil, fmt.Errorf("read config: %w", err)
+			}
+			v = viper.New()
+			v.SetConfigType("yaml")
+			if err := v.ReadConfig(strings.NewReader(os.ExpandEnv(string(raw)))); err != nil {
+				return nil, fmt.Errorf("parse config: %w", err)
+			}
+		}
 	}
 
 	var cfg Config
@@ -117,4 +141,65 @@ func (c *Config) Target(id string) (*Target, error) {
 		}
 	}
 	return nil, fmt.Errorf("unknown target %q", id)
+}
+
+// loadDotEnvFiles loads KEY=VALUE from nearby .env files into the process env
+// (does not override already-set variables). Docker Compose also reads .env
+// for its own ${} substitution; this makes `make api` behave the same.
+func loadDotEnvFiles(configPath string) {
+	candidates := []string{".env", "../.env"}
+	if configPath != "" {
+		dir := filepath.Dir(configPath)
+		candidates = append([]string{
+			filepath.Join(dir, ".env"),
+			filepath.Join(dir, "..", ".env"),
+		}, candidates...)
+	}
+	seen := map[string]bool{}
+	for _, p := range candidates {
+		abs, err := filepath.Abs(p)
+		if err != nil || seen[abs] {
+			continue
+		}
+		seen[abs] = true
+		_ = loadDotEnvFile(abs)
+	}
+}
+
+func loadDotEnvFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if len(val) >= 2 {
+			if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
+				val = val[1 : len(val)-1]
+			}
+		}
+		if key == "" {
+			continue
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		_ = os.Setenv(key, val)
+	}
+	return sc.Err()
 }

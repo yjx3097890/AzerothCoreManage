@@ -176,7 +176,7 @@ api/
 
 ## 9. 配置
 
-唯一样例：`config.example.yaml` → `config.yaml`。
+唯一样例环境文件：`.env.example` → `.env`。后端结构见 `api/config.yaml`。
 
 `soap.host` / `mysql.host`：开发填局域网 IP 或 `127.0.0.1`；Compose 部署填容器名。其余字段相同。
 

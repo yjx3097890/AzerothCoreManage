@@ -11,8 +11,6 @@ api/bin/
 *.exe
 coverage/
 .cache/
-config.yaml
-!config.example.yaml
 /data/
 logs/
 api/logs/

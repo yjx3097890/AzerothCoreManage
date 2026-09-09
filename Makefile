@@ -2,7 +2,7 @@
 
 api:
 	mkdir -p data api/logs logs
-	cd api && go run ./cmd/server -config ../config.yaml -audit-db ../data/audit.db -log-dir logs
+	cd api && go run ./cmd/server -config ./config.yaml -audit-db ../data/audit.db -log-dir logs
 
 web:
 	cd web && npm run dev

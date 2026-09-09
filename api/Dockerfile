@@ -13,6 +13,6 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/acmanage /usr/local/bin/acmanage
-COPY config.example.yaml /etc/acmanage/config.yaml
+COPY api/config.yaml /etc/acmanage/config.yaml
 EXPOSE 8080
 ENTRYPOINT ["acmanage", "-config", "/etc/acmanage/config.yaml", "-audit-db", "/data/audit.db", "-log-dir", "/app/logs"]

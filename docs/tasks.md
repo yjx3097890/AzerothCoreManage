@@ -194,5 +194,5 @@
 
 ## 说明
 
-- conf / playerbots.conf / mysqldump：远端游戏服需在 `config.yaml` 填可访问路径；本机无卷则对应功能返回不可用提示。
+- conf / playerbots.conf / mysqldump：远端游戏服需在 `.env` 的 `AC_ROOT` 等填可访问路径；本机无卷则对应功能返回不可用提示。
 - `setskill` / `learn` / 部分声望头衔写入：SOAP 需选中在线目标，面板仅保留只读与邮件发放类写入。

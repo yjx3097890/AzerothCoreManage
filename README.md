@@ -28,15 +28,18 @@
 
 ### 1. 配置
 
-只维护一份 `config.yaml`（已 gitignore），不要用 `.env` 重复配凭证：
+后端结构在 `api/config.yaml`（可提交）；敏感项与机器路径在仓库根目录 `.env`（gitignore）：
 
 ```bash
-cp config.example.yaml config.yaml
-# 编辑 panel / soap / mysql / docker
+cp .env.example .env
+# 编辑 .env：AC_ROOT、端口、账号、SOAP/MySQL
 ```
 
-- **本机开发**：`soap.host`、`mysql.host` 填游戏服 IP（或本机映射地址）
-- **同机 Docker**：可改为容器名，并加入游戏服网络；`docker.enabled` 按需开启
+`api/config.yaml` 支持 `${VAR}`；API 会加载根目录 `.env` 并展开。  
+Docker Compose 使用同一份 `.env`（端口、volume、外部网络）。
+
+- **本机开发**：`.env` 里 SOAP/MySQL 填游戏服 IP
+- **同机 Docker**：可改为容器名，并保证 `AC_NETWORK` 与游戏服网络一致
 
 游戏服需开启 SOAP，例如：
 
@@ -53,7 +56,7 @@ make api   # API 默认 :8080
 make web   # 前端默认 :5173
 ```
 
-浏览器打开前端地址，使用 `config.yaml` 里 `panel.admin_*` 登录。
+浏览器打开前端地址，使用 `.env` 里 `PANEL_ADMIN_*` 登录。
 
 ### 3. Docker 部署
 

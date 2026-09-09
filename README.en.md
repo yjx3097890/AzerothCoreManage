@@ -28,15 +28,18 @@ See [docs/tasks.md](docs/tasks.md) for the checklist and [docs/architecture.md](
 
 ### 1. Configuration
 
-Use a single `config.yaml` (gitignored). Do not duplicate secrets in `.env`:
+Backend structure lives in `api/config.yaml` (tracked); secrets and machine paths go in the repo-root `.env` (gitignored):
 
 ```bash
-cp config.example.yaml config.yaml
-# Edit panel / soap / mysql / docker
+cp .env.example .env
+# Edit .env: AC_ROOT, ports, credentials, SOAP/MySQL
 ```
 
-- **Local development**: set `soap.host` / `mysql.host` to your realm IP (or localhost-mapped ports).
-- **Same-host Docker**: you may use container names and join the game network; enable `docker.enabled` if needed.
+`api/config.yaml` supports `${VAR}`; the API loads the root `.env` and expands them.  
+Docker Compose uses the same `.env` for ports, volumes, and the external network name.
+
+- **Local development**: set SOAP/MySQL hosts to the realm IP in `.env`
+- **Same-host Docker**: you may use container names; keep `AC_NETWORK` aligned with the game compose network
 
 Enable SOAP on the realm, for example:
 
@@ -53,7 +56,7 @@ make api   # API on :8080 by default
 make web   # Web on :5173 by default
 ```
 
-Open the Vite URL and sign in with `panel.admin_*` from `config.yaml`.
+Open the Vite URL and sign in with `PANEL_ADMIN_*` from `.env`.
 
 ### 3. Docker deploy
 

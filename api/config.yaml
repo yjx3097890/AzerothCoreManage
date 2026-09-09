@@ -1,59 +1,47 @@
-# 配置样例。复制为 config.yaml 后按环境改 host / 账号：
-#   cp config.example.yaml config.yaml
-#
-# soap.host / mysql.host 填法：
-#   - 本机开发（make api）：游戏服局域网 IP，或 127.0.0.1（同机映射端口）
-#   - Docker 部署：容器名，如 ac-worldserver / ac-database
-#
-# docker.enabled：
-#   - 远端游戏服、本机管不了对方容器 → false
-#   - 同机且要用启停/日志 → true，并填真实容器名与 network
+# 后端配置（可入库）。敏感项与机器相关路径写在仓库根目录 .env。
+# ${VAR} 由 API 启动时展开（自动加载 api/ 上级或同目录的 .env）。
 
 panel:
-  # 后端监听地址
   listen: ":8080"
-  jwt_secret: "change-me-before-deploy"
-  admin_username: "admin"
-  admin_password: "admin"
+  jwt_secret: "${PANEL_JWT_SECRET}"
+  admin_username: "${PANEL_ADMIN_USERNAME}"
+  admin_password: "${PANEL_ADMIN_PASSWORD}"
 
 targets:
-  - id: local
-    name: 游戏服
+  - id: "${TARGET_ID}"
+    name: "${TARGET_NAME}"
     docker:
-      enabled: false
+      enabled: ${DOCKER_ENABLED}
       host: "unix:///var/run/docker.sock"
-      network: "ac-network"
+      network: "${AC_NETWORK}"
       containers:
         worldserver: "ac-worldserver"
         authserver: "ac-authserver"
         database: "ac-database"
     soap:
-      host: "192.168.1.50"   # 开发填 IP；部署改成 ac-worldserver
-      port: 7878
-      username: "admin"
-      password: "admin"
+      host: "${SOAP_HOST}"
+      port: ${SOAP_PORT}
+      username: "${SOAP_USERNAME}"
+      password: "${SOAP_PASSWORD}"
     mysql:
-      host: "192.168.1.50"   # 开发填 IP；部署改成 ac-database
-      port: 3306             # 映射口可能是 63306
-      user: "acore"
-      password: "acore"
-      auth_db: "acore_auth"
-      characters_db: "acore_characters"
-      world_db: "acore_world"
-      playerbots_db: "acore_playerbots"
+      host: "${MYSQL_HOST}"
+      port: ${MYSQL_PORT}
+      user: "${MYSQL_USER}"
+      password: "${MYSQL_PASSWORD}"
+      auth_db: "${MYSQL_AUTH_DB}"
+      characters_db: "${MYSQL_CHARACTERS_DB}"
+      world_db: "${MYSQL_WORLD_DB}"
+      playerbots_db: "${MYSQL_PLAYERBOTS_DB}"
     conf:
-      # 宿主机绝对路径（面板进程要能直接读/写）。Docker 示例：
-      #   ./conf/modules/playerbots.conf -> .../conf/modules/playerbots.conf
-      #   ./docker/vol/etc/*.conf        -> .../docker/vol/etc/
-      etc_dir: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc"
-      playerbots_conf: "/home/yjx/wow/azerothcore-wotlk/conf/modules/playerbots.conf"
-      worldserver_conf: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc/worldserver.conf"
-      authserver_conf: "/home/yjx/wow/azerothcore-wotlk/docker/vol/etc/authserver.conf"
+      etc_dir: "${AC_ROOT}/docker/vol/etc"
+      playerbots_conf: "${AC_ROOT}/conf/modules/playerbots.conf"
+      worldserver_conf: "${AC_ROOT}/docker/vol/etc/worldserver.conf"
+      authserver_conf: "${AC_ROOT}/docker/vol/etc/authserver.conf"
     backup:
-      dir: "./data/backups"
+      dir: "../data/backups"
       mysqldump_path: "mysqldump"
     bots:
-      account_prefix: "rndbot"
+      account_prefix: "${BOT_ACCOUNT_PREFIX}"
 
 soap:
   timeout_seconds: 10
