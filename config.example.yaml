@@ -10,6 +10,7 @@
 #   - 同机且要用启停/日志 → true，并填真实容器名与 network
 
 panel:
+  # 后端监听地址
   listen: ":8080"
   jwt_secret: "change-me-before-deploy"
   admin_username: "admin"

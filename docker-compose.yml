@@ -10,8 +10,6 @@ services:
       - ./data:/data
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "8080:8080"
     networks:
       - acmanage
       - acore
@@ -25,7 +23,7 @@ services:
     depends_on:
       - api
     ports:
-      - "5174:80"
+      - "8086:80"
     networks:
       - acmanage
 
