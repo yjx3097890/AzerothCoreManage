@@ -1,9 +1,9 @@
-import { Alert, Button, Form, Input, InputNumber, Select, Space, Table, Typography, message } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { MapSelect } from '../components/PlaceSelect'
+import { DataTable, Select, toast, type Column } from '../ui'
 
 type DisableRow = {
   source_type: number
@@ -34,13 +34,22 @@ export function EventsPage() {
   const [disablesLoading, setDisablesLoading] = useState(false)
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
 
+  const [eventAction, setEventAction] = useState('start')
+  const [eventId, setEventId] = useState('')
+
+  const [disableAction, setDisableAction] = useState('add')
+  const [disableType, setDisableType] = useState('spell')
+  const [disableEntry, setDisableEntry] = useState<number | undefined>(undefined)
+  const [disableFlag, setDisableFlag] = useState('0')
+  const [disableComment, setDisableComment] = useState('')
+
   const load = useCallback(async () => {
     setEventsLoading(true)
     try {
       const data = await api<{ items: EventRow[]; raw: string }>('/api/v1/events')
       setEvents(data.items ?? [])
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setEventsLoading(false)
     }
@@ -52,7 +61,7 @@ export function EventsPage() {
       const data = await api<{ items: DisableRow[] }>('/api/v1/disables?limit=200')
       setDisables(data.items)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setDisablesLoading(false)
     }
@@ -63,99 +72,157 @@ export function EventsPage() {
     void loadDisables()
   }, [load, loadDisables, i18n.language])
 
+  const usesMapPicker = ['map', 'vmap', 'battleground'].includes(disableType)
+
+  const eventColumns: Column<EventRow>[] = [
+    { key: 'id', title: t('events.eventId'), dataIndex: 'id', width: 90 },
+    {
+      key: 'name',
+      title: t('events.name'),
+      dataIndex: 'name',
+      render: (v) => <span className="block max-w-[420px] truncate">{String(v ?? '')}</span>,
+    },
+    {
+      key: 'active',
+      title: t('events.status'),
+      dataIndex: 'active',
+      width: 100,
+      render: (v) => ((v as boolean) ? t('events.active') : t('events.inactive')),
+    },
+    ...(hasMinRole('gm')
+      ? [
+          {
+            key: 'actions',
+            title: t('common.actions'),
+            width: 160,
+            render: (_v: unknown, row: EventRow) => (
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-xs"
+                  onClick={() =>
+                    setPending({
+                      title: t('events.action'),
+                      description: `${t('common.start')} #${row.id} ${row.name}`,
+                      run: async () => {
+                        await api('/api/v1/events', {
+                          method: 'POST',
+                          body: JSON.stringify({ action: 'start', event_id: row.id, confirm: true }),
+                        })
+                        await load()
+                      },
+                    })
+                  }
+                >
+                  {t('common.start')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-error btn-xs"
+                  onClick={() =>
+                    setPending({
+                      title: t('events.action'),
+                      description: `${t('common.stop')} #${row.id} ${row.name}`,
+                      run: async () => {
+                        await api('/api/v1/events', {
+                          method: 'POST',
+                          body: JSON.stringify({ action: 'stop', event_id: row.id, confirm: true }),
+                        })
+                        await load()
+                      },
+                    })
+                  }
+                >
+                  {t('common.stop')}
+                </button>
+              </div>
+            ),
+          } satisfies Column<EventRow>,
+        ]
+      : []),
+  ]
+
+  const disableColumns: Column<DisableRow>[] = [
+    {
+      key: 'source_type',
+      title: t('events.sourceType'),
+      width: 120,
+      render: (_v, r) => (r.source_type_name ? `${r.source_type_name} (#${r.source_type})` : r.source_type),
+    },
+    {
+      key: 'entry',
+      title: t('common.entry'),
+      width: 220,
+      render: (_v, r) => (
+        <span className="block max-w-[220px] truncate">
+          {r.entry_name ? `${r.entry_name} (#${r.entry})` : `#${r.entry}`}
+        </span>
+      ),
+    },
+    {
+      key: 'flags',
+      title: t('common.flags'),
+      width: 200,
+      render: (_v, r) => (
+        <span className="block max-w-[200px] truncate">{r.flags_text ? `${r.flags_text} (${r.flags})` : r.flags}</span>
+      ),
+    },
+    {
+      key: 'params_0',
+      title: t('common.params0'),
+      dataIndex: 'params_0',
+      render: (v) => <span className="block max-w-[200px] truncate">{String(v ?? '')}</span>,
+    },
+    {
+      key: 'params_1',
+      title: t('common.params1'),
+      dataIndex: 'params_1',
+      render: (v) => <span className="block max-w-[200px] truncate">{String(v ?? '')}</span>,
+    },
+    {
+      key: 'comment',
+      title: t('moderation.reason'),
+      dataIndex: 'comment',
+      render: (v) => <span className="block max-w-[240px] truncate">{String(v ?? '')}</span>,
+    },
+  ]
+
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.events.title')}
-        </Typography.Title>
-        <Button
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-2xl font-semibold m-0">{t('pages.events.title')}</h1>
+        <button
+          type="button"
+          className="btn btn-sm"
           onClick={() => {
             void load()
             void loadDisables()
           }}
         >
           {t('common.refresh')}
-        </Button>
-      </Space>
-      <Alert type="info" showIcon message={t('events.hint')} style={{ marginBottom: 16 }} />
+        </button>
+      </div>
 
-      <Table
-        size="small"
-        loading={eventsLoading}
-        rowKey="id"
-        dataSource={events}
-        pagination={false}
-        style={{ marginBottom: 16 }}
-        columns={[
-          { title: t('events.eventId'), dataIndex: 'id', width: 90 },
-          { title: t('events.name'), dataIndex: 'name', ellipsis: true },
-          {
-            title: t('events.status'),
-            dataIndex: 'active',
-            width: 100,
-            render: (v: boolean) => (v ? t('events.active') : t('events.inactive')),
-          },
-          ...(hasMinRole('gm')
-            ? [
-                {
-                  title: t('common.actions'),
-                  key: 'actions',
-                  width: 160,
-                  render: (_: unknown, row: EventRow) => (
-                    <Space>
-                      <Button
-                        size="small"
-                        type="primary"
-                        onClick={() =>
-                          setPending({
-                            title: t('events.action'),
-                            description: `${t('common.start')} #${row.id} ${row.name}`,
-                            run: async () => {
-                              await api('/api/v1/events', {
-                                method: 'POST',
-                                body: JSON.stringify({ action: 'start', event_id: row.id, confirm: true }),
-                              })
-                              await load()
-                            },
-                          })
-                        }
-                      >
-                        {t('common.start')}
-                      </Button>
-                      <Button
-                        size="small"
-                        danger
-                        onClick={() =>
-                          setPending({
-                            title: t('events.action'),
-                            description: `${t('common.stop')} #${row.id} ${row.name}`,
-                            run: async () => {
-                              await api('/api/v1/events', {
-                                method: 'POST',
-                                body: JSON.stringify({ action: 'stop', event_id: row.id, confirm: true }),
-                              })
-                              await load()
-                            },
-                          })
-                        }
-                      >
-                        {t('common.stop')}
-                      </Button>
-                    </Space>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+      <div className="alert alert-info mb-4">
+        <span>{t('events.hint')}</span>
+      </div>
+
+      <div className="mb-4">
+        <DataTable
+          rowKey="id"
+          loading={eventsLoading}
+          dataSource={events}
+          columns={eventColumns}
+          pagination={false}
+        />
+      </div>
 
       {hasMinRole('gm') && (
-        <Form
-          layout="inline"
-          style={{ marginTop: 8, marginBottom: 8 }}
-          initialValues={{ action: 'start' }}
-          onFinish={(values: { action: string; event_id: number }) => {
+        <form
+          className="flex flex-wrap items-center gap-2 mt-2 mb-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const values = { action: eventAction, event_id: Number(eventId) }
             setPending({
               title: t('events.action'),
               description: `${values.action} #${values.event_id}`,
@@ -169,144 +236,149 @@ export function EventsPage() {
             })
           }}
         >
-          <Form.Item name="action" rules={[{ required: true }]}>
-            <Select
-              style={{ width: 120 }}
-              options={[
-                { value: 'start', label: t('common.start') },
-                { value: 'stop', label: t('common.stop') },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="event_id" rules={[{ required: true }]}>
-            <InputNumber min={1} placeholder={t('events.eventId')} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit">
+          <Select
+            className="w-32"
+            value={eventAction}
+            onChange={(v) => setEventAction(v ?? 'start')}
+            options={[
+              { value: 'start', label: t('common.start') },
+              { value: 'stop', label: t('common.stop') },
+            ]}
+          />
+          <input
+            type="number"
+            min={1}
+            required
+            className="input input-bordered w-40"
+            placeholder={t('events.eventId')}
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+          />
+          <button type="submit" className="btn btn-primary">
             {t('events.action')}
-          </Button>
-        </Form>
+          </button>
+        </form>
       )}
 
-      <Typography.Title level={4} style={{ marginTop: 32 }}>
-        {t('events.disables')}
-      </Typography.Title>
+      <h2 className="text-lg font-semibold mt-8 mb-3">{t('events.disables')}</h2>
 
       {hasMinRole('gm') && (
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }} size="middle">
-          <Form
-            layout="inline"
-            initialValues={{ action: 'add', type: 'spell', flag: 0 }}
-            onFinish={(values: {
-              action: string
-              type?: string
-              entry?: number
-              flag?: number
-              comment?: string
-            }) => {
-              setPending({
-                title: t('events.disables'),
-                description: t('events.disableConfirm', {
-                  action: values.action,
-                  type: values.type ?? '',
-                  entry: values.entry ?? '',
-                }),
-                run: async () => {
-                  await api('/api/v1/disables', {
-                    method: 'POST',
-                    body: JSON.stringify({ ...values, confirm: true }),
-                  })
-                  await loadDisables()
-                },
-              })
-            }}
-          >
-            <Form.Item name="action" rules={[{ required: true }]}>
+        <form
+          className="flex flex-wrap items-center gap-2 mb-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (disableAction !== 'reload' && disableEntry == null) {
+              toast.error(t('validation.required'))
+              return
+            }
+            const values =
+              disableAction === 'reload'
+                ? { action: disableAction }
+                : {
+                    action: disableAction,
+                    type: disableType,
+                    entry: disableEntry,
+                    ...(disableAction === 'add'
+                      ? {
+                          flag: disableFlag === '' ? undefined : Number(disableFlag),
+                          comment: disableComment,
+                        }
+                      : {}),
+                  }
+            setPending({
+              title: t('events.disables'),
+              description: t('events.disableConfirm', {
+                action: disableAction,
+                type: disableAction === 'reload' ? '' : disableType,
+                entry: disableAction === 'reload' ? '' : (disableEntry ?? ''),
+              }),
+              run: async () => {
+                await api('/api/v1/disables', {
+                  method: 'POST',
+                  body: JSON.stringify({ ...values, confirm: true }),
+                })
+                await loadDisables()
+              },
+            })
+          }}
+        >
+          <Select
+            className="w-28"
+            value={disableAction}
+            onChange={(v) => setDisableAction(v ?? 'add')}
+            options={[
+              { value: 'add', label: t('common.add') },
+              { value: 'remove', label: t('common.remove') },
+              { value: 'reload', label: t('common.reload') },
+            ]}
+          />
+          {disableAction !== 'reload' && (
+            <>
               <Select
-                style={{ width: 110 }}
+                className="w-36"
+                value={disableType}
+                onChange={(v) => {
+                  setDisableType(v ?? 'spell')
+                  setDisableEntry(undefined)
+                }}
                 options={[
-                  { value: 'add', label: t('common.add') },
-                  { value: 'remove', label: t('common.remove') },
-                  { value: 'reload', label: t('common.reload') },
+                  { value: 'spell', label: t('events.typeSpell') },
+                  { value: 'map', label: t('events.typeMap') },
+                  { value: 'battleground', label: t('events.typeBattleground') },
+                  { value: 'quest', label: t('events.typeQuest') },
+                  { value: 'vmap', label: t('events.typeVmap') },
+                  { value: 'outdoorpvp', label: t('events.typeOutdoorpvp') },
                 ]}
               />
-            </Form.Item>
-            <Form.Item noStyle shouldUpdate={(a, b) => a.action !== b.action || a.type !== b.type}>
-              {({ getFieldValue }) =>
-                getFieldValue('action') === 'reload' ? null : (
-                  <>
-                    <Form.Item name="type" rules={[{ required: true }]}>
-                      <Select
-                        style={{ width: 140 }}
-                        options={[
-                          { value: 'spell', label: t('events.typeSpell') },
-                          { value: 'map', label: t('events.typeMap') },
-                          { value: 'battleground', label: t('events.typeBattleground') },
-                          { value: 'quest', label: t('events.typeQuest') },
-                          { value: 'vmap', label: t('events.typeVmap') },
-                          { value: 'outdoorpvp', label: t('events.typeOutdoorpvp') },
-                        ]}
-                      />
-                    </Form.Item>
-                    <Form.Item name="entry" rules={[{ required: true }]}>
-                      {['map', 'vmap', 'battleground'].includes(String(getFieldValue('type'))) ? (
-                        <MapSelect style={{ width: 240 }} />
-                      ) : (
-                        <InputNumber min={1} placeholder={t('common.entry')} />
-                      )}
-                    </Form.Item>
-                    {getFieldValue('action') === 'add' && (
-                      <>
-                        <Form.Item name="flag">
-                          <InputNumber min={0} placeholder={t('accounts.flag')} />
-                        </Form.Item>
-                        <Form.Item name="comment">
-                          <Input placeholder={t('moderation.reason')} style={{ width: 140 }} />
-                        </Form.Item>
-                      </>
-                    )}
-                  </>
-                )
-              }
-            </Form.Item>
-            <Button htmlType="submit">{t('events.disableAction')}</Button>
-          </Form>
-        </Space>
+              {usesMapPicker ? (
+                <MapSelect
+                  className="w-60"
+                  value={disableEntry}
+                  onChange={(v) => setDisableEntry(v ?? undefined)}
+                />
+              ) : (
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  className="input input-bordered w-40"
+                  placeholder={t('common.entry')}
+                  value={disableEntry ?? ''}
+                  onChange={(e) => setDisableEntry(e.target.value === '' ? undefined : Number(e.target.value))}
+                />
+              )}
+              {disableAction === 'add' && (
+                <>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered w-32"
+                    placeholder={t('accounts.flag')}
+                    value={disableFlag}
+                    onChange={(e) => setDisableFlag(e.target.value)}
+                  />
+                  <input
+                    className="input input-bordered w-36"
+                    placeholder={t('moderation.reason')}
+                    value={disableComment}
+                    onChange={(e) => setDisableComment(e.target.value)}
+                  />
+                </>
+              )}
+            </>
+          )}
+          <button type="submit" className="btn">
+            {t('events.disableAction')}
+          </button>
+        </form>
       )}
 
-      <Table
-        size="small"
-        loading={disablesLoading}
+      <DataTable
         rowKey={(r) => `${r.source_type}-${r.entry}`}
+        loading={disablesLoading}
         dataSource={disables}
+        columns={disableColumns}
         pagination={{ pageSize: 20 }}
-        columns={[
-          {
-            title: t('events.sourceType'),
-            dataIndex: 'source_type',
-            width: 120,
-            render: (_: number, r: DisableRow) =>
-              r.source_type_name ? `${r.source_type_name} (#${r.source_type})` : r.source_type,
-          },
-          {
-            title: t('common.entry'),
-            dataIndex: 'entry',
-            width: 220,
-            ellipsis: true,
-            render: (_: number, r: DisableRow) =>
-              r.entry_name ? `${r.entry_name} (#${r.entry})` : `#${r.entry}`,
-          },
-          {
-            title: t('common.flags'),
-            dataIndex: 'flags',
-            width: 200,
-            ellipsis: true,
-            render: (_: number, r: DisableRow) =>
-              r.flags_text ? `${r.flags_text} (${r.flags})` : r.flags,
-          },
-          { title: t('common.params0'), dataIndex: 'params_0', ellipsis: true },
-          { title: t('common.params1'), dataIndex: 'params_1', ellipsis: true },
-          { title: t('moderation.reason'), dataIndex: 'comment', ellipsis: true },
-        ]}
       />
 
       <ConfirmDanger
@@ -318,10 +390,10 @@ export function EventsPage() {
           if (!pending) return
           try {
             await pending.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPending(null)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />

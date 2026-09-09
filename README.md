@@ -4,7 +4,7 @@
 
 面向 **AzerothCore**（含 **mod-playerbots**）的 Web 管理面板：用浏览器完成日常运维，减少 SSH 与 worldserver 控制台操作。
 
-技术栈：**Go（Gin）+ React（Vite / Ant Design）**，通过 SOAP 发指令、MySQL 查四库，可选对接 Docker 管理容器。
+技术栈：**Go（Gin）+ React（Vite / Tailwind CSS / DaisyUI）**，通过 SOAP 发指令、MySQL 查四库，可选对接 Docker 管理容器。
 
 > 本项目采用**商用收费许可**：个人非商业使用见 [LICENSE](LICENSE)；**任何商业用途须另行购买授权**。
 
@@ -75,7 +75,7 @@ docker compose up -d --build
 
 | 层 | 选型 |
 |----|------|
-| 前端 | React + TypeScript + Vite + Ant Design + i18next |
+| 前端 | React + TypeScript + Vite + Tailwind CSS + DaisyUI + i18next |
 | 后端 | Go + Gin + JWT RBAC（只读 / GM / 超管） |
 | 指令 | SOAP `executeCommand`（白名单） |
 | 数据 | MySQL：auth / characters / world / playerbots |

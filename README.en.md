@@ -4,7 +4,7 @@
 
 A web admin panel for **AzerothCore** (including **mod-playerbots**). Manage day-to-day ops from the browser instead of living in SSH and the worldserver console.
 
-Stack: **Go (Gin) + React (Vite / Ant Design)**. Commands go through SOAP; lists and stats come from MySQL; Docker is optional for container lifecycle.
+Stack: **Go (Gin) + React (Vite / Tailwind CSS / DaisyUI)**. Commands go through SOAP; lists and stats come from MySQL; Docker is optional for container lifecycle.
 
 > Licensed as **paid commercial software**: Non-commercial use is covered by [LICENSE](LICENSE). **Any Commercial Use requires a separate paid license.**
 
@@ -75,7 +75,7 @@ docker compose up -d --build
 
 | Layer | Choice |
 |-------|--------|
-| Frontend | React + TypeScript + Vite + Ant Design + i18next |
+| Frontend | React + TypeScript + Vite + Tailwind CSS + DaisyUI + i18next |
 | Backend | Go + Gin + JWT RBAC (viewer / GM / superadmin) |
 | Commands | SOAP `executeCommand` (allow-list) |
 | Data | MySQL: auth / characters / world / playerbots |

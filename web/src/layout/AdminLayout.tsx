@@ -1,12 +1,9 @@
-import { Layout, Menu, Button, Space, Tag } from 'antd'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { clearToken, getRole, hasMinRole, type Role } from '../api/client'
 import { LanguageSwitch } from '../i18n/LanguageSwitch'
-
-const { Header, Sider, Content } = Layout
+import { ThemeSwitch } from '../i18n/ThemeSwitch'
 
 type NavItem = {
   key: string
@@ -40,48 +37,50 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const role = getRole()
 
-  const items = useMemo(
-    () =>
-      NAV.filter((item) => !item.minRole || hasMinRole(item.minRole)).map((item) => ({
-        key: item.key,
-        label: <Link to={item.key}>{t(item.labelKey)}</Link>,
-      })),
-    [t, role],
-  )
-
+  const items = NAV.filter((item) => !item.minRole || hasMinRole(item.minRole))
   const selected = items.find((i) => i.key !== '/' && location.pathname.startsWith(i.key))?.key ?? '/'
 
+  const roleLabel =
+    role === 'readonly'
+      ? t('common.roleReadonly')
+      : role === 'gm'
+        ? t('common.roleGm')
+        : role === 'superadmin'
+          ? t('common.roleSuperadmin')
+          : role
+
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={220} theme="dark">
-        <div style={{ padding: 16, color: '#fff', fontWeight: 600 }}>{t('app.name')}</div>
-        <Menu theme="dark" mode="inline" selectedKeys={[selected]} items={items} />
-      </Sider>
-      <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
-          <Space style={{ marginLeft: 'auto' }}>
-            <Tag>
-              {role === 'readonly'
-                ? t('common.roleReadonly')
-                : role === 'gm'
-                  ? t('common.roleGm')
-                  : role === 'superadmin'
-                    ? t('common.roleSuperadmin')
-                    : role}
-            </Tag>
-            <LanguageSwitch />
-            <Button
-              onClick={() => {
-                clearToken()
-                navigate('/login')
-              }}
-            >
-              {t('common.logout')}
-            </Button>
-          </Space>
-        </Header>
-        <Content style={{ margin: 24, background: '#fff', padding: 24 }}>{children}</Content>
-      </Layout>
-    </Layout>
+    <div className="min-h-screen flex bg-base-200">
+      <aside className="w-[220px] shrink-0 bg-neutral text-neutral-content flex flex-col">
+        <div className="p-4 font-semibold text-base">{t('app.name')}</div>
+        <ul className="menu menu-sm px-2 pb-4 gap-0.5 flex-1">
+          {items.map((item) => (
+            <li key={item.key}>
+              <Link to={item.key} className={item.key === selected ? 'active' : ''}>
+                {t(item.labelKey)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </aside>
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="bg-base-100 border-b border-base-300 px-6 h-14 flex items-center justify-end gap-3">
+          <span className="badge badge-ghost">{roleLabel}</span>
+          <ThemeSwitch />
+          <LanguageSwitch />
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              clearToken()
+              navigate('/login')
+            }}
+          >
+            {t('common.logout')}
+          </button>
+        </header>
+        <main className="m-6 p-6 bg-base-100 rounded-box shadow-sm min-h-[calc(100vh-7rem)]">{children}</main>
+      </div>
+    </div>
   )
 }

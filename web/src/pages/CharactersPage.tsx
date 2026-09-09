@@ -1,29 +1,11 @@
-import {
-  Alert,
-  Button,
-  Descriptions,
-  Divider,
-  Drawer,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Space,
-  Switch,
-  Table,
-  Tabs,
-  Tag,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { ItemSelect } from '../components/ItemSelect'
 import { TeleSelect } from '../components/PlaceSelect'
 import { RowActions, type RowActionItem } from '../components/RowActions'
+import { DataTable, Drawer, Modal, Tabs, toast, type Column, type TabItem } from '../ui'
 import { classLabel, genderLabel } from '../utils/wowLabels'
 
 type Character = {
@@ -89,21 +71,25 @@ type DeletedCharacter = {
   delete_date?: string
 }
 
+type Reputation = { faction: number; standing: number; flags: number }
+type Achievement = { achievement: number; date?: string }
+type Pet = {
+  id: number
+  entry: number
+  level: number
+  slot: number
+  name: string
+  curhealth: number
+  curmana: number
+}
+
 type CharacterExtras = {
   character: string
   guid: number
   online: number
-  reputation: { faction: number; standing: number; flags: number }[]
-  achievements: { achievement: number; date?: string }[]
-  pets: {
-    id: number
-    entry: number
-    level: number
-    slot: number
-    name: string
-    curhealth: number
-    curmana: number
-  }[]
+  reputation: Reputation[]
+  achievements: Achievement[]
+  pets: Pet[]
 }
 
 function moneyStr(copper: number) {
@@ -111,6 +97,15 @@ function moneyStr(copper: number) {
   const s = Math.floor((copper % 10000) / 100)
   const c = copper % 100
   return `${g}g ${s}s ${c}c`
+}
+
+function Field({ label, children, span }: { label: ReactNode; children: ReactNode; span?: boolean }) {
+  return (
+    <div className={`bg-base-100 px-3 py-2 ${span ? 'sm:col-span-2' : ''}`}>
+      <div className="text-xs text-base-content/60">{label}</div>
+      <div className="text-sm break-all">{children}</div>
+    </div>
+  )
 }
 
 export function CharactersPage() {
@@ -138,6 +133,9 @@ export function CharactersPage() {
   const [extras, setExtras] = useState<CharacterExtras | null>(null)
   const [extrasLoading, setExtrasLoading] = useState(false)
   const [titlesResult, setTitlesResult] = useState<string | null>(null)
+  const [moneyInput, setMoneyInput] = useState('')
+  const [itemId, setItemId] = useState<number | null>(null)
+  const [itemCount, setItemCount] = useState(1)
 
   const load = useCallback(
     async (offset = 0) => {
@@ -150,7 +148,7 @@ export function CharactersPage() {
         const resp = await api<ListResp>(`/api/v1/characters?${params}`)
         setData(resp)
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -170,7 +168,7 @@ export function CharactersPage() {
       const resp = await api<{ items: DeletedCharacter[] }>(`/api/v1/characters-deleted?${params}`)
       setDeletedItems(resp.items)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setDeletedLoading(false)
     }
@@ -185,7 +183,7 @@ export function CharactersPage() {
     try {
       setInventory(await api<Inventory>(`/api/v1/characters/${encodeURIComponent(name)}/inventory`))
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
       setInventory(null)
     } finally {
       setInvLoading(false)
@@ -197,7 +195,7 @@ export function CharactersPage() {
     try {
       setExtras(await api<CharacterExtras>(`/api/v1/characters/${encodeURIComponent(name)}/extras`))
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
       setExtras(null)
     } finally {
       setExtrasLoading(false)
@@ -212,252 +210,487 @@ export function CharactersPage() {
       void loadInventory(name)
       void loadExtras(name)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     }
   }
 
-  const itemColumns = [
+  const itemColumns: Column<InvItem>[] = [
     {
-      title: t('characters.slot'),
       key: 'slot',
+      title: t('characters.slot'),
       width: 100,
-      render: (_: unknown, row: InvItem) => row.slot_name || `${row.bag}/${row.slot}`,
+      render: (_v, row) => row.slot_name || `${row.bag}/${row.slot}`,
     },
-    { title: t('characters.itemEntry'), dataIndex: 'item_entry', width: 90 },
-    { title: t('characters.itemName'), dataIndex: 'name', ellipsis: true },
-    { title: t('mail.count'), dataIndex: 'count', width: 70 },
+    { key: 'item_entry', title: t('characters.itemEntry'), dataIndex: 'item_entry', width: 90 },
+    { key: 'name', title: t('characters.itemName'), dataIndex: 'name' },
+    { key: 'count', title: t('mail.count'), dataIndex: 'count', width: 70 },
   ]
+
+  const limit = data?.limit ?? 50
+  const offset = data?.offset ?? 0
+  const total = data?.total ?? 0
+  const currentPage = Math.floor(offset / limit) + 1
+  const totalPages = Math.max(1, Math.ceil(total / limit) || 1)
+
+  const columns: Column<Character>[] = [
+    { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+    { key: 'account', title: t('characters.account'), dataIndex: 'account' },
+    {
+      key: 'class',
+      title: t('common.class'),
+      width: 110,
+      render: (_v, r) => classLabel(r.class, i18n.language, r.class_name),
+    },
+    {
+      key: 'gender',
+      title: t('common.gender'),
+      dataIndex: 'gender',
+      width: 70,
+      render: (v) => genderLabel(v as number, i18n.language),
+    },
+    { key: 'level', title: t('characters.level'), dataIndex: 'level', width: 80 },
+    {
+      key: 'online',
+      title: t('characters.online'),
+      dataIndex: 'online',
+      width: 90,
+      render: (v) => (v ? <span className="badge badge-success badge-sm">{t('common.yes')}</span> : t('common.no')),
+    },
+    {
+      key: 'map',
+      title: t('characters.map'),
+      width: 140,
+      render: (_v, r) => (r.map_name ? `${r.map_name} (#${r.map})` : r.map),
+    },
+    {
+      key: 'zone',
+      title: t('characters.zone'),
+      width: 140,
+      render: (_v, r) => (r.zone_name ? `${r.zone_name} (#${r.zone})` : r.zone),
+    },
+    {
+      key: 'money',
+      title: t('characters.money'),
+      dataIndex: 'money',
+      render: (v) => moneyStr(v as number),
+    },
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      width: 160,
+      render: (_v, row) => {
+        const items: RowActionItem[] = []
+        if (hasMinRole('gm')) {
+          items.push(
+            {
+              key: 'kick',
+              label: t('characters.kick'),
+              hint: t('characters.kickHint'),
+              danger: true,
+              disabled: !row.online,
+              group: t('characters.groupOps'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.kick'),
+                  description: t('characters.kickConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/kick`, {
+                      method: 'POST',
+                      body: JSON.stringify({ confirm: true }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'unstuck',
+              label: t('characters.unstuck'),
+              hint: t('characters.unstuckHint'),
+              group: t('characters.groupOps'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.unstuck'),
+                  description: t('characters.unstuckConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/teleport`, {
+                      method: 'POST',
+                      body: JSON.stringify({ action: 'unstuck' }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'tele',
+              label: t('characters.tele'),
+              hint: t('characters.teleHint'),
+              group: t('characters.groupOps'),
+              onClick: () => setTeleTarget(row),
+            },
+            {
+              key: 'level',
+              label: t('characters.setLevel'),
+              hint: t('characters.setLevelHint'),
+              group: t('characters.groupOps'),
+              onClick: () => setLevelTarget(row),
+            },
+            {
+              key: 'faction',
+              label: t('characters.changeFaction'),
+              hint: t('characters.changeFactionHint'),
+              group: t('characters.groupLooks'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.changeFaction'),
+                  description: t('characters.changeFactionConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/changefaction`, {
+                      method: 'POST',
+                      body: JSON.stringify({ confirm: true }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'race',
+              label: t('characters.changeRace'),
+              hint: t('characters.changeRaceHint'),
+              group: t('characters.groupLooks'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.changeRace'),
+                  description: t('characters.changeRaceConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/changerace`, {
+                      method: 'POST',
+                      body: JSON.stringify({ confirm: true }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'rename',
+              label: t('characters.rename'),
+              hint: t('characters.renameHint'),
+              group: t('characters.groupLooks'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.rename'),
+                  description: t('characters.renameConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/rename`, {
+                      method: 'POST',
+                      body: JSON.stringify({ confirm: true }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'setName',
+              label: t('characters.setName'),
+              hint: t('characters.setNameHint'),
+              disabled: !!row.online,
+              group: t('characters.groupLooks'),
+              onClick: () => setSetNameTarget(row),
+            },
+            {
+              key: 'customize',
+              label: t('characters.customize'),
+              hint: t('characters.customizeHint'),
+              group: t('characters.groupLooks'),
+              onClick: () =>
+                setConfirm({
+                  title: t('characters.customize'),
+                  description: t('characters.customizeConfirm', { name: row.name }),
+                  run: async () => {
+                    await api(`/api/v1/characters/${encodeURIComponent(row.name)}/customize`, {
+                      method: 'POST',
+                      body: JSON.stringify({ confirm: true }),
+                    })
+                  },
+                }),
+            },
+          )
+        }
+        if (hasMinRole('superadmin')) {
+          items.push({
+            key: 'changeAccount',
+            label: t('characters.changeAccount'),
+            hint: t('characters.changeAccountHint'),
+            danger: true,
+            onClick: () => setChangeAccountTarget(row),
+          })
+        }
+        return (
+          <RowActions
+            primary={
+              <button type="button" className="btn btn-xs" onClick={() => void openDetail(row.name)}>
+                {t('characters.detail')}
+              </button>
+            }
+            primaryHint={t('characters.detailHint')}
+            moreHint={t('common.moreHint')}
+            items={items}
+          />
+        )
+      },
+    },
+  ]
+
+  const deletedColumns: Column<DeletedCharacter>[] = [
+    { key: 'guid', title: 'GUID', dataIndex: 'guid', width: 90 },
+    { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+    { key: 'account', title: t('characters.account'), dataIndex: 'account' },
+    { key: 'delete_date', title: t('audit.at'), dataIndex: 'delete_date' },
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      render: (_v, row) =>
+        hasMinRole('superadmin') ? (
+          <div className="flex items-center gap-2">
+            <span className="tooltip tooltip-left" data-tip={t('characters.restoreHint')}>
+              <button
+                type="button"
+                className="btn btn-xs"
+                onClick={() =>
+                  setConfirm({
+                    title: t('characters.restore'),
+                    description: t('characters.restoreConfirm', { guid: row.guid }),
+                    run: async () => {
+                      await api('/api/v1/characters-deleted', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'restore', guid: row.guid, confirm: true }),
+                      })
+                      void loadDeleted()
+                      void load(data?.offset ?? 0)
+                    },
+                  })
+                }
+              >
+                {t('characters.restore')}
+              </button>
+            </span>
+            <span className="tooltip tooltip-left" data-tip={t('characters.eraseHint')}>
+              <button
+                type="button"
+                className="btn btn-xs btn-error"
+                onClick={() =>
+                  setConfirm({
+                    title: t('characters.erase'),
+                    description: t('characters.eraseConfirm', { guid: row.guid }),
+                    run: async () => {
+                      await api('/api/v1/characters-deleted', {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'delete', guid: row.guid, confirm: true }),
+                      })
+                      void loadDeleted()
+                    },
+                  })
+                }
+              >
+                {t('characters.erase')}
+              </button>
+            </span>
+          </div>
+        ) : null,
+    },
+  ]
+
+  const detailTabs: TabItem[] = detail
+    ? [
+        {
+          key: 'eq',
+          label: t('characters.equipment'),
+          children: (
+            <DataTable
+              loading={invLoading}
+              rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
+              dataSource={inventory?.equipment ?? []}
+              pagination={false}
+              columns={itemColumns}
+            />
+          ),
+        },
+        {
+          key: 'bp',
+          label: t('characters.backpack'),
+          children: (
+            <DataTable
+              loading={invLoading}
+              rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
+              dataSource={inventory?.backpack ?? []}
+              pagination={{ pageSize: 10 }}
+              columns={itemColumns}
+            />
+          ),
+        },
+        {
+          key: 'bags',
+          label: t('characters.bagSlots'),
+          children: (
+            <DataTable
+              loading={invLoading}
+              rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
+              dataSource={[...(inventory?.bag_slots ?? []), ...(inventory?.other ?? [])]}
+              pagination={{ pageSize: 10 }}
+              columns={itemColumns}
+            />
+          ),
+        },
+        {
+          key: 'rep',
+          label: t('characters.reputation'),
+          children: (
+            <DataTable
+              loading={extrasLoading}
+              rowKey={(r) => r.faction}
+              dataSource={extras?.reputation ?? []}
+              pagination={{ pageSize: 10 }}
+              columns={[
+                { key: 'faction', title: t('characters.factionId'), dataIndex: 'faction', width: 100 },
+                { key: 'standing', title: t('characters.standing'), dataIndex: 'standing', width: 100 },
+                { key: 'flags', title: t('common.flags'), dataIndex: 'flags', width: 80 },
+              ]}
+            />
+          ),
+        },
+        {
+          key: 'ach',
+          label: t('characters.achievements'),
+          children: (
+            <DataTable
+              loading={extrasLoading}
+              rowKey={(r) => r.achievement}
+              dataSource={extras?.achievements ?? []}
+              pagination={{ pageSize: 10 }}
+              columns={[
+                { key: 'achievement', title: 'ID', dataIndex: 'achievement', width: 100 },
+                { key: 'date', title: t('audit.at'), dataIndex: 'date' },
+              ]}
+            />
+          ),
+        },
+        {
+          key: 'pets',
+          label: t('characters.pets'),
+          children: (
+            <DataTable
+              loading={extrasLoading}
+              rowKey="id"
+              dataSource={extras?.pets ?? []}
+              pagination={{ pageSize: 10 }}
+              columns={[
+                { key: 'id', title: 'ID', dataIndex: 'id', width: 70 },
+                { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+                { key: 'entry', title: t('common.entry'), dataIndex: 'entry', width: 80 },
+                { key: 'level', title: t('characters.level'), dataIndex: 'level', width: 70 },
+                { key: 'slot', title: t('guilds.rank'), dataIndex: 'slot', width: 70 },
+                {
+                  key: 'actions',
+                  title: t('common.actions'),
+                  render: (_v, pet) =>
+                    hasMinRole('gm') ? (
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-error"
+                        disabled={!!detail.online}
+                        onClick={() =>
+                          setConfirm({
+                            title: t('characters.deletePet'),
+                            description: t('characters.deletePetConfirm', {
+                              name: detail.name,
+                              id: pet.id,
+                            }),
+                            run: async () => {
+                              await api(`/api/v1/characters/${encodeURIComponent(detail.name)}/pets/${pet.id}`, {
+                                method: 'DELETE',
+                                body: JSON.stringify({ confirm: true }),
+                              })
+                              void loadExtras(detail.name)
+                            },
+                          })
+                        }
+                      >
+                        {t('characters.deletePet')}
+                      </button>
+                    ) : null,
+                },
+              ]}
+            />
+          ),
+        },
+      ]
+    : []
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.characters.title')}
-        </Typography.Title>
-        <Space wrap>
-          <Input.Search
-            allowClear
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-semibold m-0">{t('pages.characters.title')}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="input input-bordered input-sm w-44"
             placeholder={t('characters.searchName')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onSearch={() => void load(0)}
-            style={{ width: 180 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void load(0)
+            }}
           />
-          <Input
-            allowClear
+          <input
+            className="input input-bordered input-sm w-40"
             placeholder={t('characters.searchAccount')}
             value={account}
             onChange={(e) => setAccount(e.target.value)}
-            onPressEnter={() => void load(0)}
-            style={{ width: 160 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void load(0)
+            }}
           />
-          <Space>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
             <span>{t('characters.onlineOnly')}</span>
-            <Switch checked={onlineOnly} onChange={setOnlineOnly} />
-          </Space>
-          <Button onClick={() => void load(data?.offset ?? 0)}>{t('common.refresh')}</Button>
-        </Space>
-      </Space>
+            <input
+              type="checkbox"
+              className="toggle toggle-sm"
+              checked={onlineOnly}
+              onChange={(e) => setOnlineOnly(e.target.checked)}
+            />
+          </label>
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => void load(0)}>
+            {t('common.search')}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => void load(data?.offset ?? 0)}>
+            {t('common.refresh')}
+          </button>
+        </div>
+      </div>
 
-      <Table
+      <DataTable
         loading={loading}
         rowKey="guid"
         dataSource={data?.items ?? []}
-        pagination={{
-          current: Math.floor((data?.offset ?? 0) / (data?.limit ?? 50)) + 1,
-          pageSize: data?.limit ?? 50,
-          total: data?.total ?? 0,
-          onChange: (page, pageSize) => void load((page - 1) * pageSize),
-        }}
-        columns={[
-          { title: t('characters.name'), dataIndex: 'name' },
-          { title: t('characters.account'), dataIndex: 'account' },
-          {
-            title: t('common.class'),
-            dataIndex: 'class',
-            width: 110,
-            render: (_: number, r: Character) => classLabel(r.class, i18n.language, r.class_name),
-          },
-          {
-            title: t('common.gender'),
-            dataIndex: 'gender',
-            width: 70,
-            render: (v: number) => genderLabel(v, i18n.language),
-          },
-          { title: t('characters.level'), dataIndex: 'level', width: 80 },
-          {
-            title: t('characters.online'),
-            dataIndex: 'online',
-            width: 90,
-            render: (v: number) => (v ? <Tag color="success">{t('common.yes')}</Tag> : t('common.no')),
-          },
-          { title: t('characters.map'), dataIndex: 'map', width: 140, render: (_: number, r: Character) => r.map_name ? `${r.map_name} (#${r.map})` : r.map },
-          { title: t('characters.zone'), dataIndex: 'zone', width: 140, render: (_: number, r: Character) => r.zone_name ? `${r.zone_name} (#${r.zone})` : r.zone },
-          {
-            title: t('characters.money'),
-            dataIndex: 'money',
-            render: (v: number) => moneyStr(v),
-          },
-          {
-            title: t('common.actions'),
-            width: 160,
-            render: (_, row) => {
-              const items: RowActionItem[] = []
-              if (hasMinRole('gm')) {
-                items.push(
-                  {
-                    key: 'kick',
-                    label: t('characters.kick'),
-                    hint: t('characters.kickHint'),
-                    danger: true,
-                    disabled: !row.online,
-                    group: t('characters.groupOps'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.kick'),
-                        description: t('characters.kickConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/kick`, {
-                            method: 'POST',
-                            body: JSON.stringify({ confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'unstuck',
-                    label: t('characters.unstuck'),
-                    hint: t('characters.unstuckHint'),
-                    group: t('characters.groupOps'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.unstuck'),
-                        description: t('characters.unstuckConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/teleport`, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'unstuck' }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'tele',
-                    label: t('characters.tele'),
-                    hint: t('characters.teleHint'),
-                    group: t('characters.groupOps'),
-                    onClick: () => setTeleTarget(row),
-                  },
-                  {
-                    key: 'level',
-                    label: t('characters.setLevel'),
-                    hint: t('characters.setLevelHint'),
-                    group: t('characters.groupOps'),
-                    onClick: () => setLevelTarget(row),
-                  },
-                  {
-                    key: 'faction',
-                    label: t('characters.changeFaction'),
-                    hint: t('characters.changeFactionHint'),
-                    group: t('characters.groupLooks'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.changeFaction'),
-                        description: t('characters.changeFactionConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/changefaction`, {
-                            method: 'POST',
-                            body: JSON.stringify({ confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'race',
-                    label: t('characters.changeRace'),
-                    hint: t('characters.changeRaceHint'),
-                    group: t('characters.groupLooks'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.changeRace'),
-                        description: t('characters.changeRaceConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/changerace`, {
-                            method: 'POST',
-                            body: JSON.stringify({ confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'rename',
-                    label: t('characters.rename'),
-                    hint: t('characters.renameHint'),
-                    group: t('characters.groupLooks'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.rename'),
-                        description: t('characters.renameConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/rename`, {
-                            method: 'POST',
-                            body: JSON.stringify({ confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'setName',
-                    label: t('characters.setName'),
-                    hint: t('characters.setNameHint'),
-                    disabled: !!row.online,
-                    group: t('characters.groupLooks'),
-                    onClick: () => setSetNameTarget(row),
-                  },
-                  {
-                    key: 'customize',
-                    label: t('characters.customize'),
-                    hint: t('characters.customizeHint'),
-                    group: t('characters.groupLooks'),
-                    onClick: () =>
-                      setConfirm({
-                        title: t('characters.customize'),
-                        description: t('characters.customizeConfirm', { name: row.name }),
-                        run: async () => {
-                          await api(`/api/v1/characters/${encodeURIComponent(row.name)}/customize`, {
-                            method: 'POST',
-                            body: JSON.stringify({ confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                )
-              }
-              if (hasMinRole('superadmin')) {
-                items.push({
-                  key: 'changeAccount',
-                  label: t('characters.changeAccount'),
-                  hint: t('characters.changeAccountHint'),
-                  danger: true,
-                  onClick: () => setChangeAccountTarget(row),
-                })
-              }
-              return (
-                <RowActions
-                  primary={
-                    <Button size="small" onClick={() => void openDetail(row.name)}>
-                      {t('characters.detail')}
-                    </Button>
-                  }
-                  primaryHint={t('characters.detailHint')}
-                  moreHint={t('common.moreHint')}
-                  items={items}
-                />
-              )
-            },
-          },
-        ]}
+        pagination={false}
+        columns={columns}
       />
+      {total > limit && (
+        <div className="flex items-center justify-end gap-2 mt-3">
+          <span className="text-sm text-base-content/60">
+            {total} · {currentPage}/{totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={currentPage <= 1}
+            onClick={() => void load(Math.max(0, offset - limit))}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => void load(offset + limit)}
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       <Drawer
         open={!!detail}
@@ -471,115 +704,137 @@ export function CharactersPage() {
         }}
       >
         {detail && (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Descriptions column={2} bordered size="small">
-              <Descriptions.Item label="GUID">{detail.guid}</Descriptions.Item>
-              <Descriptions.Item label={t('characters.account')}>{detail.account}</Descriptions.Item>
-              <Descriptions.Item label={t('characters.level')}>{detail.level}</Descriptions.Item>
-              <Descriptions.Item label={t('common.class')}>
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-base-300 border border-base-300 rounded-box overflow-hidden">
+              <Field label="GUID">{detail.guid}</Field>
+              <Field label={t('characters.account')}>{detail.account}</Field>
+              <Field label={t('characters.level')}>{detail.level}</Field>
+              <Field label={t('common.class')}>
                 {classLabel(detail.class, i18n.language, detail.class_name)}
                 {detail.class != null ? ` (#${detail.class})` : ''}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('common.gender')}>
-                {genderLabel(detail.gender, i18n.language)}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('characters.money')}>
-                {moneyStr(inventory?.money ?? detail.money)}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('characters.map')}>
+              </Field>
+              <Field label={t('common.gender')}>{genderLabel(detail.gender, i18n.language)}</Field>
+              <Field label={t('characters.money')}>{moneyStr(inventory?.money ?? detail.money)}</Field>
+              <Field label={t('characters.map')}>
                 {detail.map_name ? `${detail.map_name} (#${detail.map})` : detail.map}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('characters.zone')}>
+              </Field>
+              <Field label={t('characters.zone')}>
                 {detail.zone_name ? `${detail.zone_name} (#${detail.zone})` : detail.zone}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('characters.position')} span={2}>
+              </Field>
+              <Field label={t('characters.position')} span>
                 {detail.position_x?.toFixed(1)}, {detail.position_y?.toFixed(1)}, {detail.position_z?.toFixed(1)}
-              </Descriptions.Item>
-              <Descriptions.Item label={t('characters.online')}>
-                {detail.online ? t('common.yes') : t('common.no')}
-              </Descriptions.Item>
-            </Descriptions>
+              </Field>
+              <Field label={t('characters.online')}>{detail.online ? t('common.yes') : t('common.no')}</Field>
+            </div>
 
-            <Space wrap>
-              <Button
-                size="small"
-                loading={invLoading}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={invLoading}
                 onClick={() => {
                   void loadInventory(detail.name)
                   void loadExtras(detail.name)
                 }}
               >
+                {invLoading && <span className="loading loading-spinner loading-xs" />}
                 {t('characters.refreshInv')}
-              </Button>
-              <Button
-                size="small"
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
                 onClick={async () => {
                   try {
-                    const data = await api<{ result: string }>(
+                    const resp = await api<{ result: string }>(
                       `/api/v1/characters/${encodeURIComponent(detail.name)}/titles`,
                     )
-                    setTitlesResult(data.result || JSON.stringify(data))
-                    message.success(t('common.ok'))
+                    setTitlesResult(resp.result || JSON.stringify(resp))
+                    toast.success(t('common.ok'))
                   } catch (err) {
-                    message.error(errorMessage(err, t))
+                    toast.error(errorMessage(err, t))
                   }
                 }}
               >
                 {t('characters.loadTitles')}
-              </Button>
-            </Space>
+              </button>
+            </div>
             {titlesResult && (
-              <Alert type="info" showIcon message={t('characters.titles')} description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{titlesResult}</pre>} />
+              <div className="alert alert-info items-start">
+                <div>
+                  <div className="font-semibold">{t('characters.titles')}</div>
+                  <pre className="m-0 whitespace-pre-wrap text-xs">{titlesResult}</pre>
+                </div>
+              </div>
             )}
 
             {hasMinRole('gm') && (
               <>
-                <Divider>{t('characters.sendMoney')}</Divider>
-                <Alert type="info" showIcon message={t('characters.moneyHint')} style={{ marginBottom: 8 }} />
-                <Form
-                  layout="inline"
-                  onFinish={(values: { money: string }) => {
+                <div className="divider">{t('characters.sendMoney')}</div>
+                <div className="alert alert-info text-sm">
+                  <span>{t('characters.moneyHint')}</span>
+                </div>
+                <form
+                  className="flex flex-wrap items-start gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const money = moneyInput.trim()
+                    if (!money) {
+                      toast.error(t('validation.required'))
+                      return
+                    }
                     setConfirm({
                       title: t('characters.sendMoney'),
-                      description: t('characters.moneyConfirm', { name: detail.name, money: values.money }),
+                      description: t('characters.moneyConfirm', { name: detail.name, money }),
                       run: async () => {
                         await api(`/api/v1/characters/${encodeURIComponent(detail.name)}/money`, {
                           method: 'POST',
-                          body: JSON.stringify({ money: values.money, confirm: true }),
+                          body: JSON.stringify({ money, confirm: true }),
                         })
                         void loadInventory(detail.name)
                       },
                     })
                   }}
                 >
-                  <Form.Item name="money" rules={[{ required: true }]} extra="1g2s3c">
-                    <Input placeholder="1g2s3c" style={{ width: 160 }} />
-                  </Form.Item>
-                  <Button type="primary" htmlType="submit">
+                  <label className="form-control">
+                    <input
+                      className="input input-bordered input-sm w-40"
+                      placeholder="1g2s3c"
+                      value={moneyInput}
+                      onChange={(e) => setMoneyInput(e.target.value)}
+                    />
+                    <span className="text-xs text-base-content/60 mt-1">1g2s3c</span>
+                  </label>
+                  <button type="submit" className="btn btn-sm btn-primary">
                     {t('characters.sendMoney')}
-                  </Button>
-                </Form>
+                  </button>
+                </form>
 
-                <Divider>{t('characters.sendItem')}</Divider>
-                <Alert type="info" showIcon message={t('characters.itemHint')} style={{ marginBottom: 8 }} />
-                <Form
-                  layout="inline"
-                  initialValues={{ count: 1 }}
-                  onFinish={(values: { item_id: number; count: number }) => {
+                <div className="divider">{t('characters.sendItem')}</div>
+                <div className="alert alert-info text-sm">
+                  <span>{t('characters.itemHint')}</span>
+                </div>
+                <form
+                  className="flex flex-wrap items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (itemId == null || !itemCount) {
+                      toast.error(t('validation.required'))
+                      return
+                    }
                     setConfirm({
                       title: t('characters.sendItem'),
                       description: t('characters.itemConfirm', {
                         name: detail.name,
-                        item: values.item_id,
-                        count: values.count,
+                        item: itemId,
+                        count: itemCount,
                       }),
                       run: async () => {
                         await api(`/api/v1/characters/${encodeURIComponent(detail.name)}/items`, {
                           method: 'POST',
                           body: JSON.stringify({
                             action: 'send',
-                            item_id: values.item_id,
-                            count: values.count,
+                            item_id: itemId,
+                            count: itemCount,
                             confirm: true,
                           }),
                         })
@@ -588,176 +843,51 @@ export function CharactersPage() {
                     })
                   }}
                 >
-                  <Form.Item name="item_id" rules={[{ required: true }]}>
-                    <ItemSelect style={{ width: 280 }} />
-                  </Form.Item>
-                  <Form.Item name="count" rules={[{ required: true }]}>
-                    <InputNumber min={1} max={1000} style={{ width: 100 }} />
-                  </Form.Item>
-                  <Button type="primary" htmlType="submit">
+                  <div className="w-72">
+                    <ItemSelect value={itemId ?? undefined} onChange={(v) => setItemId(v)} />
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    className="input input-bordered input-sm w-24"
+                    value={itemCount}
+                    onChange={(e) => setItemCount(Number(e.target.value))}
+                  />
+                  <button type="submit" className="btn btn-sm btn-primary">
                     {t('characters.sendItem')}
-                  </Button>
-                </Form>
+                  </button>
+                </form>
               </>
             )}
 
-            <Divider>{t('characters.equipment')}</Divider>
-            <Tabs
-              items={[
-                {
-                  key: 'eq',
-                  label: t('characters.equipment'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={invLoading}
-                      rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
-                      dataSource={inventory?.equipment ?? []}
-                      pagination={false}
-                      columns={itemColumns}
-                    />
-                  ),
-                },
-                {
-                  key: 'bp',
-                  label: t('characters.backpack'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={invLoading}
-                      rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
-                      dataSource={inventory?.backpack ?? []}
-                      pagination={{ pageSize: 10 }}
-                      columns={itemColumns}
-                    />
-                  ),
-                },
-                {
-                  key: 'bags',
-                  label: t('characters.bagSlots'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={invLoading}
-                      rowKey={(r) => `${r.bag}-${r.slot}-${r.item_guid}`}
-                      dataSource={[...(inventory?.bag_slots ?? []), ...(inventory?.other ?? [])]}
-                      pagination={{ pageSize: 10 }}
-                      columns={itemColumns}
-                    />
-                  ),
-                },
-                {
-                  key: 'rep',
-                  label: t('characters.reputation'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={extrasLoading}
-                      rowKey={(r) => r.faction}
-                      dataSource={extras?.reputation ?? []}
-                      pagination={{ pageSize: 10 }}
-                      columns={[
-                        { title: t('characters.factionId'), dataIndex: 'faction', width: 100 },
-                        { title: t('characters.standing'), dataIndex: 'standing', width: 100 },
-                        { title: t('common.flags'), dataIndex: 'flags', width: 80 },
-                      ]}
-                    />
-                  ),
-                },
-                {
-                  key: 'ach',
-                  label: t('characters.achievements'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={extrasLoading}
-                      rowKey={(r) => r.achievement}
-                      dataSource={extras?.achievements ?? []}
-                      pagination={{ pageSize: 10 }}
-                      columns={[
-                        { title: 'ID', dataIndex: 'achievement', width: 100 },
-                        { title: t('audit.at'), dataIndex: 'date' },
-                      ]}
-                    />
-                  ),
-                },
-                {
-                  key: 'pets',
-                  label: t('characters.pets'),
-                  children: (
-                    <Table
-                      size="small"
-                      loading={extrasLoading}
-                      rowKey="id"
-                      dataSource={extras?.pets ?? []}
-                      pagination={{ pageSize: 10 }}
-                      columns={[
-                        { title: 'ID', dataIndex: 'id', width: 70 },
-                        { title: t('characters.name'), dataIndex: 'name' },
-                        { title: t('common.entry'), dataIndex: 'entry', width: 80 },
-                        { title: t('characters.level'), dataIndex: 'level', width: 70 },
-                        { title: t('guilds.rank'), dataIndex: 'slot', width: 70 },
-                        {
-                          title: t('common.actions'),
-                          render: (_, pet) =>
-                            hasMinRole('gm') ? (
-                              <Button
-                                size="small"
-                                danger
-                                disabled={!!detail.online}
-                                onClick={() =>
-                                  setConfirm({
-                                    title: t('characters.deletePet'),
-                                    description: t('characters.deletePetConfirm', {
-                                      name: detail.name,
-                                      id: pet.id,
-                                    }),
-                                    run: async () => {
-                                      await api(
-                                        `/api/v1/characters/${encodeURIComponent(detail.name)}/pets/${pet.id}`,
-                                        {
-                                          method: 'DELETE',
-                                          body: JSON.stringify({ confirm: true }),
-                                        },
-                                      )
-                                      void loadExtras(detail.name)
-                                    },
-                                  })
-                                }
-                              >
-                                {t('characters.deletePet')}
-                              </Button>
-                            ) : null,
-                        },
-                      ]}
-                    />
-                  ),
-                },
-              ]}
-            />
-          </Space>
+            <div className="divider">{t('characters.equipment')}</div>
+            <Tabs items={detailTabs} />
+          </div>
         )}
       </Drawer>
 
-      <Divider />
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }} wrap>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          {t('characters.deleted')}
-        </Typography.Title>
-        <Space wrap>
-          <Input.Search
-            allowClear
+      <div className="divider" />
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h3 className="text-lg font-semibold m-0">{t('characters.deleted')}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="input input-bordered input-sm w-44"
             placeholder={t('characters.searchName')}
             value={deletedQ}
             onChange={(e) => setDeletedQ(e.target.value)}
-            onSearch={() => void loadDeleted()}
-            style={{ width: 180 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void loadDeleted()
+            }}
           />
-          <Button onClick={() => void loadDeleted()}>{t('common.refresh')}</Button>
+          <button type="button" className="btn btn-sm" onClick={() => void loadDeleted()}>
+            {t('common.refresh')}
+          </button>
           {hasMinRole('superadmin') && (
-            <Tooltip title={t('characters.purgeHint')}>
-              <Button
-                danger
+            <span className="tooltip tooltip-left" data-tip={t('characters.purgeHint')}>
+              <button
+                type="button"
+                className="btn btn-sm btn-error"
                 onClick={() =>
                   setConfirm({
                     title: t('characters.purge'),
@@ -773,72 +903,17 @@ export function CharactersPage() {
                 }
               >
                 {t('characters.purge')}
-              </Button>
-            </Tooltip>
+              </button>
+            </span>
           )}
-        </Space>
-      </Space>
-      <Table
+        </div>
+      </div>
+      <DataTable
         loading={deletedLoading}
         rowKey="guid"
         dataSource={deletedItems}
         pagination={{ pageSize: 20 }}
-        columns={[
-          { title: 'GUID', dataIndex: 'guid', width: 90 },
-          { title: t('characters.name'), dataIndex: 'name' },
-          { title: t('characters.account'), dataIndex: 'account' },
-          { title: t('audit.at'), dataIndex: 'delete_date' },
-          {
-            title: t('common.actions'),
-            render: (_, row) =>
-              hasMinRole('superadmin') ? (
-                <Space>
-                  <Tooltip title={t('characters.restoreHint')}>
-                    <Button
-                      size="small"
-                      onClick={() =>
-                        setConfirm({
-                          title: t('characters.restore'),
-                          description: t('characters.restoreConfirm', { guid: row.guid }),
-                          run: async () => {
-                            await api('/api/v1/characters-deleted', {
-                              method: 'POST',
-                              body: JSON.stringify({ action: 'restore', guid: row.guid, confirm: true }),
-                            })
-                            void loadDeleted()
-                            void load(data?.offset ?? 0)
-                          },
-                        })
-                      }
-                    >
-                      {t('characters.restore')}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title={t('characters.eraseHint')}>
-                    <Button
-                      size="small"
-                      danger
-                      onClick={() =>
-                        setConfirm({
-                          title: t('characters.erase'),
-                          description: t('characters.eraseConfirm', { guid: row.guid }),
-                          run: async () => {
-                            await api('/api/v1/characters-deleted', {
-                              method: 'POST',
-                              body: JSON.stringify({ action: 'delete', guid: row.guid, confirm: true }),
-                            })
-                            void loadDeleted()
-                          },
-                        })
-                      }
-                    >
-                      {t('characters.erase')}
-                    </Button>
-                  </Tooltip>
-                </Space>
-              ) : null,
-          },
-        ]}
+        columns={deletedColumns}
       />
 
       <LevelModal
@@ -882,18 +957,18 @@ export function CharactersPage() {
       <ChangeAccountModal
         character={changeAccountTarget}
         onClose={() => setChangeAccountTarget(null)}
-        onSubmit={(account) => {
+        onSubmit={(acc) => {
           if (!changeAccountTarget) return
           setConfirm({
             title: t('characters.changeAccount'),
             description: t('characters.changeAccountConfirm', {
               name: changeAccountTarget.name,
-              account,
+              account: acc,
             }),
             run: async () => {
               await api(`/api/v1/characters/${encodeURIComponent(changeAccountTarget.name)}/changeaccount`, {
                 method: 'POST',
-                body: JSON.stringify({ account, confirm: true }),
+                body: JSON.stringify({ account: acc, confirm: true }),
               })
               setChangeAccountTarget(null)
             },
@@ -933,11 +1008,11 @@ export function CharactersPage() {
           if (!confirm) return
           try {
             await confirm.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setConfirm(null)
             void load(data?.offset ?? 0)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />
@@ -955,25 +1030,36 @@ function LevelModal({
   onSubmit: (level: number) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [level, setLevel] = useState(1)
+
+  useEffect(() => {
+    if (character) setLevel(character.level ?? 1)
+  }, [character])
+
   return (
     <Modal
       open={!!character}
       title={t('characters.setLevel')}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      onClose={onClose}
+      onOk={() => {
+        if (!Number.isFinite(level) || level < 1 || level > 80) {
+          toast.error(t('validation.required'))
+          return
+        }
+        onSubmit(level)
+      }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ level: character?.level ?? 1 }}
-        onFinish={(values: { level: number }) => onSubmit(values.level)}
-      >
-        <Form.Item name="level" label={t('characters.level')} rules={[{ required: true }]}>
-          <InputNumber min={1} max={80} style={{ width: '100%' }} />
-        </Form.Item>
-      </Form>
+      <label className="form-control w-full">
+        <span className="label-text mb-1">{t('characters.level')}</span>
+        <input
+          type="number"
+          min={1}
+          max={80}
+          className="input input-bordered w-full"
+          value={level}
+          onChange={(e) => setLevel(Number(e.target.value))}
+        />
+      </label>
     </Modal>
   )
 }
@@ -988,27 +1074,39 @@ function ChangeAccountModal({
   onSubmit: (account: string) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [account, setAccount] = useState('')
+
+  useEffect(() => {
+    if (character) setAccount('')
+  }, [character])
+
   return (
     <Modal
       open={!!character}
       title={t('characters.changeAccount')}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      onClose={onClose}
+      onOk={() => {
+        if (!account.trim()) {
+          toast.error(t('validation.required'))
+          return
+        }
+        onSubmit(account.trim())
+      }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={(values: { account: string }) => onSubmit(values.account.trim())}
-      >
-        <Form.Item label={t('characters.name')}>
-          <Input value={character?.name} disabled />
-        </Form.Item>
-        <Form.Item name="account" label={t('characters.targetAccount')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-      </Form>
+      <div className="flex flex-col gap-3">
+        <label className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.name')}</span>
+          <input className="input input-bordered w-full" value={character?.name ?? ''} disabled />
+        </label>
+        <label className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.targetAccount')}</span>
+          <input
+            className="input input-bordered w-full"
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+          />
+        </label>
+      </div>
     </Modal>
   )
 }
@@ -1023,31 +1121,43 @@ function SetNameModal({
   onSubmit: (newName: string) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [newName, setNewName] = useState('')
+
   useEffect(() => {
-    if (character) form.resetFields()
-  }, [character, form])
+    if (character) setNewName('')
+  }, [character])
+
   return (
     <Modal
       open={!!character}
       title={t('characters.setName')}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      onClose={onClose}
+      onOk={() => {
+        if (!newName.trim()) {
+          toast.error(t('validation.required'))
+          return
+        }
+        onSubmit(newName.trim())
+      }}
     >
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('characters.setNameHint')} />
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={(values: { new_name: string }) => onSubmit(values.new_name.trim())}
-      >
-        <Form.Item label={t('characters.name')}>
-          <Input value={character?.name} disabled />
-        </Form.Item>
-        <Form.Item name="new_name" label={t('characters.newName')} rules={[{ required: true }]}>
-          <Input maxLength={16} />
-        </Form.Item>
-      </Form>
+      <div className="flex flex-col gap-3">
+        <div className="alert alert-info text-sm">
+          <span>{t('characters.setNameHint')}</span>
+        </div>
+        <label className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.name')}</span>
+          <input className="input input-bordered w-full" value={character?.name ?? ''} disabled />
+        </label>
+        <label className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.newName')}</span>
+          <input
+            className="input input-bordered w-full"
+            maxLength={16}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+        </label>
+      </div>
     </Modal>
   )
 }
@@ -1062,29 +1172,38 @@ function TeleModal({
   onSubmit: (location: string) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [location, setLocation] = useState('')
 
   useEffect(() => {
-    if (character) form.resetFields()
-  }, [character, form])
+    if (character) setLocation('')
+  }, [character])
 
   return (
     <Modal
       open={!!character}
       title={t('characters.tele')}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      onClose={onClose}
+      onOk={() => {
+        if (!location) {
+          toast.error(t('validation.required'))
+          return
+        }
+        onSubmit(location)
+      }}
     >
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('characters.teleHint')} />
-      <Form form={form} layout="vertical" onFinish={(values: { location: string }) => onSubmit(values.location)}>
-        <Form.Item label={t('characters.name')}>
-          <Input value={character?.name} disabled />
-        </Form.Item>
-        <Form.Item name="location" label={t('characters.teleLocation')} rules={[{ required: true }]}>
-          <TeleSelect />
-        </Form.Item>
-      </Form>
+      <div className="flex flex-col gap-3">
+        <div className="alert alert-info text-sm">
+          <span>{t('characters.teleHint')}</span>
+        </div>
+        <label className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.name')}</span>
+          <input className="input input-bordered w-full" value={character?.name ?? ''} disabled />
+        </label>
+        <div className="form-control w-full">
+          <span className="label-text mb-1">{t('characters.teleLocation')}</span>
+          <TeleSelect className="w-full" value={location || undefined} onChange={(v) => setLocation(v ?? '')} />
+        </div>
+      </div>
     </Modal>
   )
 }

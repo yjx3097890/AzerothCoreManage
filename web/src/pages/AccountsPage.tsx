@@ -1,23 +1,10 @@
-import {
-  Button,
-  Drawer,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd'
+import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { RowActions, type RowActionItem } from '../components/RowActions'
+import { DataTable, Drawer, Modal, Select, toast, type Column } from '../ui'
 
 type Account = {
   id: number
@@ -40,6 +27,24 @@ type ListResp = {
 }
 
 type Pending = { title: string; description: string; run: () => Promise<void> }
+
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: ReactNode
+  error?: string
+  children: ReactNode
+}) {
+  return (
+    <label className="form-control w-full">
+      <span className="label-text mb-1">{label}</span>
+      {children}
+      {error && <span className="label-text-alt text-error mt-1">{error}</span>}
+    </label>
+  )
+}
 
 export function AccountsPage() {
   const { t } = useTranslation()
@@ -71,7 +76,7 @@ export function AccountsPage() {
         const resp = await api<ListResp>(`/api/v1/accounts?${params}`)
         setData(resp)
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -94,156 +99,192 @@ export function AccountsPage() {
       )
       setTwoFA({ enabled: resp.enabled })
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setTwoFALoading(false)
     }
   }
 
+  const limit = data?.limit || 50
+  const offset = data?.offset ?? 0
+  const total = data?.total ?? 0
+  const page = Math.floor(offset / limit) + 1
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+
+  const columns: Column<Account>[] = [
+    { key: 'id', title: 'ID', dataIndex: 'id', width: 80 },
+    { key: 'username', title: t('accounts.username'), dataIndex: 'username' },
+    {
+      key: 'gmlevel',
+      title: t('accounts.gmlevel'),
+      dataIndex: 'gmlevel',
+      width: 90,
+      render: (v) => ((v as number) > 0 ? <span className="badge badge-warning">{v as number}</span> : (v as number)),
+    },
+    {
+      key: 'locked',
+      title: t('accounts.locked'),
+      dataIndex: 'locked',
+      width: 80,
+      render: (v) => (v ? <span className="badge badge-error">{t('common.yes')}</span> : t('common.no')),
+    },
+    {
+      key: 'online',
+      title: t('accounts.online'),
+      dataIndex: 'online',
+      width: 90,
+      render: (v) => (v ? <span className="badge badge-success">{t('common.yes')}</span> : t('common.no')),
+    },
+    { key: 'last_ip', title: t('accounts.lastIp'), dataIndex: 'last_ip' },
+    {
+      key: 'last_login',
+      title: t('accounts.lastLogin'),
+      dataIndex: 'last_login',
+      render: (v) => (typeof v === 'string' ? new Date(v).toLocaleString() : '-'),
+    },
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      width: 160,
+      render: (_v, row) => {
+        const items: RowActionItem[] = []
+        if (hasMinRole('gm')) {
+          items.push(
+            {
+              key: 'password',
+              label: t('accounts.setPassword'),
+              hint: t('accounts.setPasswordHint'),
+              group: t('accounts.groupManage'),
+              onClick: () => setPwdTarget(row),
+            },
+            {
+              key: 'lock',
+              label: row.locked ? t('accounts.unlock') : t('accounts.lock'),
+              hint: row.locked ? t('accounts.unlockHint') : t('accounts.lockHint'),
+              group: t('accounts.groupManage'),
+              onClick: () =>
+                setPending({
+                  title: t('accounts.lock'),
+                  description: t('accounts.lockConfirm', {
+                    user: row.username,
+                    locked: row.locked ? 0 : 1,
+                  }),
+                  run: async () => {
+                    await api(`/api/v1/accounts/${encodeURIComponent(row.username)}/lock`, {
+                      method: 'POST',
+                      body: JSON.stringify({ locked: row.locked ? 0 : 1, confirm: true }),
+                    })
+                  },
+                }),
+            },
+            {
+              key: 'addon',
+              label: t('accounts.addon'),
+              hint: t('accounts.addonHint'),
+              group: t('accounts.groupManage'),
+              onClick: () => setAddonTarget(row),
+            },
+            {
+              key: 'flags',
+              label: t('accounts.flags'),
+              hint: t('accounts.flagsHint'),
+              group: t('accounts.groupManage'),
+              onClick: () => setFlagsTarget(row),
+            },
+          )
+        }
+        if (hasMinRole('superadmin')) {
+          items.push(
+            {
+              key: 'gm',
+              label: t('accounts.setGm'),
+              hint: t('accounts.setGmHint'),
+              onClick: () => setGmTarget(row),
+            },
+            {
+              key: 'delete',
+              label: t('common.delete'),
+              hint: t('accounts.deleteHint'),
+              danger: true,
+              onClick: () => setPhraseTarget({ account: row, kind: 'delete' }),
+            },
+          )
+        }
+        return (
+          <RowActions
+            primary={
+              <button type="button" className="btn btn-xs" onClick={() => void openDetail(row)}>
+                {t('accounts.view2fa')}
+              </button>
+            }
+            primaryHint={t('accounts.view2faHint')}
+            moreHint={t('common.moreHint')}
+            items={items}
+          />
+        )
+      },
+    },
+  ]
+
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.accounts.title')}
-        </Typography.Title>
-        <Space wrap>
-          <Input.Search
-            allowClear
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-semibold m-0">{t('pages.accounts.title')}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="input input-bordered input-sm w-[220px]"
             placeholder={t('accounts.search')}
-            onSearch={() => void load(0)}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ width: 220 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void load(0)
+            }}
           />
-          <Button onClick={() => void load(data?.offset ?? 0)}>{t('common.refresh')}</Button>
+          <button type="button" className="btn btn-sm" onClick={() => void load(0)}>
+            {t('common.search')}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => void load(offset)}>
+            {t('common.refresh')}
+          </button>
           {hasMinRole('gm') && (
-            <Button type="primary" onClick={() => setCreateOpen(true)}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreateOpen(true)}>
               {t('accounts.create')}
-            </Button>
+            </button>
           )}
-        </Space>
-      </Space>
+        </div>
+      </div>
 
-      <Table
-        loading={loading}
-        rowKey="id"
+      <DataTable
+        columns={columns}
         dataSource={data?.items ?? []}
-        pagination={{
-          current: Math.floor((data?.offset ?? 0) / (data?.limit ?? 50)) + 1,
-          pageSize: data?.limit ?? 50,
-          total: data?.total ?? 0,
-          onChange: (page, pageSize) => void load((page - 1) * pageSize),
-        }}
-        columns={[
-          { title: 'ID', dataIndex: 'id', width: 80 },
-          { title: t('accounts.username'), dataIndex: 'username' },
-          {
-            title: t('accounts.gmlevel'),
-            dataIndex: 'gmlevel',
-            width: 90,
-            render: (v: number) => (v > 0 ? <Tag color="gold">{v}</Tag> : v),
-          },
-          {
-            title: t('accounts.locked'),
-            dataIndex: 'locked',
-            width: 80,
-            render: (v: number) => (v ? <Tag color="error">{t('common.yes')}</Tag> : t('common.no')),
-          },
-          {
-            title: t('accounts.online'),
-            dataIndex: 'online',
-            width: 90,
-            render: (v: number) => (v ? <Tag color="success">{t('common.yes')}</Tag> : t('common.no')),
-          },
-          { title: t('accounts.lastIp'), dataIndex: 'last_ip' },
-          {
-            title: t('accounts.lastLogin'),
-            dataIndex: 'last_login',
-            render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
-          },
-          {
-            title: t('common.actions'),
-            width: 160,
-            render: (_, row) => {
-              const items: RowActionItem[] = []
-              if (hasMinRole('gm')) {
-                items.push(
-                  {
-                    key: 'password',
-                    label: t('accounts.setPassword'),
-                    hint: t('accounts.setPasswordHint'),
-                    group: t('accounts.groupManage'),
-                    onClick: () => setPwdTarget(row),
-                  },
-                  {
-                    key: 'lock',
-                    label: row.locked ? t('accounts.unlock') : t('accounts.lock'),
-                    hint: row.locked ? t('accounts.unlockHint') : t('accounts.lockHint'),
-                    group: t('accounts.groupManage'),
-                    onClick: () =>
-                      setPending({
-                        title: t('accounts.lock'),
-                        description: t('accounts.lockConfirm', {
-                          user: row.username,
-                          locked: row.locked ? 0 : 1,
-                        }),
-                        run: async () => {
-                          await api(`/api/v1/accounts/${encodeURIComponent(row.username)}/lock`, {
-                            method: 'POST',
-                            body: JSON.stringify({ locked: row.locked ? 0 : 1, confirm: true }),
-                          })
-                        },
-                      }),
-                  },
-                  {
-                    key: 'addon',
-                    label: t('accounts.addon'),
-                    hint: t('accounts.addonHint'),
-                    group: t('accounts.groupManage'),
-                    onClick: () => setAddonTarget(row),
-                  },
-                  {
-                    key: 'flags',
-                    label: t('accounts.flags'),
-                    hint: t('accounts.flagsHint'),
-                    group: t('accounts.groupManage'),
-                    onClick: () => setFlagsTarget(row),
-                  },
-                )
-              }
-              if (hasMinRole('superadmin')) {
-                items.push(
-                  {
-                    key: 'gm',
-                    label: t('accounts.setGm'),
-                    hint: t('accounts.setGmHint'),
-                    onClick: () => setGmTarget(row),
-                  },
-                  {
-                    key: 'delete',
-                    label: t('common.delete'),
-                    hint: t('accounts.deleteHint'),
-                    danger: true,
-                    onClick: () => setPhraseTarget({ account: row, kind: 'delete' }),
-                  },
-                )
-              }
-              return (
-                <RowActions
-                  primary={
-                    <Button size="small" onClick={() => void openDetail(row)}>
-                      {t('accounts.view2fa')}
-                    </Button>
-                  }
-                  primaryHint={t('accounts.view2faHint')}
-                  moreHint={t('common.moreHint')}
-                  items={items}
-                />
-              )
-            },
-          },
-        ]}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
       />
+
+      {total > limit && (
+        <div className="flex items-center justify-end gap-2 mt-3">
+          <span className="text-sm text-base-content/60">
+            {total} · {page}/{totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={page <= 1 || loading}
+            onClick={() => void load((page - 2) * limit)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={page >= totalPages || loading}
+            onClick={() => void load(page * limit)}
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       <Drawer
         open={!!detail}
@@ -255,8 +296,8 @@ export function AccountsPage() {
         }}
       >
         {detail && (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Typography.Text>
+          <div className="flex flex-col items-start gap-3">
+            <p className="m-0">
               {t('accounts.2faStatus')}:{' '}
               {twoFALoading
                 ? t('common.loading')
@@ -265,112 +306,131 @@ export function AccountsPage() {
                     ? t('accounts.2faEnabled')
                     : t('accounts.2faDisabled')
                   : '-'}
-            </Typography.Text>
+            </p>
             {hasMinRole('superadmin') && twoFA?.enabled && (
-              <Tooltip title={t('accounts.disable2faHint')}>
-                <Button danger onClick={() => setPhraseTarget({ account: detail, kind: '2fa' })}>
+              <span className="tooltip tooltip-right" data-tip={t('accounts.disable2faHint')}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-error"
+                  onClick={() => setPhraseTarget({ account: detail, kind: '2fa' })}
+                >
                   {t('accounts.disable2fa')}
-                </Button>
-              </Tooltip>
+                </button>
+              </span>
             )}
-          </Space>
+          </div>
         )}
       </Drawer>
 
-      <CreateAccountModal open={createOpen} onClose={() => setCreateOpen(false)} onDone={() => void load(0)} />
-      <PasswordModal
-        account={pwdTarget}
-        onClose={() => setPwdTarget(null)}
-        onDone={() => {
-          setPwdTarget(null)
-          void load(data?.offset ?? 0)
-        }}
-      />
-      <GmLevelModal
-        account={gmTarget}
-        onClose={() => setGmTarget(null)}
-        onSubmit={(values) => {
-          setGmPending(values)
-          setGmConfirm(true)
-        }}
-      />
-      <AddonModal
-        account={addonTarget}
-        onClose={() => setAddonTarget(null)}
-        onSubmit={(addon) => {
-          if (!addonTarget) return
-          const user = addonTarget.username
-          setAddonTarget(null)
-          setPending({
-            title: t('accounts.addon'),
-            description: t('accounts.addonConfirm', { user, addon }),
-            run: async () => {
-              await api(`/api/v1/accounts/${encodeURIComponent(user)}/addon`, {
-                method: 'POST',
-                body: JSON.stringify({ addon, confirm: true }),
-              })
-            },
-          })
-        }}
-      />
-      <FlagsModal
-        account={flagsTarget}
-        onClose={() => setFlagsTarget(null)}
-        onAction={(action, flag) => {
-          if (!flagsTarget) return
-          const user = flagsTarget.username
-          if (action === 'list') {
-            void api<{ result?: string }>(`/api/v1/accounts/${encodeURIComponent(user)}/flags`, {
-              method: 'POST',
-              body: JSON.stringify({ action: 'list' }),
+      {createOpen && (
+        <CreateAccountModal onClose={() => setCreateOpen(false)} onDone={() => void load(0)} />
+      )}
+
+      {pwdTarget && (
+        <PasswordModal
+          account={pwdTarget}
+          onClose={() => setPwdTarget(null)}
+          onDone={() => {
+            setPwdTarget(null)
+            void load(offset)
+          }}
+        />
+      )}
+
+      {gmTarget && (
+        <GmLevelModal
+          account={gmTarget}
+          onClose={() => setGmTarget(null)}
+          onSubmit={(values) => {
+            setGmPending(values)
+            setGmConfirm(true)
+          }}
+        />
+      )}
+
+      {addonTarget && (
+        <AddonModal
+          account={addonTarget}
+          onClose={() => setAddonTarget(null)}
+          onSubmit={(addon) => {
+            const user = addonTarget.username
+            setAddonTarget(null)
+            setPending({
+              title: t('accounts.addon'),
+              description: t('accounts.addonConfirm', { user, addon }),
+              run: async () => {
+                await api(`/api/v1/accounts/${encodeURIComponent(user)}/addon`, {
+                  method: 'POST',
+                  body: JSON.stringify({ addon, confirm: true }),
+                })
+              },
             })
-              .then((resp) => {
-                message.info(typeof resp === 'object' ? JSON.stringify(resp) : String(resp))
-              })
-              .catch((err) => message.error(errorMessage(err, t)))
-            return
-          }
-          setFlagsTarget(null)
-          setPending({
-            title: t('accounts.flags'),
-            description: t('accounts.flagsConfirm', { user, action, flag }),
-            run: async () => {
-              await api(`/api/v1/accounts/${encodeURIComponent(user)}/flags`, {
+          }}
+        />
+      )}
+
+      {flagsTarget && (
+        <FlagsModal
+          account={flagsTarget}
+          onClose={() => setFlagsTarget(null)}
+          onAction={(action, flag) => {
+            const user = flagsTarget.username
+            if (action === 'list') {
+              void api<{ result?: string }>(`/api/v1/accounts/${encodeURIComponent(user)}/flags`, {
                 method: 'POST',
-                body: JSON.stringify({ action, flag, confirm: true }),
+                body: JSON.stringify({ action: 'list' }),
               })
-            },
-          })
-        }}
-      />
-      <PhraseConfirmModal
-        target={phraseTarget}
-        onClose={() => setPhraseTarget(null)}
-        onConfirm={async (phrase) => {
-          if (!phraseTarget) return
-          const user = phraseTarget.account.username
-          try {
-            if (phraseTarget.kind === '2fa') {
-              await api(`/api/v1/accounts/${encodeURIComponent(user)}/2fa/disable`, {
-                method: 'POST',
-                body: JSON.stringify({ confirm: true, phrase }),
-              })
-            } else {
-              await api(`/api/v1/accounts/${encodeURIComponent(user)}`, {
-                method: 'DELETE',
-                body: JSON.stringify({ confirm: true, phrase }),
-              })
-              setDetail(null)
+                .then((resp) => {
+                  toast.info(typeof resp === 'object' ? JSON.stringify(resp) : String(resp))
+                })
+                .catch((err) => toast.error(errorMessage(err, t)))
+              return
             }
-            message.success(t('common.ok'))
-            setPhraseTarget(null)
-            void load(data?.offset ?? 0)
-            if (phraseTarget.kind === '2fa' && detail) void openDetail(detail)
-          } catch (err) {
-            message.error(errorMessage(err, t))
-          }
-        }}
-      />
+            setFlagsTarget(null)
+            setPending({
+              title: t('accounts.flags'),
+              description: t('accounts.flagsConfirm', { user, action, flag }),
+              run: async () => {
+                await api(`/api/v1/accounts/${encodeURIComponent(user)}/flags`, {
+                  method: 'POST',
+                  body: JSON.stringify({ action, flag, confirm: true }),
+                })
+              },
+            })
+          }}
+        />
+      )}
+
+      {phraseTarget && (
+        <PhraseConfirmModal
+          target={phraseTarget}
+          onClose={() => setPhraseTarget(null)}
+          onConfirm={async (phrase) => {
+            const user = phraseTarget.account.username
+            try {
+              if (phraseTarget.kind === '2fa') {
+                await api(`/api/v1/accounts/${encodeURIComponent(user)}/2fa/disable`, {
+                  method: 'POST',
+                  body: JSON.stringify({ confirm: true, phrase }),
+                })
+              } else {
+                await api(`/api/v1/accounts/${encodeURIComponent(user)}`, {
+                  method: 'DELETE',
+                  body: JSON.stringify({ confirm: true, phrase }),
+                })
+                setDetail(null)
+              }
+              toast.success(t('common.ok'))
+              setPhraseTarget(null)
+              void load(offset)
+              if (phraseTarget.kind === '2fa' && detail) void openDetail(detail)
+            } catch (err) {
+              toast.error(errorMessage(err, t))
+            }
+          }}
+        />
+      )}
+
       <ConfirmDanger
         open={gmConfirm}
         description={
@@ -393,16 +453,17 @@ export function AccountsPage() {
               method: 'POST',
               body: JSON.stringify({ ...gmPending, confirm: true }),
             })
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setGmConfirm(false)
             setGmPending(null)
             setGmTarget(null)
-            void load(data?.offset ?? 0)
+            void load(offset)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />
+
       <ConfirmDanger
         open={!!pending}
         title={pending?.title}
@@ -412,11 +473,11 @@ export function AccountsPage() {
           if (!pending) return
           try {
             await pending.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPending(null)
-            void load(data?.offset ?? 0)
+            void load(offset)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />
@@ -424,41 +485,72 @@ export function AccountsPage() {
   )
 }
 
-function CreateAccountModal({
-  open,
-  onClose,
-  onDone,
-}: {
-  open: boolean
-  onClose: () => void
-  onDone: () => void
-}) {
+function CreateAccountModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [errors, setErrors] = useState<{ username?: string; password?: string }>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    const next: { username?: string; password?: string } = {}
+    if (!username.trim()) next.username = t('validation.required')
+    if (password.length < 4) next.password = t('validation.required')
+    setErrors(next)
+    if (next.username || next.password) return
+
+    setSubmitting(true)
+    try {
+      await api('/api/v1/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ username: username.trim(), password }),
+      })
+      toast.success(t('common.ok'))
+      onDone()
+      onClose()
+    } catch (err) {
+      toast.error(errorMessage(err, t))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <Modal open={open} title={t('accounts.create')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={async (values: { username: string; password: string }) => {
-          try {
-            await api('/api/v1/accounts', { method: 'POST', body: JSON.stringify(values) })
-            message.success(t('common.ok'))
-            form.resetFields()
-            onDone()
-            onClose()
-          } catch (err) {
-            message.error(errorMessage(err, t))
-          }
+    <Modal
+      open
+      title={t('accounts.create')}
+      onClose={onClose}
+      onOk={submit}
+      confirmLoading={submitting}
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
         }}
       >
-        <Form.Item name="username" label={t('accounts.username')} rules={[{ required: true }]}>
-          <Input maxLength={32} />
-        </Form.Item>
-        <Form.Item name="password" label={t('accounts.password')} rules={[{ required: true, min: 4 }]}>
-          <Input.Password maxLength={32} />
-        </Form.Item>
-      </Form>
+        <Field label={t('accounts.username')} error={errors.username}>
+          <input
+            className="input input-bordered w-full"
+            maxLength={32}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <Field label={t('accounts.password')} error={errors.password}>
+          <input
+            type="password"
+            className="input input-bordered w-full"
+            maxLength={32}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
@@ -468,45 +560,66 @@ function PasswordModal({
   onClose,
   onDone,
 }: {
-  account: Account | null
+  account: Account
   onClose: () => void
   onDone: () => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string>()
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    if (password.length < 4) {
+      setError(t('validation.required'))
+      return
+    }
+    setError(undefined)
+    setSubmitting(true)
+    try {
+      await api(`/api/v1/accounts/${encodeURIComponent(account.username)}/password`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      })
+      toast.success(t('common.ok'))
+      onDone()
+    } catch (err) {
+      toast.error(errorMessage(err, t))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <Modal
-      open={!!account}
+      open
       title={t('accounts.setPassword')}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      onClose={onClose}
+      onOk={submit}
+      confirmLoading={submitting}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={async (values: { password: string }) => {
-          if (!account) return
-          try {
-            await api(`/api/v1/accounts/${encodeURIComponent(account.username)}/password`, {
-              method: 'POST',
-              body: JSON.stringify(values),
-            })
-            message.success(t('common.ok'))
-            form.resetFields()
-            onDone()
-          } catch (err) {
-            message.error(errorMessage(err, t))
-          }
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
         }}
       >
-        <Form.Item label={t('accounts.username')}>
-          <Input value={account?.username} disabled />
-        </Form.Item>
-        <Form.Item name="password" label={t('accounts.password')} rules={[{ required: true, min: 4 }]}>
-          <Input.Password maxLength={32} />
-        </Form.Item>
-      </Form>
+        <Field label={t('accounts.username')}>
+          <input className="input input-bordered w-full" value={account.username} disabled />
+        </Field>
+        <Field label={t('accounts.password')} error={error}>
+          <input
+            type="password"
+            className="input input-bordered w-full"
+            maxLength={32}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
@@ -516,30 +629,60 @@ function GmLevelModal({
   onClose,
   onSubmit,
 }: {
-  account: Account | null
+  account: Account
   onClose: () => void
   onSubmit: (v: { level: number; realm: number }) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [level, setLevel] = useState(String(account.gmlevel ?? 0))
+  const [realm, setRealm] = useState('-1')
+  const [errors, setErrors] = useState<{ level?: string; realm?: string }>({})
+
+  const submit = () => {
+    const lvl = Number(level)
+    const rlm = Number(realm)
+    const next: { level?: string; realm?: string } = {}
+    if (level.trim() === '' || Number.isNaN(lvl) || lvl < 0 || lvl > 3) {
+      next.level = t('validation.required')
+    }
+    if (realm.trim() === '' || Number.isNaN(rlm)) next.realm = t('validation.required')
+    setErrors(next)
+    if (next.level || next.realm) return
+    onSubmit({ level: lvl, realm: rlm })
+  }
+
   return (
-    <Modal open={!!account} title={t('accounts.setGm')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ level: account?.gmlevel ?? 0, realm: -1 }}
-        onFinish={(values: { level: number; realm: number }) => onSubmit(values)}
+    <Modal open title={t('accounts.setGm')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
       >
-        <Form.Item label={t('accounts.username')}>
-          <Input value={account?.username} disabled />
-        </Form.Item>
-        <Form.Item name="level" label={t('accounts.gmlevel')} rules={[{ required: true }]}>
-          <InputNumber min={0} max={3} style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item name="realm" label={t('accounts.realm')} rules={[{ required: true }]}>
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Form>
+        <Field label={t('accounts.username')}>
+          <input className="input input-bordered w-full" value={account.username} disabled />
+        </Field>
+        <Field label={t('accounts.gmlevel')} error={errors.level}>
+          <input
+            type="number"
+            min={0}
+            max={3}
+            className="input input-bordered w-full"
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+          />
+        </Field>
+        <Field label={t('accounts.realm')} error={errors.realm}>
+          <input
+            type="number"
+            className="input input-bordered w-full"
+            value={realm}
+            onChange={(e) => setRealm(e.target.value)}
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
@@ -549,24 +692,45 @@ function AddonModal({
   onClose,
   onSubmit,
 }: {
-  account: Account | null
+  account: Account
   onClose: () => void
   onSubmit: (addon: number) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [addon, setAddon] = useState(String(account.expansion ?? 2))
+  const [error, setError] = useState<string>()
+
+  const submit = () => {
+    const value = Number(addon)
+    if (addon.trim() === '' || Number.isNaN(value) || value < 0 || value > 2) {
+      setError(t('validation.required'))
+      return
+    }
+    setError(undefined)
+    onSubmit(value)
+  }
+
   return (
-    <Modal open={!!account} title={t('accounts.addon')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ addon: account?.expansion ?? 2 }}
-        onFinish={(values: { addon: number }) => onSubmit(values.addon)}
+    <Modal open title={t('accounts.addon')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
       >
-        <Form.Item name="addon" label={t('accounts.addon')} rules={[{ required: true }]}>
-          <InputNumber min={0} max={2} style={{ width: '100%' }} />
-        </Form.Item>
-      </Form>
+        <Field label={t('accounts.addon')} error={error}>
+          <input
+            type="number"
+            min={0}
+            max={2}
+            className="input input-bordered w-full"
+            value={addon}
+            onChange={(e) => setAddon(e.target.value)}
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
@@ -576,39 +740,58 @@ function FlagsModal({
   onClose,
   onAction,
 }: {
-  account: Account | null
+  account: Account
   onClose: () => void
   onAction: (action: string, flag: string) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [action, setAction] = useState('list')
+  const [flag, setFlag] = useState('')
+  const [error, setError] = useState<string>()
+
+  const submit = () => {
+    if (action !== 'list' && !flag.trim()) {
+      setError(t('validation.required'))
+      return
+    }
+    setError(undefined)
+    onAction(action, flag.trim())
+  }
+
   return (
-    <Modal open={!!account} title={t('accounts.flags')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ action: 'list' }}
-        onFinish={(values: { action: string; flag?: string }) => onAction(values.action, values.flag ?? '')}
+    <Modal open title={t('accounts.flags')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
       >
-        <Form.Item name="action" label={t('moderation.type')} rules={[{ required: true }]}>
+        <Field label={t('accounts.username')}>
+          <input className="input input-bordered w-full" value={account.username} disabled />
+        </Field>
+        <Field label={t('moderation.type')}>
           <Select
+            value={action}
+            onChange={(v) => setAction(v ?? 'list')}
             options={[
               { value: 'list', label: t('common.list') },
               { value: 'add', label: t('common.add') },
               { value: 'remove', label: t('common.remove') },
             ]}
           />
-        </Form.Item>
-        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.action !== cur.action}>
-          {({ getFieldValue }) =>
-            getFieldValue('action') !== 'list' ? (
-              <Form.Item name="flag" label={t('accounts.flag')} rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-            ) : null
-          }
-        </Form.Item>
-      </Form>
+        </Field>
+        {action !== 'list' && (
+          <Field label={t('accounts.flag')} error={error}>
+            <input
+              className="input input-bordered w-full"
+              value={flag}
+              onChange={(e) => setFlag(e.target.value)}
+            />
+          </Field>
+        )}
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
@@ -618,59 +801,61 @@ function PhraseConfirmModal({
   onClose,
   onConfirm,
 }: {
-  target: { account: Account; kind: '2fa' | 'delete' } | null
+  target: { account: Account; kind: '2fa' | 'delete' }
   onClose: () => void
   onConfirm: (phrase: string) => Promise<void>
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
-  const title =
-    target?.kind === '2fa'
-      ? t('accounts.disable2fa')
-      : target?.kind === 'delete'
-        ? t('accounts.delete')
-        : undefined
+  const [phrase, setPhrase] = useState('')
+  const [error, setError] = useState<string>()
+  const [submitting, setSubmitting] = useState(false)
+  const title = target.kind === '2fa' ? t('accounts.disable2fa') : t('accounts.delete')
+
+  const submit = async () => {
+    if (phrase !== target.account.username) {
+      setError(phrase ? t('accounts.phraseMismatch') : t('validation.required'))
+      return
+    }
+    setError(undefined)
+    setSubmitting(true)
+    try {
+      await onConfirm(phrase)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <Modal
-      open={!!target}
+      open
       title={title}
-      okButtonProps={{ danger: true }}
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+      okDanger
+      confirmLoading={submitting}
+      onClose={onClose}
+      onOk={submit}
     >
-      <Typography.Paragraph>
-        {target?.kind === '2fa'
+      <p className="mb-3">
+        {target.kind === '2fa'
           ? t('accounts.disable2faConfirm', { user: target.account.username })
-          : target
-            ? t('accounts.deleteConfirm', { user: target.account.username })
-            : null}
-      </Typography.Paragraph>
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={async (values: { phrase: string }) => {
-          await onConfirm(values.phrase)
-          form.resetFields()
+          : t('accounts.deleteConfirm', { user: target.account.username })}
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
         }}
       >
-        <Form.Item
-          name="phrase"
-          label={t('accounts.phrase')}
-          rules={[
-            { required: true },
-            {
-              validator: async (_, value) => {
-                if (value !== target?.account.username) {
-                  return Promise.reject(new Error(t('accounts.phraseMismatch')))
-                }
-              },
-            },
-          ]}
-        >
-          <Input placeholder={target?.account.username} autoComplete="off" />
-        </Form.Item>
-      </Form>
+        <Field label={t('accounts.phrase')} error={error}>
+          <input
+            className="input input-bordered w-full"
+            placeholder={target.account.username}
+            value={phrase}
+            onChange={(e) => setPhrase(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }

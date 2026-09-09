@@ -1,7 +1,7 @@
-import { Alert, Button, Input, Select, Space, Typography, message } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, getToken } from '../api/client'
+import { Select, toast } from '../ui'
 
 export function LogsPage() {
   const { t } = useTranslation()
@@ -25,7 +25,7 @@ export function LogsPage() {
       if (String((err as { code?: string }).code) === 'docker_disabled') {
         setDockerDisabled(true)
       }
-      message.error(msg)
+      toast.error(msg)
     }
   }
 
@@ -53,7 +53,7 @@ export function LogsPage() {
           setLines((prev) => [...prev.slice(-500), msg.line!])
         }
         if (msg.type === 'error') {
-          message.error(msg.message || t('logs.wsError'))
+          toast.error(msg.message || t('logs.wsError'))
           stopLive()
         }
       } catch {
@@ -61,7 +61,7 @@ export function LogsPage() {
       }
     }
     ws.onerror = () => {
-      message.error(t('logs.wsError'))
+      toast.error(t('logs.wsError'))
       stopLive()
     }
     ws.onclose = () => setLive(false)
@@ -77,54 +77,52 @@ export function LogsPage() {
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.logs.title')}
-        </Typography.Title>
-        <Space wrap>
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 mb-4">
+        <h2 className="text-xl font-semibold m-0">{t('pages.logs.title')}</h2>
+        <div className="flex flex-wrap items-center gap-2">
           <Select
+            className="w-40"
             value={container}
-            style={{ width: 160 }}
-            onChange={setContainer}
+            onChange={(v) => setContainer(v ?? 'worldserver')}
             options={[
               { value: 'worldserver', label: t('logs.worldserver') },
               { value: 'authserver', label: t('logs.authserver') },
               { value: 'database', label: t('logs.database') },
             ]}
           />
-          <Input
-            allowClear
-            placeholder={t('logs.levelFilter')}
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            style={{ width: 140 }}
-          />
-          <Button onClick={() => void loadSnapshot()}>{t('logs.snapshot')}</Button>
+          <div className="join">
+            <input
+              className="input input-bordered join-item w-36"
+              placeholder={t('logs.levelFilter')}
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+            />
+            {level && (
+              <button type="button" className="btn join-item" onClick={() => setLevel('')}>
+                ✕
+              </button>
+            )}
+          </div>
+          <button type="button" className="btn btn-sm" onClick={() => void loadSnapshot()}>
+            {t('logs.snapshot')}
+          </button>
           {!live ? (
-            <Button type="primary" onClick={startLive}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={startLive}>
               {t('logs.live')}
-            </Button>
+            </button>
           ) : (
-            <Button danger onClick={stopLive}>
+            <button type="button" className="btn btn-sm btn-error" onClick={stopLive}>
               {t('logs.stop')}
-            </Button>
+            </button>
           )}
-        </Space>
-      </Space>
+        </div>
+      </div>
 
-      {dockerDisabled && <Alert type="info" showIcon style={{ marginBottom: 16 }} message={t('dashboard.dockerDisabled')} />}
+      {dockerDisabled && <div className="alert alert-info mb-4">{t('dashboard.dockerDisabled')}</div>}
 
       <pre
         ref={boxRef}
-        style={{
-          background: '#111',
-          color: '#d6d6d6',
-          padding: 12,
-          height: '60vh',
-          overflow: 'auto',
-          fontSize: 12,
-          borderRadius: 6,
-        }}
+        className="bg-neutral text-neutral-content p-3 h-[60vh] overflow-auto text-xs rounded-md"
       >
         {lines.join('\n') || t('logs.empty')}
       </pre>

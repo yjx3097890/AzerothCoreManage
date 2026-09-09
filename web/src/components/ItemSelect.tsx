@@ -1,20 +1,21 @@
-import { Select, type SelectProps, message } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
+import { SearchSelect, toast } from '../ui'
 
 type ItemHit = { id: number; entry: number; name: string; name_en: string; name_zh: string }
 
-type Props = Omit<SelectProps<number>, 'options' | 'onSearch' | 'showSearch' | 'filterOption'> & {
+type Props = {
   value?: number
   onChange?: (value: number | null) => void
+  disabled?: boolean
+  className?: string
 }
 
-export function ItemSelect({ value, onChange, ...rest }: Props) {
+export function ItemSelect({ value, onChange, disabled, className }: Props) {
   const { t } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seq = useRef(0)
 
@@ -27,7 +28,6 @@ export function ItemSelect({ value, onChange, ...rest }: Props) {
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: ItemHit[] }>(`/api/v1/catalog/items?${params}`)
         if (my !== seq.current) return
-        setSearched(Boolean(q.trim()))
         setOptions(
           data.items.map((i) => ({
             value: i.entry,
@@ -36,7 +36,7 @@ export function ItemSelect({ value, onChange, ...rest }: Props) {
         )
       } catch (err) {
         if (my !== seq.current) return
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         if (my === seq.current) setLoading(false)
       }
@@ -52,7 +52,6 @@ export function ItemSelect({ value, onChange, ...rest }: Props) {
     [fetchItems],
   )
 
-  // Resolve label for the currently selected entry.
   useEffect(() => {
     if (value == null) return
     if (options.some((o) => o.value === value)) return
@@ -73,31 +72,16 @@ export function ItemSelect({ value, onChange, ...rest }: Props) {
   }, [options, value])
 
   return (
-    <Select
-      showSearch
+    <SearchSelect
+      className={className ?? 'min-w-[260px]'}
       allowClear
-      filterOption={false}
+      disabled={disabled}
       loading={loading}
       options={merged}
       value={value}
       placeholder={t('catalog.itemPlaceholder')}
-      notFoundContent={
-        loading
-          ? t('common.loading')
-          : searched
-            ? t('catalog.itemEmpty')
-            : t('catalog.itemSearchHint')
-      }
       onSearch={searchDebounced}
-      onDropdownVisibleChange={(open) => {
-        if (open && options.length === 0 && value == null) {
-          // Keep empty until user types; hint via notFoundContent.
-          setSearched(false)
-        }
-      }}
       onChange={(v) => onChange?.(v ?? null)}
-      style={{ minWidth: 260, ...((rest.style as object) || {}) }}
-      {...rest}
     />
   )
 }

@@ -27,6 +27,9 @@
     "logout": "Sign out",
     "login": "Sign in",
     "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Switch to light",
+    "themeDark": "Switch to dark",
     "zh": "中文",
     "en": "English",
     "loading": "Loading…",
@@ -394,7 +397,6 @@
   },
   "login": {
     "title": "AzerothCore Admin",
-    "hint": "Default is admin / admin. Change it immediately.",
     "username": "Username",
     "password": "Password",
     "failed": "Sign-in failed"

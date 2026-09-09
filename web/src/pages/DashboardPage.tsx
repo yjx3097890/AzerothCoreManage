@@ -1,7 +1,7 @@
-import { Alert, Card, Col, Descriptions, Row, Spin, Statistic, Table, Tag, Typography } from 'antd'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
+import { DataTable, type Column } from '../ui'
 
 type Overview = {
   target: string
@@ -42,6 +42,8 @@ type Health = {
   mysql_playerbots?: string
 }
 
+type Container = NonNullable<Overview['containers']>[number]
+
 export function DashboardPage() {
   const { t } = useTranslation()
   const [overview, setOverview] = useState<Overview | null>(null)
@@ -67,99 +69,120 @@ export function DashboardPage() {
     }
   }, [t])
 
-  if (error) return <Alert type="error" message={error} />
-  if (!overview || !health) return <Spin />
+  if (error) return <div className="alert alert-error">{error}</div>
+  if (!overview || !health) return <span className="loading loading-spinner" />
 
   const info = overview.server_info
 
+  const containerColumns: Column<Container>[] = [
+    { key: 'role', title: t('servers.role'), dataIndex: 'role' },
+    { key: 'name', title: t('servers.name'), dataIndex: 'name' },
+    {
+      key: 'status',
+      title: t('servers.status'),
+      render: (_, row) =>
+        !row.found ? (
+          <span className="badge">{t('servers.notFound')}</span>
+        ) : row.running ? (
+          <span className="badge badge-success">{row.status}</span>
+        ) : (
+          <span className="badge">{row.status}</span>
+        ),
+    },
+  ]
+
   return (
     <div>
-      <Typography.Title level={3}>{t('dashboard.title')}</Typography.Title>
-      <Typography.Paragraph type="secondary">{t('dashboard.intro')}</Typography.Paragraph>
+      <h2 className="text-xl font-semibold">{t('dashboard.title')}</h2>
+      <p className="text-base-content/60">{t('dashboard.intro')}</p>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title={t('dashboard.realPlayers')} value={overview.online?.real_players ?? '-'} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title={t('dashboard.bots')} value={overview.online?.bots ?? '-'} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title={t('dashboard.peak')} value={info?.connection_peak ?? '-'} />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 mt-4">
+        <StatCard title={t('dashboard.realPlayers')} value={overview.online?.real_players ?? '-'} />
+        <StatCard title={t('dashboard.bots')} value={overview.online?.bots ?? '-'} />
+        <StatCard title={t('dashboard.peak')} value={info?.connection_peak ?? '-'} />
+      </div>
 
-      <Descriptions bordered size="small" column={1} style={{ marginBottom: 16 }}>
-        <Descriptions.Item label={t('common.target')}>{overview.target}</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.version')}>{info?.version || overview.server_info_error || '-'}</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.uptime')}>{info?.uptime || '-'}</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.connected')}>{info?.connected_players ?? '-'}</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.charsInWorld')}>{info?.characters_in_world ?? '-'}</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.updateDiff')}>{info?.update_diff_ms ?? '-'} ms</Descriptions.Item>
-        <Descriptions.Item label={t('dashboard.lag')}>
+      <DescList className="mb-4">
+        <DescItem label={t('common.target')}>{overview.target}</DescItem>
+        <DescItem label={t('dashboard.version')}>
+          {info?.version || overview.server_info_error || '-'}
+        </DescItem>
+        <DescItem label={t('dashboard.uptime')}>{info?.uptime || '-'}</DescItem>
+        <DescItem label={t('dashboard.connected')}>{info?.connected_players ?? '-'}</DescItem>
+        <DescItem label={t('dashboard.charsInWorld')}>{info?.characters_in_world ?? '-'}</DescItem>
+        <DescItem label={t('dashboard.updateDiff')}>{info?.update_diff_ms ?? '-'} ms</DescItem>
+        <DescItem label={t('dashboard.lag')}>
           {t('dashboard.lagLine', {
             mean: info?.mean_ms ?? '-',
             median: info?.median_ms ?? '-',
             p95: info?.p95_ms ?? '-',
             max: info?.max_ms ?? '-',
           })}
-        </Descriptions.Item>
-      </Descriptions>
+        </DescItem>
+      </DescList>
 
-      <Typography.Title level={5}>{t('dashboard.health')}</Typography.Title>
-      <Descriptions bordered size="small" column={1} style={{ marginBottom: 16 }}>
-        <Descriptions.Item label="API">
+      <h3 className="text-base font-semibold mb-2">{t('dashboard.health')}</h3>
+      <DescList className="mb-4">
+        <DescItem label="API">
           <StatusTag value={health.api} />
-        </Descriptions.Item>
-        <Descriptions.Item label="SOAP">
+        </DescItem>
+        <DescItem label="SOAP">
           <StatusTag value={health.soap} />
-        </Descriptions.Item>
-        <Descriptions.Item label="MySQL">
+        </DescItem>
+        <DescItem label="MySQL">
           <StatusTag value={health.mysql} />
-        </Descriptions.Item>
-        <Descriptions.Item label="Docker">
+        </DescItem>
+        <DescItem label="Docker">
           <StatusTag value={health.docker} />
-        </Descriptions.Item>
-      </Descriptions>
+        </DescItem>
+      </DescList>
 
       {overview.docker_enabled ? (
         <>
-          <Typography.Title level={5}>{t('dashboard.containers')}</Typography.Title>
+          <h3 className="text-base font-semibold mb-2">{t('dashboard.containers')}</h3>
           {overview.containers_error ? (
-            <Alert type="warning" message={overview.containers_error} />
+            <div className="alert alert-warning">{overview.containers_error}</div>
           ) : (
-            <Table
+            <DataTable
               rowKey="name"
-              size="small"
+              size="sm"
               pagination={false}
               dataSource={overview.containers || []}
-              columns={[
-                { title: t('servers.role'), dataIndex: 'role' },
-                { title: t('servers.name'), dataIndex: 'name' },
-                {
-                  title: t('servers.status'),
-                  render: (_, row) =>
-                    !row.found ? (
-                      <Tag>{t('servers.notFound')}</Tag>
-                    ) : row.running ? (
-                      <Tag color="success">{row.status}</Tag>
-                    ) : (
-                      <Tag color="default">{row.status}</Tag>
-                    ),
-                },
-              ]}
+              columns={containerColumns}
             />
           )}
         </>
       ) : (
-        <Alert type="info" showIcon message={t('dashboard.dockerDisabled')} />
+        <div className="alert alert-info">{t('dashboard.dockerDisabled')}</div>
       )}
+    </div>
+  )
+}
+
+function StatCard({ title, value }: { title: ReactNode; value: ReactNode }) {
+  return (
+    <div className="card bg-base-100 border border-base-300">
+      <div className="card-body p-4">
+        <span className="text-sm text-base-content/60">{title}</span>
+        <span className="text-2xl font-semibold">{value}</span>
+      </div>
+    </div>
+  )
+}
+
+function DescList({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <dl className={`rounded-box border border-base-300 divide-y divide-base-300 ${className ?? ''}`}>
+      {children}
+    </dl>
+  )
+}
+
+function DescItem({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr]">
+      <dt className="px-3 py-2 text-sm bg-base-200/60 font-medium">{label}</dt>
+      <dd className="px-3 py-2 text-sm">{children}</dd>
     </div>
   )
 }
@@ -175,5 +198,5 @@ function StatusTag({ value }: { value: string }) {
         : value === 'error'
           ? t('common.statusError')
           : value
-  return <Tag color={ok ? 'success' : 'error'}>{label}</Tag>
+  return <span className={`badge ${ok ? 'badge-success' : 'badge-error'}`}>{label}</span>
 }

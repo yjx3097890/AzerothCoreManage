@@ -1,19 +1,20 @@
-import { Select, type SelectProps } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
-import { message } from 'antd'
+import { SearchSelect, toast } from '../ui'
 
 type MapHit = { id: number; name: string; name_zh: string }
 type AreaHit = { id: number; name: string; name_zh: string }
 type TeleHit = { id: number; name: string; map: number; map_name?: string }
 
-type MapProps = Omit<SelectProps<number>, 'options' | 'onSearch' | 'showSearch' | 'filterOption'> & {
+type NumProps = {
   value?: number
   onChange?: (value: number | null) => void
+  disabled?: boolean
+  className?: string
 }
 
-export function MapSelect({ value, onChange, ...rest }: MapProps) {
+export function MapSelect({ value, onChange, disabled, className }: NumProps) {
   const { t } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,7 +28,7 @@ export function MapSelect({ value, onChange, ...rest }: MapProps) {
         const data = await api<{ items: MapHit[] }>(`/api/v1/catalog/maps?${params}`)
         setOptions(data.items.map((i) => ({ value: i.id, label: `#${i.id} ${i.name}` })))
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -37,7 +38,7 @@ export function MapSelect({ value, onChange, ...rest }: MapProps) {
 
   useEffect(() => {
     void search(value != null ? String(value) : '')
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
@@ -47,28 +48,21 @@ export function MapSelect({ value, onChange, ...rest }: MapProps) {
   }, [options, value])
 
   return (
-    <Select
-      showSearch
+    <SearchSelect
+      className={className ?? 'min-w-[200px]'}
       allowClear
-      filterOption={false}
+      disabled={disabled}
       loading={loading}
       options={merged}
       value={value}
       placeholder={t('catalog.mapPlaceholder')}
       onSearch={(q) => void search(q)}
       onChange={(v) => onChange?.(v ?? null)}
-      style={{ minWidth: 200, ...((rest.style as object) || {}) }}
-      {...rest}
     />
   )
 }
 
-type AreaProps = Omit<SelectProps<number>, 'options' | 'onSearch' | 'showSearch' | 'filterOption'> & {
-  value?: number
-  onChange?: (value: number | null) => void
-}
-
-export function AreaSelect({ value, onChange, ...rest }: AreaProps) {
+export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
   const { t } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const [loading, setLoading] = useState(false)
@@ -82,7 +76,7 @@ export function AreaSelect({ value, onChange, ...rest }: AreaProps) {
         const data = await api<{ items: AreaHit[] }>(`/api/v1/catalog/areas?${params}`)
         setOptions(data.items.map((i) => ({ value: i.id, label: `#${i.id} ${i.name}` })))
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -92,7 +86,7 @@ export function AreaSelect({ value, onChange, ...rest }: AreaProps) {
 
   useEffect(() => {
     void search(value != null ? String(value) : '')
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
@@ -102,29 +96,29 @@ export function AreaSelect({ value, onChange, ...rest }: AreaProps) {
   }, [options, value])
 
   return (
-    <Select
-      showSearch
+    <SearchSelect
+      className={className ?? 'min-w-[200px]'}
       allowClear
-      filterOption={false}
+      disabled={disabled}
       loading={loading}
       options={merged}
       value={value}
       placeholder={t('catalog.areaPlaceholder')}
       onSearch={(q) => void search(q)}
       onChange={(v) => onChange?.(v ?? null)}
-      style={{ minWidth: 200, ...((rest.style as object) || {}) }}
-      {...rest}
     />
   )
 }
 
-type TeleProps = Omit<SelectProps<string>, 'options' | 'onSearch' | 'showSearch' | 'filterOption'> & {
+type TeleProps = {
   value?: string
   onChange?: (value: string | null) => void
+  disabled?: boolean
+  className?: string
 }
 
 /** Teleport destination picker (game_tele.name), labels include Chinese map name. */
-export function TeleSelect({ value, onChange, ...rest }: TeleProps) {
+export function TeleSelect({ value, onChange, disabled, className }: TeleProps) {
   const { t } = useTranslation()
   const [options, setOptions] = useState<{ value: string; label: string }[]>([])
   const [loading, setLoading] = useState(false)
@@ -145,7 +139,7 @@ export function TeleSelect({ value, onChange, ...rest }: TeleProps) {
           })),
         )
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -155,21 +149,19 @@ export function TeleSelect({ value, onChange, ...rest }: TeleProps) {
 
   useEffect(() => {
     void search('')
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Select
-      showSearch
+    <SearchSelect
+      className={className ?? 'min-w-[260px]'}
       allowClear
-      filterOption={false}
+      disabled={disabled}
       loading={loading}
       options={options}
       value={value}
       placeholder={t('catalog.telePlaceholder')}
       onSearch={(q) => void search(q)}
       onChange={(v) => onChange?.(v ?? null)}
-      style={{ minWidth: 260, ...((rest.style as object) || {}) }}
-      {...rest}
     />
   )
 }

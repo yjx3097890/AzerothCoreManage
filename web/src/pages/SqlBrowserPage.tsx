@@ -1,7 +1,7 @@
-import { Button, Select, Space, Table, Typography, message } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
+import { DataTable, Select, toast, type Column } from '../ui'
 
 type TablesResp = { db: string; tables: string[] }
 type RowsResp = {
@@ -11,6 +11,8 @@ type RowsResp = {
   items: Record<string, unknown>[]
   readonly: boolean
 }
+
+type IndexedRow = { index: number; data: Record<string, unknown> }
 
 const DBS = ['auth', 'characters', 'world', 'playerbots'] as const
 
@@ -33,7 +35,7 @@ export function SqlBrowserPage() {
       setColumns([])
       setRows([])
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
       setTables([])
     } finally {
       setLoading(false)
@@ -53,7 +55,7 @@ export function SqlBrowserPage() {
       setColumns(data.columns ?? [])
       setRows(data.items ?? [])
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
       setColumns([])
       setRows([])
     } finally {
@@ -65,63 +67,74 @@ export function SqlBrowserPage() {
     void loadTables()
   }, [loadTables])
 
-  const tableColumns = useMemo(
+  const dataSource = useMemo<IndexedRow[]>(() => rows.map((data, index) => ({ index, data })), [rows])
+
+  const tableColumns = useMemo<Column<IndexedRow>[]>(
     () =>
       columns.map((col) => ({
-        title: col,
-        dataIndex: col,
         key: col,
-        ellipsis: true,
-        render: (v: unknown) => (v == null ? '-' : String(v)),
+        title: col,
+        render: (_v, record) => {
+          const value = record.data[col]
+          return (
+            <span className="block max-w-[280px] truncate" title={value == null ? undefined : String(value)}>
+              {value == null ? '-' : String(value)}
+            </span>
+          )
+        },
       })),
     [columns],
   )
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.sql.title')}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('sql.readonly')}</Typography.Text>
-      </Space>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-2xl font-semibold m-0">{t('pages.sql.title')}</h1>
+        <span className="text-sm text-base-content/60">{t('sql.readonly')}</span>
+      </div>
 
-      <Space wrap style={{ marginBottom: 16 }}>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <Select
-          style={{ width: 160 }}
+          className="w-40"
           value={db}
           options={DBS.map((d) => ({ value: d, label: d }))}
-          onChange={(v) => setDb(v)}
+          onChange={(v) => setDb(v ?? 'characters')}
         />
         <Select
-          style={{ width: 220 }}
+          className="w-56"
           allowClear
           placeholder={t('sql.table')}
-          value={table}
+          value={table ?? ''}
           options={tables.map((name) => ({ value: name, label: name }))}
           onChange={(v) => setTable(v)}
         />
         <Select
-          style={{ width: 100 }}
+          className="w-24"
           value={limit}
           options={[20, 50, 100, 200].map((n) => ({ value: n, label: String(n) }))}
-          onChange={(v) => setLimit(v)}
+          onChange={(v) => setLimit(v ?? 50)}
         />
-        <Button type="primary" disabled={!table} loading={loading} onClick={() => void loadRows()}>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={!table || loading}
+          onClick={() => void loadRows()}
+        >
+          {loading && <span className="loading loading-spinner loading-xs" />}
           {t('common.search')}
-        </Button>
-        <Button onClick={() => void loadTables()}>{t('common.refresh')}</Button>
-      </Space>
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => void loadTables()}>
+          {t('common.refresh')}
+        </button>
+      </div>
 
-      <Table
-        size="small"
+      <DataTable
+        rowKey="index"
         loading={loading}
-        rowKey={(_, i) => String(i)}
-        dataSource={rows}
+        dataSource={dataSource}
         columns={tableColumns}
-        scroll={{ x: true }}
         pagination={{ pageSize: 20 }}
-        locale={{ emptyText: t('sql.empty') }}
+        emptyText={t('sql.empty')}
       />
     </div>
   )

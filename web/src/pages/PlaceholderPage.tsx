@@ -1,4 +1,3 @@
-import { Alert, Typography } from 'antd'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, type ApiError } from '../api/client'
@@ -29,12 +28,17 @@ export function PlaceholderPage({ page, task, endpoint }: Props) {
 
   return (
     <div>
-      <Typography.Title level={3}>{title}</Typography.Title>
-      <Typography.Paragraph type="secondary">
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <p className="text-base-content/60">
         {t('placeholder.task', { task: taskId })}
         {note ? ` · ${note}` : null}
-      </Typography.Paragraph>
-      <Alert type="info" showIcon message={message} description={`GET ${endpoint}`} />
+      </p>
+      <div className="alert alert-info">
+        <div>
+          <div className="font-medium">{message}</div>
+          <div className="text-sm opacity-80">{`GET ${endpoint}`}</div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,21 +1,42 @@
-import { Button, Form, Input, Modal, Select, Space, Table, Tabs, Typography, message } from 'antd'
+import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
+import { DataTable, Modal, Select, Tabs, toast, type Column } from '../ui'
+
+type Row = Record<string, unknown>
 
 type BanLists = {
-  account?: Array<Record<string, unknown>>
-  ip?: Array<Record<string, unknown>>
-  character?: Array<Record<string, unknown>>
+  account?: Row[]
+  ip?: Row[]
+  character?: Row[]
 }
 
 type LoginLogs = {
-  failed_logins: Array<Record<string, unknown>>
-  ip_actions: Array<Record<string, unknown>>
+  failed_logins: Row[]
+  ip_actions: Row[]
 }
 
 type FilterKind = 'chat_filter' | 'reserved_name' | 'profanity_name'
+
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: ReactNode
+  error?: string
+  children: ReactNode
+}) {
+  return (
+    <label className="form-control w-full">
+      <span className="label-text mb-1">{label}</span>
+      {children}
+      {error && <span className="label-text-alt text-error mt-1">{error}</span>}
+    </label>
+  )
+}
 
 export function ModerationPage() {
   const { t } = useTranslation()
@@ -37,7 +58,7 @@ export function ModerationPage() {
   const [logIp, setLogIp] = useState('')
 
   const [filterKind, setFilterKind] = useState<FilterKind>('chat_filter')
-  const [filters, setFilters] = useState<Array<Record<string, unknown>>>([])
+  const [filters, setFilters] = useState<Row[]>([])
   const [filtersLoading, setFiltersLoading] = useState(false)
   const [filterValue, setFilterValue] = useState('')
 
@@ -46,7 +67,7 @@ export function ModerationPage() {
     try {
       setData(await api<BanLists>('/api/v1/moderation/bans'))
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setLoading(false)
     }
@@ -60,7 +81,7 @@ export function ModerationPage() {
       if (logIp.trim()) params.set('ip', logIp.trim())
       setLogs(await api<LoginLogs>(`/api/v1/moderation/login-logs?${params}`))
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setLogsLoading(false)
     }
@@ -69,12 +90,10 @@ export function ModerationPage() {
   const loadFilters = useCallback(async () => {
     setFiltersLoading(true)
     try {
-      const data = await api<{ items: Array<Record<string, unknown>> }>(
-        `/api/v1/moderation/filters?kind=${filterKind}`,
-      )
+      const data = await api<{ items: Row[] }>(`/api/v1/moderation/filters?kind=${filterKind}`)
       setFilters(data.items ?? [])
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
       setFilters([])
     } finally {
       setFiltersLoading(false)
@@ -103,27 +122,94 @@ export function ModerationPage() {
     })
   }
 
+  const unbanAction = (type: 'account' | 'ip' | 'character', target: unknown) => {
+    setPending({
+      title: t('moderation.unban'),
+      description: t('moderation.unbanConfirm', { target: String(target) }),
+      run: async () => {
+        await api('/api/v1/moderation/unban', {
+          method: 'POST',
+          body: JSON.stringify({ type, target, confirm: true }),
+        })
+      },
+    })
+  }
+
+  const banColumns = (
+    firstColumn: Column<Row>,
+    type: 'account' | 'ip' | 'character',
+    targetKey: string,
+  ): Column<Row>[] => [
+    firstColumn,
+    { key: 'reason', title: t('moderation.reason'), dataIndex: 'reason' },
+    { key: 'bannedby', title: t('moderation.by'), dataIndex: 'bannedby' },
+    { key: 'bandate', title: t('moderation.from'), dataIndex: 'bandate', render: fmtTime },
+    { key: 'unbandate', title: t('moderation.until'), dataIndex: 'unbandate', render: fmtTime },
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      render: (_v, row) =>
+        hasMinRole('gm') ? (
+          <button type="button" className="btn btn-xs" onClick={() => unbanAction(type, row[targetKey])}>
+            {t('moderation.unban')}
+          </button>
+        ) : null,
+    },
+  ]
+
+  const filterColumns: Column<Row>[] = [
+    ...(filterKind === 'chat_filter'
+      ? [
+          { key: 'id', title: 'ID', dataIndex: 'id', width: 80 },
+          { key: 'word', title: t('moderation.filterValue'), dataIndex: 'word' },
+        ]
+      : [{ key: 'name', title: t('moderation.filterValue'), dataIndex: 'name' }]),
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      render: (_v, row) =>
+        hasMinRole('gm') ? (
+          <button
+            type="button"
+            className="btn btn-xs btn-error"
+            onClick={() =>
+              mutateFilter(
+                'remove',
+                String(filterKind === 'chat_filter' ? (row.word ?? row.id) : row.name),
+              )
+            }
+          >
+            {t('common.remove')}
+          </button>
+        ) : null,
+    },
+  ]
+
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.moderation.title')}
-        </Typography.Title>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-semibold m-0">{t('pages.moderation.title')}</h2>
         {tab === 'bans' && (
-          <Space wrap>
-            <Button onClick={() => void load()}>{t('common.refresh')}</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-sm" onClick={() => void load()}>
+              {t('common.refresh')}
+            </button>
             {hasMinRole('gm') && (
               <>
-                <Button type="primary" danger onClick={() => setBanOpen(true)}>
+                <button type="button" className="btn btn-sm btn-error" onClick={() => setBanOpen(true)}>
                   {t('moderation.ban')}
-                </Button>
-                <Button onClick={() => setMuteOpen(true)}>{t('moderation.mute')}</Button>
-                <Button onClick={() => setFreezeOpen(true)}>{t('moderation.freeze')}</Button>
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setMuteOpen(true)}>
+                  {t('moderation.mute')}
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setFreezeOpen(true)}>
+                  {t('moderation.freeze')}
+                </button>
               </>
             )}
-          </Space>
+          </div>
         )}
-      </Space>
+      </div>
 
       <Tabs
         activeKey={tab}
@@ -139,46 +225,15 @@ export function ModerationPage() {
                     key: 'account',
                     label: t('moderation.accountBans'),
                     children: (
-                      <Table
+                      <DataTable
                         loading={loading}
                         rowKey={(r) => String(r.id ?? r.account_id)}
                         dataSource={data?.account ?? []}
-                        columns={[
-                          { title: t('accounts.username'), dataIndex: 'username' },
-                          { title: t('moderation.reason'), dataIndex: 'reason' },
-                          { title: t('moderation.by'), dataIndex: 'bannedby' },
-                          { title: t('moderation.from'), dataIndex: 'bandate', render: fmtTime },
-                          { title: t('moderation.until'), dataIndex: 'unbandate', render: fmtTime },
-                          {
-                            title: t('common.actions'),
-                            render: (_, row) =>
-                              hasMinRole('gm') ? (
-                                <Button
-                                  size="small"
-                                  onClick={() =>
-                                    setPending({
-                                      title: t('moderation.unban'),
-                                      description: t('moderation.unbanConfirm', {
-                                        target: String(row.username),
-                                      }),
-                                      run: async () => {
-                                        await api('/api/v1/moderation/unban', {
-                                          method: 'POST',
-                                          body: JSON.stringify({
-                                            type: 'account',
-                                            target: row.username,
-                                            confirm: true,
-                                          }),
-                                        })
-                                      },
-                                    })
-                                  }
-                                >
-                                  {t('moderation.unban')}
-                                </Button>
-                              ) : null,
-                          },
-                        ]}
+                        columns={banColumns(
+                          { key: 'username', title: t('accounts.username'), dataIndex: 'username' },
+                          'account',
+                          'username',
+                        )}
                       />
                     ),
                   },
@@ -186,46 +241,11 @@ export function ModerationPage() {
                     key: 'ip',
                     label: t('moderation.ipBans'),
                     children: (
-                      <Table
+                      <DataTable
                         loading={loading}
                         rowKey={(r) => String(r.ip)}
                         dataSource={data?.ip ?? []}
-                        columns={[
-                          { title: 'IP', dataIndex: 'ip' },
-                          { title: t('moderation.reason'), dataIndex: 'reason' },
-                          { title: t('moderation.by'), dataIndex: 'bannedby' },
-                          { title: t('moderation.from'), dataIndex: 'bandate', render: fmtTime },
-                          { title: t('moderation.until'), dataIndex: 'unbandate', render: fmtTime },
-                          {
-                            title: t('common.actions'),
-                            render: (_, row) =>
-                              hasMinRole('gm') ? (
-                                <Button
-                                  size="small"
-                                  onClick={() =>
-                                    setPending({
-                                      title: t('moderation.unban'),
-                                      description: t('moderation.unbanConfirm', {
-                                        target: String(row.ip),
-                                      }),
-                                      run: async () => {
-                                        await api('/api/v1/moderation/unban', {
-                                          method: 'POST',
-                                          body: JSON.stringify({
-                                            type: 'ip',
-                                            target: row.ip,
-                                            confirm: true,
-                                          }),
-                                        })
-                                      },
-                                    })
-                                  }
-                                >
-                                  {t('moderation.unban')}
-                                </Button>
-                              ) : null,
-                          },
-                        ]}
+                        columns={banColumns({ key: 'ip', title: 'IP', dataIndex: 'ip' }, 'ip', 'ip')}
                       />
                     ),
                   },
@@ -233,46 +253,15 @@ export function ModerationPage() {
                     key: 'character',
                     label: t('moderation.charBans'),
                     children: (
-                      <Table
+                      <DataTable
                         loading={loading}
                         rowKey={(r) => String(r.guid)}
                         dataSource={data?.character ?? []}
-                        columns={[
-                          { title: t('characters.name'), dataIndex: 'name' },
-                          { title: t('moderation.reason'), dataIndex: 'reason' },
-                          { title: t('moderation.by'), dataIndex: 'bannedby' },
-                          { title: t('moderation.from'), dataIndex: 'bandate', render: fmtTime },
-                          { title: t('moderation.until'), dataIndex: 'unbandate', render: fmtTime },
-                          {
-                            title: t('common.actions'),
-                            render: (_, row) =>
-                              hasMinRole('gm') ? (
-                                <Button
-                                  size="small"
-                                  onClick={() =>
-                                    setPending({
-                                      title: t('moderation.unban'),
-                                      description: t('moderation.unbanConfirm', {
-                                        target: String(row.name),
-                                      }),
-                                      run: async () => {
-                                        await api('/api/v1/moderation/unban', {
-                                          method: 'POST',
-                                          body: JSON.stringify({
-                                            type: 'character',
-                                            target: row.name,
-                                            confirm: true,
-                                          }),
-                                        })
-                                      },
-                                    })
-                                  }
-                                >
-                                  {t('moderation.unban')}
-                                </Button>
-                              ) : null,
-                          },
-                        ]}
+                        columns={banColumns(
+                          { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+                          'character',
+                          'name',
+                        )}
                       />
                     ),
                   },
@@ -284,92 +273,123 @@ export function ModerationPage() {
             key: 'loginLogs',
             label: t('moderation.loginLogs'),
             children: (
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                <Space wrap>
-                  <Input
-                    allowClear
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className="input input-bordered input-sm w-[180px]"
                     placeholder={t('accounts.username')}
                     value={logAccount}
                     onChange={(e) => setLogAccount(e.target.value)}
-                    style={{ width: 180 }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void loadLogs()
+                    }}
                   />
-                  <Input
-                    allowClear
+                  <input
+                    className="input input-bordered input-sm w-[160px]"
                     placeholder={t('moderation.ip')}
                     value={logIp}
                     onChange={(e) => setLogIp(e.target.value)}
-                    style={{ width: 160 }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void loadLogs()
+                    }}
                   />
-                  <Button type="primary" onClick={() => void loadLogs()}>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => void loadLogs()}>
                     {t('common.search')}
-                  </Button>
-                </Space>
-                <Typography.Title level={5}>{t('moderation.failedLogins')}</Typography.Title>
-                <Table
-                  size="small"
+                  </button>
+                </div>
+
+                <h3 className="font-semibold m-0">{t('moderation.failedLogins')}</h3>
+                <DataTable
                   loading={logsLoading}
                   rowKey={(r) => String(r.id)}
                   dataSource={logs?.failed_logins ?? []}
                   columns={[
-                    { title: 'ID', dataIndex: 'id', width: 80 },
-                    { title: t('accounts.username'), dataIndex: 'username' },
-                    { title: t('accounts.lastIp'), dataIndex: 'last_ip' },
-                    { title: t('moderation.attemptIp'), dataIndex: 'last_attempt_ip' },
-                    { title: t('moderation.failedCount'), dataIndex: 'failed_logins', width: 100 },
+                    { key: 'id', title: 'ID', dataIndex: 'id', width: 80 },
+                    { key: 'username', title: t('accounts.username'), dataIndex: 'username' },
+                    { key: 'last_ip', title: t('accounts.lastIp'), dataIndex: 'last_ip' },
+                    { key: 'last_attempt_ip', title: t('moderation.attemptIp'), dataIndex: 'last_attempt_ip' },
                     {
+                      key: 'failed_logins',
+                      title: t('moderation.failedCount'),
+                      dataIndex: 'failed_logins',
+                      width: 100,
+                    },
+                    {
+                      key: 'last_login',
                       title: t('accounts.lastLogin'),
                       dataIndex: 'last_login',
                       render: fmtTime,
                     },
                   ]}
                 />
-                <Typography.Title level={5}>{t('moderation.ipActions')}</Typography.Title>
-                <Table
-                  size="small"
+
+                <h3 className="font-semibold m-0">{t('moderation.ipActions')}</h3>
+                <DataTable
                   loading={logsLoading}
                   rowKey={(r) => String(r.id)}
                   dataSource={logs?.ip_actions ?? []}
                   columns={[
-                    { title: 'ID', dataIndex: 'id', width: 80 },
-                    { title: t('accounts.username'), dataIndex: 'account_id' },
-                    { title: t('common.type'), dataIndex: 'type', width: 80 },
-                    { title: 'IP', dataIndex: 'ip' },
-                    { title: t('moderation.note'), dataIndex: 'systemnote', ellipsis: true },
-                    { title: t('audit.at'), dataIndex: 'unixtime', render: fmtTime },
-                    { title: t('moderation.reason'), dataIndex: 'comment', ellipsis: true },
+                    { key: 'id', title: 'ID', dataIndex: 'id', width: 80 },
+                    { key: 'account_id', title: t('accounts.username'), dataIndex: 'account_id' },
+                    { key: 'type', title: t('common.type'), dataIndex: 'type', width: 80 },
+                    { key: 'ip', title: 'IP', dataIndex: 'ip' },
+                    {
+                      key: 'systemnote',
+                      title: t('moderation.note'),
+                      dataIndex: 'systemnote',
+                      className: 'max-w-[240px] truncate',
+                    },
+                    { key: 'unixtime', title: t('audit.at'), dataIndex: 'unixtime', render: fmtTime },
+                    {
+                      key: 'comment',
+                      title: t('moderation.reason'),
+                      dataIndex: 'comment',
+                      className: 'max-w-[240px] truncate',
+                    },
                   ]}
                 />
-              </Space>
+              </div>
             ),
           },
           {
             key: 'filters',
             label: t('moderation.filters'),
             children: (
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                <Space wrap>
-                  <Select
-                    style={{ width: 200 }}
-                    value={filterKind}
-                    onChange={(v) => setFilterKind(v)}
-                    options={[
-                      { value: 'chat_filter', label: t('moderation.kindChat') },
-                      { value: 'reserved_name', label: t('moderation.kindReserved') },
-                      { value: 'profanity_name', label: t('moderation.kindProfanity') },
-                    ]}
-                  />
-                  <Button onClick={() => void loadFilters()}>{t('common.refresh')}</Button>
-                </Space>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="w-[200px]">
+                    <Select<FilterKind>
+                      className="select-sm"
+                      value={filterKind}
+                      onChange={(v) => setFilterKind(v ?? 'chat_filter')}
+                      options={[
+                        { value: 'chat_filter', label: t('moderation.kindChat') },
+                        { value: 'reserved_name', label: t('moderation.kindReserved') },
+                        { value: 'profanity_name', label: t('moderation.kindProfanity') },
+                      ]}
+                    />
+                  </div>
+                  <button type="button" className="btn btn-sm" onClick={() => void loadFilters()}>
+                    {t('common.refresh')}
+                  </button>
+                </div>
+
                 {hasMinRole('gm') && (
-                  <Space wrap>
-                    <Input
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      className="input input-bordered input-sm w-[220px]"
                       value={filterValue}
                       onChange={(e) => setFilterValue(e.target.value)}
                       placeholder={t('moderation.filterValue')}
-                      style={{ width: 220 }}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' || !filterValue.trim()) return
+                        mutateFilter('add', filterValue.trim())
+                        setFilterValue('')
+                      }}
                     />
-                    <Button
-                      type="primary"
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
                       disabled={!filterValue.trim()}
                       onClick={() => {
                         mutateFilter('add', filterValue.trim())
@@ -377,98 +397,78 @@ export function ModerationPage() {
                       }}
                     >
                       {t('moderation.filterAdd')}
-                    </Button>
-                  </Space>
+                    </button>
+                  </div>
                 )}
-                <Table
-                  size="small"
+
+                <DataTable
                   loading={filtersLoading}
-                  rowKey={(r, i) => String(r.id ?? r.name ?? i)}
+                  rowKey={(r) => String(r.id ?? r.name ?? '')}
                   dataSource={filters}
-                  columns={[
-                    ...(filterKind === 'chat_filter'
-                      ? [
-                          { title: 'ID', dataIndex: 'id', width: 80 },
-                          { title: t('moderation.filterValue'), dataIndex: 'word' },
-                        ]
-                      : [{ title: t('moderation.filterValue'), dataIndex: 'name' }]),
-                    {
-                      title: t('common.actions'),
-                      render: (_: unknown, row: Record<string, unknown>) =>
-                        hasMinRole('gm') ? (
-                          <Button
-                            size="small"
-                            danger
-                            onClick={() =>
-                              mutateFilter(
-                                'remove',
-                                String(filterKind === 'chat_filter' ? (row.word ?? row.id) : row.name),
-                              )
-                            }
-                          >
-                            {t('common.remove')}
-                          </Button>
-                        ) : null,
-                    },
-                  ]}
+                  columns={filterColumns}
                 />
-              </Space>
+              </div>
             ),
           },
         ]}
       />
 
-      <BanModal
-        open={banOpen}
-        onClose={() => setBanOpen(false)}
-        onSubmit={(values) => {
-          setBanOpen(false)
-          setPending({
-            title: t('moderation.ban'),
-            description: t('moderation.banConfirm', values),
-            run: async () => {
-              await api('/api/v1/moderation/ban', {
-                method: 'POST',
-                body: JSON.stringify({ ...values, confirm: true }),
-              })
-            },
-          })
-        }}
-      />
-      <MuteModal
-        open={muteOpen}
-        onClose={() => setMuteOpen(false)}
-        onSubmit={(values) => {
-          setMuteOpen(false)
-          setPending({
-            title: t('moderation.mute'),
-            description: t('moderation.muteConfirm', values),
-            run: async () => {
-              await api('/api/v1/moderation/mute', {
-                method: 'POST',
-                body: JSON.stringify({ ...values, confirm: true }),
-              })
-            },
-          })
-        }}
-      />
-      <FreezeModal
-        open={freezeOpen}
-        onClose={() => setFreezeOpen(false)}
-        onSubmit={(values) => {
-          setFreezeOpen(false)
-          setPending({
-            title: t('moderation.freeze'),
-            description: `${values.action} ${values.name}`,
-            run: async () => {
-              await api('/api/v1/moderation/freeze', {
-                method: 'POST',
-                body: JSON.stringify({ ...values, confirm: true }),
-              })
-            },
-          })
-        }}
-      />
+      {banOpen && (
+        <BanModal
+          onClose={() => setBanOpen(false)}
+          onSubmit={(values) => {
+            setBanOpen(false)
+            setPending({
+              title: t('moderation.ban'),
+              description: t('moderation.banConfirm', values),
+              run: async () => {
+                await api('/api/v1/moderation/ban', {
+                  method: 'POST',
+                  body: JSON.stringify({ ...values, confirm: true }),
+                })
+              },
+            })
+          }}
+        />
+      )}
+
+      {muteOpen && (
+        <MuteModal
+          onClose={() => setMuteOpen(false)}
+          onSubmit={(values) => {
+            setMuteOpen(false)
+            setPending({
+              title: t('moderation.mute'),
+              description: t('moderation.muteConfirm', values),
+              run: async () => {
+                await api('/api/v1/moderation/mute', {
+                  method: 'POST',
+                  body: JSON.stringify({ ...values, confirm: true }),
+                })
+              },
+            })
+          }}
+        />
+      )}
+
+      {freezeOpen && (
+        <FreezeModal
+          onClose={() => setFreezeOpen(false)}
+          onSubmit={(values) => {
+            setFreezeOpen(false)
+            setPending({
+              title: t('moderation.freeze'),
+              description: `${values.action} ${values.name}`,
+              run: async () => {
+                await api('/api/v1/moderation/freeze', {
+                  method: 'POST',
+                  body: JSON.stringify({ ...values, confirm: true }),
+                })
+              },
+            })
+          }}
+        />
+      )}
 
       <ConfirmDanger
         open={!!pending}
@@ -479,11 +479,11 @@ export function ModerationPage() {
           if (!pending) return
           try {
             await pending.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPending(null)
             if (tab === 'bans') void load()
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />
@@ -492,26 +492,42 @@ export function ModerationPage() {
 }
 
 function BanModal({
-  open,
   onClose,
   onSubmit,
 }: {
-  open: boolean
   onClose: () => void
   onSubmit: (v: { type: string; target: string; duration: string; reason: string }) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [type, setType] = useState('account')
+  const [target, setTarget] = useState('')
+  const [duration, setDuration] = useState('-1')
+  const [reason, setReason] = useState('panel')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const submit = () => {
+    const next: Record<string, string> = {}
+    if (!target.trim()) next.target = t('validation.required')
+    if (!duration.trim()) next.duration = t('validation.required')
+    if (!reason.trim()) next.reason = t('validation.required')
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+    onSubmit({ type, target: target.trim(), duration: duration.trim(), reason: reason.trim() })
+  }
+
   return (
-    <Modal open={open} title={t('moderation.ban')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ type: 'account', duration: '-1', reason: 'panel' }}
-        onFinish={onSubmit}
+    <Modal open title={t('moderation.ban')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
       >
-        <Form.Item name="type" label={t('moderation.type')} rules={[{ required: true }]}>
+        <Field label={t('moderation.type')}>
           <Select
+            value={type}
+            onChange={(v) => setType(v ?? 'account')}
             options={[
               { value: 'account', label: t('moderation.typeAccount') },
               { value: 'character', label: t('moderation.typeCharacter') },
@@ -519,80 +535,144 @@ function BanModal({
               { value: 'playeraccount', label: t('moderation.typePlayerAccount') },
             ]}
           />
-        </Form.Item>
-        <Form.Item name="target" label={t('moderation.target')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="duration" label={t('moderation.duration')} rules={[{ required: true }]}>
-          <Input placeholder="-1 / 1d / 2h" />
-        </Form.Item>
-        <Form.Item name="reason" label={t('moderation.reason')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-      </Form>
+        </Field>
+        <Field label={t('moderation.target')} error={errors.target}>
+          <input
+            className="input input-bordered w-full"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          />
+        </Field>
+        <Field label={t('moderation.duration')} error={errors.duration}>
+          <input
+            className="input input-bordered w-full"
+            placeholder="-1 / 1d / 2h"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          />
+        </Field>
+        <Field label={t('moderation.reason')} error={errors.reason}>
+          <input
+            className="input input-bordered w-full"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
 
 function MuteModal({
-  open,
   onClose,
   onSubmit,
 }: {
-  open: boolean
   onClose: () => void
   onSubmit: (v: { name: string; duration: string; reason: string }) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [name, setName] = useState('')
+  const [duration, setDuration] = useState('1h')
+  const [reason, setReason] = useState('panel')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const submit = () => {
+    const next: Record<string, string> = {}
+    if (!name.trim()) next.name = t('validation.required')
+    if (!duration.trim()) next.duration = t('validation.required')
+    if (!reason.trim()) next.reason = t('validation.required')
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+    onSubmit({ name: name.trim(), duration: duration.trim(), reason: reason.trim() })
+  }
+
   return (
-    <Modal open={open} title={t('moderation.mute')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ duration: '1h', reason: 'panel' }}
-        onFinish={onSubmit}
+    <Modal open title={t('moderation.mute')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
       >
-        <Form.Item name="name" label={t('characters.name')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="duration" label={t('moderation.duration')} rules={[{ required: true }]}>
-          <Input placeholder="1h / 30m" />
-        </Form.Item>
-        <Form.Item name="reason" label={t('moderation.reason')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-      </Form>
+        <Field label={t('characters.name')} error={errors.name}>
+          <input
+            className="input input-bordered w-full"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <Field label={t('moderation.duration')} error={errors.duration}>
+          <input
+            className="input input-bordered w-full"
+            placeholder="1h / 30m"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          />
+        </Field>
+        <Field label={t('moderation.reason')} error={errors.reason}>
+          <input
+            className="input input-bordered w-full"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }
 
 function FreezeModal({
-  open,
   onClose,
   onSubmit,
 }: {
-  open: boolean
   onClose: () => void
   onSubmit: (v: { name: string; action: string }) => void
 }) {
   const { t } = useTranslation()
-  const [form] = Form.useForm()
+  const [action, setAction] = useState('freeze')
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string>()
+
+  const submit = () => {
+    if (!name.trim()) {
+      setError(t('validation.required'))
+      return
+    }
+    setError(undefined)
+    onSubmit({ name: name.trim(), action })
+  }
+
   return (
-    <Modal open={open} title={t('moderation.freeze')} onCancel={onClose} onOk={() => form.submit()} destroyOnHidden>
-      <Form form={form} layout="vertical" initialValues={{ action: 'freeze' }} onFinish={onSubmit}>
-        <Form.Item name="action" label={t('moderation.type')} rules={[{ required: true }]}>
+    <Modal open title={t('moderation.freeze')} onClose={onClose} onOk={submit}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <Field label={t('moderation.type')}>
           <Select
+            value={action}
+            onChange={(v) => setAction(v ?? 'freeze')}
             options={[
               { value: 'freeze', label: t('moderation.freeze') },
               { value: 'unfreeze', label: t('moderation.unfreeze') },
             ]}
           />
-        </Form.Item>
-        <Form.Item name="name" label={t('characters.name')} rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-      </Form>
+        </Field>
+        <Field label={t('characters.name')} error={error}>
+          <input
+            className="input input-bordered w-full"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <button type="submit" className="hidden" />
+      </form>
     </Modal>
   )
 }

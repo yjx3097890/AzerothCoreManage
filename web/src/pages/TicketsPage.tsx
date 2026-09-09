@@ -1,8 +1,8 @@
-import { Button, Descriptions, Drawer, Form, Input, Space, Switch, Table, Tag, Typography, message } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
+import { DataTable, Drawer, toast, type Column } from '../ui'
 
 type Ticket = {
   id: number
@@ -24,8 +24,8 @@ export function TicketsPage() {
   const [onlineOnly, setOnlineOnly] = useState(false)
   const [detail, setDetail] = useState<Ticket | null>(null)
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
-  const [commentForm] = Form.useForm()
-  const [assignForm] = Form.useForm()
+  const [comment, setComment] = useState('')
+  const [gmName, setGmName] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -35,7 +35,7 @@ export function TicketsPage() {
       const data = await api<{ items: Ticket[] }>(`/api/v1/tickets?${params}`)
       setItems(data.items)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setLoading(false)
     }
@@ -45,19 +45,67 @@ export function TicketsPage() {
     void load()
   }, [load])
 
+  const columns: Column<Ticket>[] = [
+    { key: 'id', title: 'ID', dataIndex: 'id', width: 70 },
+    { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+    {
+      key: 'description',
+      title: t('tickets.description'),
+      dataIndex: 'description',
+      render: (v) => <span className="block max-w-[420px] truncate">{String(v ?? '')}</span>,
+    },
+    {
+      key: 'online',
+      title: t('characters.online'),
+      dataIndex: 'online',
+      width: 80,
+      render: (v) => ((v as number) ? <span className="badge badge-success badge-sm">{t('common.yes')}</span> : t('common.no')),
+    },
+    {
+      key: 'actions',
+      title: t('common.actions'),
+      render: (_v, row) => (
+        <button
+          type="button"
+          className="btn btn-xs"
+          onClick={async () => {
+            try {
+              setComment('')
+              setGmName('')
+              setDetail(await api<Ticket>(`/api/v1/tickets/${row.id}`))
+            } catch (err) {
+              toast.error(errorMessage(err, t))
+            }
+          }}
+        >
+          {t('tickets.detail')}
+        </button>
+      ),
+    },
+  ]
+
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.tickets.title')}
-        </Typography.Title>
-        <Space wrap>
-          <span>{t('tickets.onlineOnly')}</span>
-          <Switch checked={onlineOnly} onChange={setOnlineOnly} />
-          <Button onClick={() => void load()}>{t('common.refresh')}</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-2xl font-semibold m-0">{t('pages.tickets.title')}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-sm">{t('tickets.onlineOnly')}</span>
+            <input
+              type="checkbox"
+              className="toggle toggle-sm"
+              checked={onlineOnly}
+              onChange={(e) => setOnlineOnly(e.target.checked)}
+            />
+          </label>
+          <button type="button" className="btn btn-sm" onClick={() => void load()}>
+            {t('common.refresh')}
+          </button>
           {hasMinRole('superadmin') && (
             <>
-              <Button
+              <button
+                type="button"
+                className="btn btn-sm"
                 onClick={() =>
                   setPending({
                     title: t('tickets.toggleSystem'),
@@ -72,9 +120,10 @@ export function TicketsPage() {
                 }
               >
                 {t('tickets.toggleSystem')}
-              </Button>
-              <Button
-                danger
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-error"
                 onClick={() =>
                   setPending({
                     title: t('tickets.reset'),
@@ -89,105 +138,109 @@ export function TicketsPage() {
                 }
               >
                 {t('tickets.reset')}
-              </Button>
+              </button>
             </>
           )}
-        </Space>
-      </Space>
+        </div>
+      </div>
 
-      <Table
-        loading={loading}
-        rowKey="id"
-        dataSource={items}
-        columns={[
-          { title: 'ID', dataIndex: 'id', width: 70 },
-          { title: t('characters.name'), dataIndex: 'name' },
-          {
-            title: t('tickets.description'),
-            dataIndex: 'description',
-            ellipsis: true,
-          },
-          {
-            title: t('characters.online'),
-            dataIndex: 'online',
-            width: 80,
-            render: (v: number) => (v ? <Tag color="success">{t('common.yes')}</Tag> : t('common.no')),
-          },
-          {
-            title: t('common.actions'),
-            render: (_, row) => (
-              <Button
-                size="small"
-                onClick={async () => {
-                  try {
-                    setDetail(await api<Ticket>(`/api/v1/tickets/${row.id}`))
-                  } catch (err) {
-                    message.error(errorMessage(err, t))
-                  }
-                }}
-              >
-                {t('tickets.detail')}
-              </Button>
-            ),
-          },
-        ]}
-      />
+      <DataTable rowKey="id" loading={loading} dataSource={items} columns={columns} />
 
-      <Drawer open={!!detail} width={520} title={`#${detail?.id} ${detail?.name ?? ''}`} onClose={() => setDetail(null)}>
+      <Drawer
+        open={!!detail}
+        width={520}
+        title={`#${detail?.id ?? ''} ${detail?.name ?? ''}`}
+        onClose={() => setDetail(null)}
+      >
         {detail && (
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <Descriptions column={1} bordered size="small">
-              <Descriptions.Item label={t('tickets.description')}>{detail.description}</Descriptions.Item>
-              <Descriptions.Item label={t('tickets.comment')}>{detail.comment || '-'}</Descriptions.Item>
-              <Descriptions.Item label={t('tickets.response')}>{detail.response || '-'}</Descriptions.Item>
-              <Descriptions.Item label={t('characters.map')}>{detail.map_id}</Descriptions.Item>
-            </Descriptions>
+          <div className="flex flex-col gap-6">
+            <div className="overflow-x-auto rounded-box border border-base-300">
+              <table className="table table-zebra table-sm">
+                <tbody>
+                  <tr>
+                    <th className="w-32 align-top">{t('tickets.description')}</th>
+                    <td className="whitespace-pre-wrap">{detail.description}</td>
+                  </tr>
+                  <tr>
+                    <th className="align-top">{t('tickets.comment')}</th>
+                    <td className="whitespace-pre-wrap">{detail.comment || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th className="align-top">{t('tickets.response')}</th>
+                    <td className="whitespace-pre-wrap">{detail.response || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th className="align-top">{t('characters.map')}</th>
+                    <td>{detail.map_id}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             {hasMinRole('gm') && (
               <>
-                <Form
-                  form={commentForm}
-                  layout="vertical"
-                  onFinish={async (values: { comment: string }) => {
+                <form
+                  className="flex flex-col gap-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault()
                     try {
                       await api(`/api/v1/tickets/${detail.id}/comment`, {
                         method: 'POST',
-                        body: JSON.stringify(values),
+                        body: JSON.stringify({ comment }),
                       })
-                      message.success(t('common.ok'))
-                      commentForm.resetFields()
+                      toast.success(t('common.ok'))
+                      setComment('')
                       setDetail(await api<Ticket>(`/api/v1/tickets/${detail.id}`))
                     } catch (err) {
-                      message.error(errorMessage(err, t))
+                      toast.error(errorMessage(err, t))
                     }
                   }}
                 >
-                  <Form.Item name="comment" label={t('tickets.addComment')} rules={[{ required: true }]}>
-                    <Input.TextArea rows={2} />
-                  </Form.Item>
-                  <Button htmlType="submit">{t('tickets.addComment')}</Button>
-                </Form>
+                  <label className="form-control w-full">
+                    <span className="label-text mb-1">{t('tickets.addComment')}</span>
+                    <textarea
+                      className="textarea textarea-bordered w-full"
+                      rows={2}
+                      required
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                  </label>
+                  <div>
+                    <button type="submit" className="btn btn-sm">
+                      {t('tickets.addComment')}
+                    </button>
+                  </div>
+                </form>
 
-                <Form
-                  form={assignForm}
-                  layout="inline"
-                  onFinish={async (values: { gm_name: string }) => {
+                <form
+                  className="flex flex-wrap items-center gap-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault()
                     try {
                       await api(`/api/v1/tickets/${detail.id}/assign`, {
                         method: 'POST',
-                        body: JSON.stringify({ action: 'assign', gm_name: values.gm_name }),
+                        body: JSON.stringify({ action: 'assign', gm_name: gmName }),
                       })
-                      message.success(t('common.ok'))
+                      toast.success(t('common.ok'))
                     } catch (err) {
-                      message.error(errorMessage(err, t))
+                      toast.error(errorMessage(err, t))
                     }
                   }}
                 >
-                  <Form.Item name="gm_name" rules={[{ required: true }]}>
-                    <Input placeholder={t('tickets.gmName')} />
-                  </Form.Item>
-                  <Button htmlType="submit">{t('tickets.assign')}</Button>
-                  <Button
+                  <input
+                    className="input input-bordered input-sm flex-1 min-w-[160px]"
+                    required
+                    placeholder={t('tickets.gmName')}
+                    value={gmName}
+                    onChange={(e) => setGmName(e.target.value)}
+                  />
+                  <button type="submit" className="btn btn-sm">
+                    {t('tickets.assign')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
                     onClick={() =>
                       setPending({
                         title: t('tickets.unassign'),
@@ -202,12 +255,13 @@ export function TicketsPage() {
                     }
                   >
                     {t('tickets.unassign')}
-                  </Button>
-                </Form>
+                  </button>
+                </form>
 
-                <Space wrap>
-                  <Button
-                    danger
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-error"
                     onClick={() =>
                       setPending({
                         title: t('tickets.close'),
@@ -223,8 +277,10 @@ export function TicketsPage() {
                     }
                   >
                     {t('tickets.close')}
-                  </Button>
-                  <Button
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
                     onClick={() =>
                       setPending({
                         title: t('tickets.complete'),
@@ -240,10 +296,11 @@ export function TicketsPage() {
                     }
                   >
                     {t('tickets.complete')}
-                  </Button>
+                  </button>
                   {hasMinRole('superadmin') && (
-                    <Button
-                      danger
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-error"
                       onClick={() =>
                         setPending({
                           title: t('tickets.delete'),
@@ -259,12 +316,12 @@ export function TicketsPage() {
                       }
                     >
                       {t('tickets.delete')}
-                    </Button>
+                    </button>
                   )}
-                </Space>
+                </div>
               </>
             )}
-          </Space>
+          </div>
         )}
       </Drawer>
 
@@ -277,11 +334,11 @@ export function TicketsPage() {
           if (!pending) return
           try {
             await pending.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPending(null)
             void load()
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />

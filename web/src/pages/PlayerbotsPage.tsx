@@ -1,25 +1,9 @@
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Descriptions,
-  Form,
-  Input,
-  Row,
-  Select,
-  Space,
-  Statistic,
-  Table,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { classLabel } from '../utils/wowLabels'
+import { DataTable, Select, toast, type Column } from '../ui'
 
 type Overview = {
   account_prefix: string
@@ -60,6 +44,19 @@ const CONFIG_KEYS = [
   'AiPlayerbot.RandomBotTimedOffline',
 ]
 
+function StatCard({ title, hint, value }: { title: string; hint: string; value: string | number }) {
+  return (
+    <div className="card bg-base-100 border border-base-300">
+      <div className="card-body p-4">
+        <span className="text-sm text-base-content/60 tooltip tooltip-right w-fit" data-tip={hint}>
+          {title}
+        </span>
+        <span className="text-2xl font-semibold">{value}</span>
+      </div>
+    </div>
+  )
+}
+
 export function PlayerbotsPage() {
   const { t, i18n } = useTranslation()
   const [overview, setOverview] = useState<Overview | null>(null)
@@ -72,8 +69,17 @@ export function PlayerbotsPage() {
   } | null>(null)
   const [guilds, setGuilds] = useState<BotGuild[]>([])
   const [accountResult, setAccountResult] = useState('')
-  const [configForm] = Form.useForm()
+  const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
+
+  const [levelArg, setLevelArg] = useState('')
+  const [botsAction, setBotsAction] = useState('add')
+  const [botsName, setBotsName] = useState('')
+  const [botsAccount, setBotsAccount] = useState('')
+  const [botsClass, setBotsClass] = useState('')
+  const [accountAction, setAccountAction] = useState('list')
+  const [accountName, setAccountName] = useState('')
+  const [accountKey, setAccountKey] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -89,11 +95,11 @@ export function PlayerbotsPage() {
       setOnline(bots.items)
       setConfig(conf)
       setGuilds(g.items)
-      if (conf.values) configForm.setFieldsValue(conf.values)
+      if (conf.values) setConfigValues((prev) => ({ ...prev, ...conf.values }))
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     }
-  }, [configForm, t])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -104,7 +110,7 @@ export function PlayerbotsPage() {
       const data = await api<{ raw: string }>('/api/v1/playerbots/stats')
       setStats(data.raw)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     }
   }
 
@@ -119,8 +125,8 @@ export function PlayerbotsPage() {
     }
     if (!needsConfirm) {
       void exec()
-        .then(() => message.success(t('common.ok')))
-        .catch((err) => message.error(errorMessage(err, t)))
+        .then(() => toast.success(t('common.ok')))
+        .catch((err) => toast.error(errorMessage(err, t)))
       return
     }
     setPending({
@@ -130,99 +136,143 @@ export function PlayerbotsPage() {
     })
   }
 
+  const botsActions = [
+    { value: 'add', label: t('common.add'), hint: t('playerbots.botsAddHint') },
+    { value: 'remove', label: t('common.remove'), hint: t('playerbots.botsRemoveHint') },
+    { value: 'addaccount', label: t('playerbots.addAccount'), hint: t('playerbots.addAccountHint') },
+    { value: 'addclass', label: t('playerbots.addClass'), hint: t('playerbots.addClassHint') },
+  ]
+
+  const accountActions = [
+    { value: 'list', label: t('common.list'), hint: t('playerbots.accountListHint') },
+    { value: 'link', label: t('playerbots.link'), hint: t('playerbots.linkHint') },
+    { value: 'unlink', label: t('playerbots.unlink'), hint: t('playerbots.unlinkHint') },
+    { value: 'setkey', label: t('playerbots.setKey'), hint: t('playerbots.setKeyHint') },
+  ]
+
+  const onlineColumns: Column<BotRow>[] = [
+    { key: 'name', title: t('characters.name'), dataIndex: 'name' },
+    { key: 'account', title: t('characters.account'), dataIndex: 'account' },
+    { key: 'level', title: t('characters.level'), dataIndex: 'level', width: 80 },
+    {
+      key: 'map',
+      title: t('characters.map'),
+      width: 140,
+      render: (_v, r) => (r.map_name ? `${r.map_name} (#${r.map})` : r.map),
+    },
+    {
+      key: 'class',
+      title: t('common.class'),
+      width: 120,
+      render: (_v, r) => classLabel(r.class, i18n.language, r.class_name),
+    },
+  ]
+
+  const guildColumns: Column<BotGuild>[] = [
+    { key: 'id', title: 'ID', dataIndex: 'id', width: 80 },
+    { key: 'name', title: t('guilds.name'), dataIndex: 'name' },
+    { key: 'bot_members', title: t('playerbots.botMembers'), dataIndex: 'bot_members', width: 120 },
+  ]
+
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.playerbots.title')}
-        </Typography.Title>
-        <Button onClick={() => void load()}>{t('common.refresh')}</Button>
-      </Space>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-2xl font-semibold m-0">{t('pages.playerbots.title')}</h1>
+        <button type="button" className="btn btn-sm" onClick={() => void load()}>
+          {t('common.refresh')}
+        </button>
+      </div>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title={<Tooltip title={t('playerbots.accountsHint')}>{t('playerbots.accounts')}</Tooltip>}
-              value={overview?.rndbot_accounts ?? '-'}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title={<Tooltip title={t('playerbots.onlineHint')}>{t('playerbots.online')}</Tooltip>}
-              value={overview?.online_bots ?? '-'}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title={<Tooltip title={t('playerbots.prefixHint')}>{t('playerbots.prefix')}</Tooltip>}
-              value={overview?.account_prefix ?? '-'}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <StatCard
+          title={t('playerbots.accounts')}
+          hint={t('playerbots.accountsHint')}
+          value={overview?.rndbot_accounts ?? '-'}
+        />
+        <StatCard
+          title={t('playerbots.online')}
+          hint={t('playerbots.onlineHint')}
+          value={overview?.online_bots ?? '-'}
+        />
+        <StatCard
+          title={t('playerbots.prefix')}
+          hint={t('playerbots.prefixHint')}
+          value={overview?.account_prefix ?? '-'}
+        />
+      </div>
 
       {(overview?.note_key === 'prefix_stats_only' || overview?.note) && (
-        <Alert
-          style={{ marginBottom: 16 }}
-          type="info"
-          showIcon
-          message={
-            overview?.note_key === 'prefix_stats_only' ? t('playerbots.notePrefixStats') : overview?.note
-          }
-        />
+        <div className="alert alert-info mb-4">
+          <span>
+            {overview?.note_key === 'prefix_stats_only' ? t('playerbots.notePrefixStats') : overview?.note}
+          </span>
+        </div>
       )}
 
-      <Space wrap style={{ marginBottom: 16 }}>
-        <Tooltip title={t('playerbots.statsHint')}>
-          <Button onClick={() => void loadStats()}>{t('playerbots.stats')}</Button>
-        </Tooltip>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="tooltip" data-tip={t('playerbots.statsHint')}>
+          <button type="button" className="btn btn-sm" onClick={() => void loadStats()}>
+            {t('playerbots.stats')}
+          </button>
+        </span>
         {hasMinRole('gm') && (
           <>
-            <Tooltip title={t('playerbots.reloadHint')}>
-              <Button onClick={() => runAction('reload', false)}>{t('playerbots.reload')}</Button>
-            </Tooltip>
-            <Tooltip title={t('playerbots.refreshHint')}>
-              <Button onClick={() => runAction('refresh', true)}>{t('playerbots.refresh')}</Button>
-            </Tooltip>
-            <Tooltip title={t('playerbots.teleportHint')}>
-              <Button onClick={() => runAction('teleport', true)}>{t('playerbots.teleport')}</Button>
-            </Tooltip>
-            <Tooltip title={t('playerbots.initHint')}>
-              <Button danger onClick={() => runAction('init', true)}>
+            <span className="tooltip" data-tip={t('playerbots.reloadHint')}>
+              <button type="button" className="btn btn-sm" onClick={() => runAction('reload', false)}>
+                {t('playerbots.reload')}
+              </button>
+            </span>
+            <span className="tooltip" data-tip={t('playerbots.refreshHint')}>
+              <button type="button" className="btn btn-sm" onClick={() => runAction('refresh', true)}>
+                {t('playerbots.refresh')}
+              </button>
+            </span>
+            <span className="tooltip" data-tip={t('playerbots.teleportHint')}>
+              <button type="button" className="btn btn-sm" onClick={() => runAction('teleport', true)}>
+                {t('playerbots.teleport')}
+              </button>
+            </span>
+            <span className="tooltip" data-tip={t('playerbots.initHint')}>
+              <button type="button" className="btn btn-sm btn-error" onClick={() => runAction('init', true)}>
                 {t('playerbots.init')}
-              </Button>
-            </Tooltip>
-            <Tooltip title={t('playerbots.resetHint')}>
-              <Button danger onClick={() => runAction('reset', true)}>
+              </button>
+            </span>
+            <span className="tooltip" data-tip={t('playerbots.resetHint')}>
+              <button type="button" className="btn btn-sm btn-error" onClick={() => runAction('reset', true)}>
                 {t('playerbots.reset')}
-              </Button>
-            </Tooltip>
+              </button>
+            </span>
           </>
         )}
-      </Space>
+      </div>
 
       {hasMinRole('gm') && (
         <>
-          <Form
-            layout="inline"
-            style={{ marginBottom: 16 }}
-            onFinish={(values: { level: string }) => runAction('level', true, values.level)}
+          <form
+            className="flex flex-wrap items-center gap-2 mb-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              runAction('level', true, levelArg)
+            }}
           >
-            <Form.Item name="level" rules={[{ required: true }]} tooltip={t('playerbots.levelArgHint')}>
-              <Input placeholder={t('playerbots.levelArg')} />
-            </Form.Item>
-            <Tooltip title={t('playerbots.setLevelHint')}>
-              <Button htmlType="submit">{t('playerbots.setLevel')}</Button>
-            </Tooltip>
-          </Form>
+            <span className="tooltip" data-tip={t('playerbots.levelArgHint')}>
+              <input
+                className="input input-bordered input-sm w-48"
+                required
+                placeholder={t('playerbots.levelArg')}
+                value={levelArg}
+                onChange={(e) => setLevelArg(e.target.value)}
+              />
+            </span>
+            <span className="tooltip" data-tip={t('playerbots.setLevelHint')}>
+              <button type="submit" className="btn btn-sm">
+                {t('playerbots.setLevel')}
+              </button>
+            </span>
+          </form>
 
-          <Typography.Title level={5}>{t('playerbots.pmon')}</Typography.Title>
-          <Space wrap style={{ marginBottom: 16 }}>
+          <h2 className="text-base font-semibold mb-2">{t('playerbots.pmon')}</h2>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             {(
               [
                 { action: 'toggle', label: t('playerbots.pmonToggle'), hint: t('playerbots.pmonToggleHint') },
@@ -231,9 +281,10 @@ export function PlayerbotsPage() {
                 { action: 'reset', label: t('playerbots.pmonReset'), hint: t('playerbots.pmonResetHint') },
               ] as const
             ).map(({ action, label, hint }) => (
-              <Tooltip key={action} title={hint}>
-                <Button
-                  danger={action === 'toggle' || action === 'reset'}
+              <span key={action} className="tooltip" data-tip={hint}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${action === 'toggle' || action === 'reset' ? 'btn-error' : ''}`}
                   onClick={() => {
                     const needsConfirm = action === 'toggle' || action === 'reset'
                     const exec = async () => {
@@ -244,8 +295,8 @@ export function PlayerbotsPage() {
                     }
                     if (!needsConfirm) {
                       void exec()
-                        .then(() => message.success(t('common.ok')))
-                        .catch((err) => message.error(errorMessage(err, t)))
+                        .then(() => toast.success(t('common.ok')))
+                        .catch((err) => toast.error(errorMessage(err, t)))
                       return
                     }
                     setPending({
@@ -256,17 +307,22 @@ export function PlayerbotsPage() {
                   }}
                 >
                   {t('playerbots.pmon')} {label}
-                </Button>
-              </Tooltip>
+                </button>
+              </span>
             ))}
-          </Space>
+          </div>
 
-          <Typography.Title level={5}>{t('playerbots.bots')}</Typography.Title>
-          <Form
-            layout="inline"
-            style={{ marginBottom: 16 }}
-            initialValues={{ action: 'add' }}
-            onFinish={(values: { action: string; name?: string; account?: string; class?: string }) => {
+          <h2 className="text-base font-semibold mb-2">{t('playerbots.bots')}</h2>
+          <form
+            className="flex flex-wrap items-center gap-2 mb-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const values: { action: string; name?: string; account?: string; class?: string } = {
+                action: botsAction,
+              }
+              if (botsAction === 'add' || botsAction === 'remove') values.name = botsName
+              else if (botsAction === 'addaccount') values.account = botsAccount
+              else values.class = botsClass
               setPending({
                 title: t('playerbots.bots'),
                 description: t('playerbots.botsConfirm', {
@@ -283,58 +339,61 @@ export function PlayerbotsPage() {
               })
             }}
           >
-            <Form.Item name="action" rules={[{ required: true }]}>
+            <span
+              className="tooltip"
+              data-tip={botsActions.find((o) => o.value === botsAction)?.hint}
+            >
               <Select
-                style={{ width: 140 }}
-                optionLabelProp="label"
-                options={[
-                  { value: 'add', label: t('common.add'), title: t('playerbots.botsAddHint') },
-                  { value: 'remove', label: t('common.remove'), title: t('playerbots.botsRemoveHint') },
-                  { value: 'addaccount', label: t('playerbots.addAccount'), title: t('playerbots.addAccountHint') },
-                  { value: 'addclass', label: t('playerbots.addClass'), title: t('playerbots.addClassHint') },
-                ]}
-                optionRender={(opt) => (
-                  <Tooltip placement="right" title={opt.data.title as string}>
-                    <span>{opt.data.label as string}</span>
-                  </Tooltip>
-                )}
+                className="w-36"
+                value={botsAction}
+                onChange={(v) => setBotsAction(v ?? 'add')}
+                options={botsActions.map((o) => ({ value: o.value, label: o.label }))}
               />
-            </Form.Item>
-            <Form.Item noStyle shouldUpdate={(a, b) => a.action !== b.action}>
-              {({ getFieldValue }) => {
-                const action = getFieldValue('action') as string
-                if (action === 'add' || action === 'remove') {
-                  return (
-                    <Form.Item name="name" rules={[{ required: true }]}>
-                      <Input placeholder={t('characters.name')} />
-                    </Form.Item>
-                  )
-                }
-                if (action === 'addaccount') {
-                  return (
-                    <Form.Item name="account" rules={[{ required: true }]}>
-                      <Input placeholder={t('accounts.username')} />
-                    </Form.Item>
-                  )
-                }
-                return (
-                  <Form.Item name="class" rules={[{ required: true }]} tooltip={t('playerbots.addClassHint')}>
-                    <Input placeholder={t('common.class')} />
-                  </Form.Item>
-                )
-              }}
-            </Form.Item>
-            <Tooltip title={t('playerbots.botsHint')}>
-              <Button htmlType="submit">{t('playerbots.bots')}</Button>
-            </Tooltip>
-          </Form>
+            </span>
+            {(botsAction === 'add' || botsAction === 'remove') && (
+              <input
+                className="input input-bordered w-48"
+                required
+                placeholder={t('characters.name')}
+                value={botsName}
+                onChange={(e) => setBotsName(e.target.value)}
+              />
+            )}
+            {botsAction === 'addaccount' && (
+              <input
+                className="input input-bordered w-48"
+                required
+                placeholder={t('accounts.username')}
+                value={botsAccount}
+                onChange={(e) => setBotsAccount(e.target.value)}
+              />
+            )}
+            {botsAction === 'addclass' && (
+              <span className="tooltip" data-tip={t('playerbots.addClassHint')}>
+                <input
+                  className="input input-bordered w-48"
+                  required
+                  placeholder={t('common.class')}
+                  value={botsClass}
+                  onChange={(e) => setBotsClass(e.target.value)}
+                />
+              </span>
+            )}
+            <span className="tooltip" data-tip={t('playerbots.botsHint')}>
+              <button type="submit" className="btn">
+                {t('playerbots.bots')}
+              </button>
+            </span>
+          </form>
 
-          <Typography.Title level={5}>{t('playerbots.account')}</Typography.Title>
-          <Form
-            layout="inline"
-            style={{ marginBottom: 16 }}
-            initialValues={{ action: 'list' }}
-            onFinish={async (values: { action: string; account?: string; key?: string }) => {
+          <h2 className="text-base font-semibold mb-2">{t('playerbots.account')}</h2>
+          <form
+            className="flex flex-wrap items-center gap-2 mb-4"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const values: { action: string; account?: string; key?: string } = { action: accountAction }
+              if (accountAction === 'link' || accountAction === 'unlink') values.account = accountName
+              if (accountAction === 'link' || accountAction === 'setkey') values.key = accountKey
               const needsConfirm = values.action !== 'list' && values.action !== 'linkedaccounts'
               const exec = async () => {
                 const resp = await api<{ result?: string; command?: string }>('/api/v1/playerbots/account', {
@@ -346,9 +405,9 @@ export function PlayerbotsPage() {
               if (!needsConfirm) {
                 try {
                   await exec()
-                  message.success(t('common.ok'))
+                  toast.success(t('common.ok'))
                 } catch (err) {
-                  message.error(errorMessage(err, t))
+                  toast.error(errorMessage(err, t))
                 }
                 return
               }
@@ -359,120 +418,80 @@ export function PlayerbotsPage() {
               })
             }}
           >
-            <Form.Item name="action" rules={[{ required: true }]}>
+            <span
+              className="tooltip"
+              data-tip={accountActions.find((o) => o.value === accountAction)?.hint}
+            >
               <Select
-                style={{ width: 160 }}
-                optionLabelProp="label"
-                options={[
-                  { value: 'list', label: t('common.list'), title: t('playerbots.accountListHint') },
-                  { value: 'link', label: t('playerbots.link'), title: t('playerbots.linkHint') },
-                  { value: 'unlink', label: t('playerbots.unlink'), title: t('playerbots.unlinkHint') },
-                  { value: 'setkey', label: t('playerbots.setKey'), title: t('playerbots.setKeyHint') },
-                ]}
-                optionRender={(opt) => (
-                  <Tooltip placement="right" title={opt.data.title as string}>
-                    <span>{opt.data.label as string}</span>
-                  </Tooltip>
-                )}
+                className="w-40"
+                value={accountAction}
+                onChange={(v) => setAccountAction(v ?? 'list')}
+                options={accountActions.map((o) => ({ value: o.value, label: o.label }))}
               />
-            </Form.Item>
-            <Form.Item noStyle shouldUpdate={(a, b) => a.action !== b.action}>
-              {({ getFieldValue }) => {
-                const action = getFieldValue('action') as string
-                return (
-                  <>
-                    {(action === 'link' || action === 'unlink') && (
-                      <Form.Item name="account" rules={[{ required: true }]}>
-                        <Input placeholder={t('accounts.username')} />
-                      </Form.Item>
-                    )}
-                    {(action === 'link' || action === 'setkey') && (
-                      <Form.Item name="key" rules={[{ required: true }]} tooltip={t('playerbots.setKeyHint')}>
-                        <Input placeholder={t('common.key')} />
-                      </Form.Item>
-                    )}
-                  </>
-                )
-              }}
-            </Form.Item>
-            <Tooltip title={t('playerbots.accountHint')}>
-              <Button htmlType="submit">{t('playerbots.account')}</Button>
-            </Tooltip>
-          </Form>
+            </span>
+            {(accountAction === 'link' || accountAction === 'unlink') && (
+              <input
+                className="input input-bordered w-48"
+                required
+                placeholder={t('accounts.username')}
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+              />
+            )}
+            {(accountAction === 'link' || accountAction === 'setkey') && (
+              <span className="tooltip" data-tip={t('playerbots.setKeyHint')}>
+                <input
+                  className="input input-bordered w-48"
+                  required
+                  placeholder={t('common.key')}
+                  value={accountKey}
+                  onChange={(e) => setAccountKey(e.target.value)}
+                />
+              </span>
+            )}
+            <span className="tooltip" data-tip={t('playerbots.accountHint')}>
+              <button type="submit" className="btn">
+                {t('playerbots.account')}
+              </button>
+            </span>
+          </form>
           {accountResult && (
-            <Alert
-              style={{ marginBottom: 16 }}
-              type="success"
-              message={t('playerbots.account')}
-              description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{accountResult}</pre>}
-            />
+            <div className="alert alert-success mb-4 block">
+              <div className="font-semibold mb-1">{t('playerbots.account')}</div>
+              <pre className="m-0 whitespace-pre-wrap text-sm">{accountResult}</pre>
+            </div>
           )}
         </>
       )}
 
       {stats && (
-        <Alert
-          style={{ marginBottom: 16 }}
-          type="success"
-          message={t('playerbots.stats')}
-          description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{stats}</pre>}
-        />
+        <div className="alert alert-success mb-4 block">
+          <div className="font-semibold mb-1">{t('playerbots.stats')}</div>
+          <pre className="m-0 whitespace-pre-wrap text-sm">{stats}</pre>
+        </div>
       )}
 
-      <Typography.Title level={5}>{t('playerbots.onlineList')}</Typography.Title>
-      <Table
-        rowKey="guid"
-        dataSource={online}
-        pagination={{ pageSize: 20 }}
-        columns={[
-          { title: t('characters.name'), dataIndex: 'name' },
-          { title: t('characters.account'), dataIndex: 'account' },
-          { title: t('characters.level'), dataIndex: 'level', width: 80 },
-          {
-            title: t('characters.map'),
-            dataIndex: 'map',
-            width: 140,
-            render: (_: number, r: BotRow) => (r.map_name ? `${r.map_name} (#${r.map})` : r.map),
-          },
-          {
-            title: t('common.class'),
-            dataIndex: 'class',
-            width: 120,
-            render: (_: number, r: BotRow) => classLabel(r.class, i18n.language, r.class_name),
-          },
-        ]}
-      />
+      <h2 className="text-base font-semibold mb-2">{t('playerbots.onlineList')}</h2>
+      <DataTable rowKey="guid" dataSource={online} columns={onlineColumns} pagination={{ pageSize: 20 }} />
 
-      <Typography.Title level={5} style={{ marginTop: 24 }}>
-        {t('playerbots.guilds')}
-      </Typography.Title>
-      <Table
-        size="small"
-        rowKey="id"
-        dataSource={guilds}
-        pagination={{ pageSize: 10 }}
-        columns={[
-          { title: 'ID', dataIndex: 'id', width: 80 },
-          { title: t('guilds.name'), dataIndex: 'name' },
-          { title: t('playerbots.botMembers'), dataIndex: 'bot_members', width: 120 },
-        ]}
-      />
+      <h2 className="text-base font-semibold mt-6 mb-2">{t('playerbots.guilds')}</h2>
+      <DataTable rowKey="id" dataSource={guilds} columns={guildColumns} pagination={{ pageSize: 10 }} />
 
-      <Typography.Title level={5} style={{ marginTop: 24 }}>
-        {t('playerbots.config')}
-      </Typography.Title>
+      <h2 className="text-base font-semibold mt-6 mb-2">{t('playerbots.config')}</h2>
       {!config?.available ? (
-        <Alert type="info" message={config?.message || t('playerbots.configMissing')} />
+        <div className="alert alert-info">
+          <span>{config?.message || t('playerbots.configMissing')}</span>
+        </div>
       ) : hasMinRole('superadmin') ? (
-        <Form
-          form={configForm}
-          layout="vertical"
-          style={{ maxWidth: 560 }}
-          onFinish={(values: Record<string, string>) => {
+        <form
+          className="flex flex-col gap-3 max-w-[560px]"
+          onSubmit={(e) => {
+            e.preventDefault()
             const updates: Record<string, string> = {}
             for (const k of CONFIG_KEYS) {
-              if (values[k] != null && String(values[k]).trim() !== '') {
-                updates[k] = String(values[k]).trim()
+              const v = configValues[k]
+              if (v != null && String(v).trim() !== '') {
+                updates[k] = String(v).trim()
               }
             }
             setPending({
@@ -489,24 +508,36 @@ export function PlayerbotsPage() {
           }}
         >
           {CONFIG_KEYS.map((key) => (
-            <Form.Item key={key} name={key} label={key}>
-              <Input />
-            </Form.Item>
+            <label key={key} className="form-control w-full">
+              <span className="label-text mb-1">{key}</span>
+              <input
+                className="input input-bordered w-full"
+                value={configValues[key] ?? ''}
+                onChange={(e) => setConfigValues((prev) => ({ ...prev, [key]: e.target.value }))}
+              />
+            </label>
           ))}
-          <Tooltip title={t('playerbots.configSaveHint')}>
-            <Button type="primary" htmlType="submit">
-              {t('playerbots.configSave')}
-            </Button>
-          </Tooltip>
-        </Form>
+          <div>
+            <span className="tooltip" data-tip={t('playerbots.configSaveHint')}>
+              <button type="submit" className="btn btn-primary">
+                {t('playerbots.configSave')}
+              </button>
+            </span>
+          </div>
+        </form>
       ) : (
-        <Descriptions bordered size="small" column={1}>
-          {Object.entries(config.values ?? {}).map(([k, v]) => (
-            <Descriptions.Item key={k} label={k}>
-              {v}
-            </Descriptions.Item>
-          ))}
-        </Descriptions>
+        <div className="overflow-x-auto rounded-box border border-base-300">
+          <table className="table table-zebra table-sm">
+            <tbody>
+              {Object.entries(config.values ?? {}).map(([k, v]) => (
+                <tr key={k}>
+                  <th className="w-72">{k}</th>
+                  <td>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <ConfirmDanger
@@ -518,10 +549,10 @@ export function PlayerbotsPage() {
           if (!pending) return
           try {
             await pending.run()
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPending(null)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />

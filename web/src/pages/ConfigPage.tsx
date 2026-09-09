@@ -1,8 +1,8 @@
-import { Button, Form, Input, List, Space, Typography, message } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
+import { toast } from '../ui'
 
 type ConfFile = {
   id: string
@@ -29,7 +29,7 @@ export function ConfigPage() {
       const data = await api<{ items: ConfFile[] }>('/api/v1/config/files')
       setFiles(data.items)
     } catch (err) {
-      message.error(errorMessage(err, t))
+      toast.error(errorMessage(err, t))
     } finally {
       setLoading(false)
     }
@@ -46,7 +46,7 @@ export function ConfigPage() {
         setContent(data.content)
         setPath(data.path)
       } catch (err) {
-        message.error(errorMessage(err, t))
+        toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
@@ -60,65 +60,71 @@ export function ConfigPage() {
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t('pages.config.title')}
-        </Typography.Title>
-        <Space wrap>
-          <Button onClick={() => void loadFiles()}>{t('common.refresh')}</Button>
-          <Button danger type="primary" onClick={() => setPendingBackup(true)}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-2xl font-semibold m-0">{t('pages.config.title')}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn btn-sm" onClick={() => void loadFiles()}>
+            {t('common.refresh')}
+          </button>
+          <button type="button" className="btn btn-sm btn-error" onClick={() => setPendingBackup(true)}>
             {t('config.backup')}
-          </Button>
-        </Space>
-      </Space>
+          </button>
+        </div>
+      </div>
 
-      <Typography.Title level={5}>{t('config.files')}</Typography.Title>
-      <List
-        loading={loading && !selected}
-        bordered
-        style={{ marginBottom: 16, maxWidth: 640 }}
-        dataSource={files}
-        renderItem={(item) => (
-          <List.Item
-            actions={[
-              <Button
-                key="open"
-                size="small"
-                disabled={!item.available}
-                type={selected === item.id ? 'primary' : 'default'}
-                onClick={() => void loadFile(item.id)}
-              >
-                {t('config.open')}
-              </Button>,
-            ]}
-          >
-            <List.Item.Meta
-              title={item.id}
-              description={
-                item.available
-                  ? `${item.path}${item.size != null ? ` · ${item.size} B` : ''}`
-                  : item.error || t('config.unavailable')
-              }
-            />
-          </List.Item>
+      <h2 className="text-base font-semibold mb-2">{t('config.files')}</h2>
+      <div className="relative mb-4 max-w-[640px]">
+        {loading && !selected && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-base-100/60">
+            <span className="loading loading-spinner loading-md" />
+          </div>
         )}
-      />
+        <ul className="rounded-box border border-base-300 divide-y divide-base-300">
+          {files.length === 0 ? (
+            <li className="px-4 py-6 text-center text-base-content/60">—</li>
+          ) : (
+            files.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{item.id}</div>
+                  <div className="text-sm text-base-content/60 truncate">
+                    {item.available
+                      ? `${item.path}${item.size != null ? ` · ${item.size} B` : ''}`
+                      : item.error || t('config.unavailable')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`btn btn-xs ${selected === item.id ? 'btn-primary' : ''}`}
+                  disabled={!item.available}
+                  onClick={() => void loadFile(item.id)}
+                >
+                  {t('config.open')}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
 
       {selected && (
-        <Form layout="vertical" style={{ maxWidth: 960 }}>
-          <Typography.Text type="secondary">{path}</Typography.Text>
-          <Form.Item label={t('config.content')} style={{ marginTop: 8 }}>
-            <Input.TextArea
+        <div className="max-w-[960px] flex flex-col gap-2">
+          <span className="text-sm text-base-content/60">{path}</span>
+          <label className="form-control w-full">
+            <span className="label-text mb-1">{t('config.content')}</span>
+            <textarea
+              className="textarea textarea-bordered w-full font-mono text-xs leading-5"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={24}
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
             />
-          </Form.Item>
-          <Button type="primary" onClick={() => setPendingSave(true)}>
-            {t('config.save')}
-          </Button>
-        </Form>
+          </label>
+          <div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setPendingSave(true)}>
+              {t('config.save')}
+            </button>
+          </div>
+        </div>
       )}
 
       <ConfirmDanger
@@ -133,11 +139,11 @@ export function ConfigPage() {
               method: 'PUT',
               body: JSON.stringify({ content, confirm: true }),
             })
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPendingSave(false)
             void loadFiles()
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />
@@ -153,10 +159,10 @@ export function ConfigPage() {
               method: 'POST',
               body: JSON.stringify({ confirm: true }),
             })
-            message.success(t('common.ok'))
+            toast.success(t('common.ok'))
             setPendingBackup(false)
           } catch (err) {
-            message.error(errorMessage(err, t))
+            toast.error(errorMessage(err, t))
           }
         }}
       />

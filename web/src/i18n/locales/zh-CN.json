@@ -27,6 +27,9 @@
     "logout": "退出",
     "login": "登录",
     "language": "语言",
+    "theme": "主题",
+    "themeLight": "切换到浅色",
+    "themeDark": "切换到深色",
     "zh": "中文",
     "en": "English",
     "loading": "请求中…",
@@ -394,7 +397,6 @@
   },
   "login": {
     "title": "AzerothCore 管理端",
-    "hint": "默认 admin / admin，请尽快改掉。",
     "username": "用户名",
     "password": "密码",
     "failed": "登录失败"
