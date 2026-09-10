@@ -456,7 +456,7 @@
     "soapShutdown": "SOAP shutdown",
     "cancelRestart": "Cancel restart",
     "cancelShutdown": "Cancel shutdown",
-    "lifecycleHint": "Restart/shutdown require confirmation and are sent via SOAP.",
+    "lifecycleNote": "SOAP only asks worldserver to exit after a countdown. With Docker restart unless-stopped/always, the container often comes back up. To keep it down, use Stop on the container row above.",
     "actionOk": "Action submitted"
   },
   "audit": {

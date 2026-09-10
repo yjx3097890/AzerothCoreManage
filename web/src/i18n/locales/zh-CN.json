@@ -628,7 +628,7 @@
     "soapShutdown": "SOAP 平滑关服",
     "cancelRestart": "取消重启",
     "cancelShutdown": "取消关服",
-    "lifecycleHint": "重启/关服需要二次确认，将通过 SOAP 发送命令。",
+    "lifecycleNote": "SOAP 只让 worldserver 倒计时退出；若 Docker 设了 unless-stopped / always，容器常会自动再拉起。要保持停机请用上方的容器「停止」。",
     "actionOk": "操作已提交"
   },
   "audit": {

@@ -409,7 +409,7 @@ function LifecycleModal({
             onChange={(e) => setDelay(Number(e.target.value))}
           />
         </label>
-        <div className="alert alert-warning">{t('servers.lifecycleHint')}</div>
+        <p className="text-sm text-base-content/65 m-0 leading-relaxed">{t('servers.lifecycleNote')}</p>
       </div>
     </Modal>
   )
