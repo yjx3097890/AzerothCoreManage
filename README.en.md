@@ -19,10 +19,43 @@ Stack: **Go (Gin) + React (Vite / Tailwind CSS / DaisyUI)**. Commands go through
 | Guilds / Arena / Auctions | Browse and common management; auctions are read-only for now |
 | World events / Disables | Start/stop events; localized disables list |
 | Playerbots | Overview, online bots, rndbot actions, config, guilds |
+| Modules (P2-A) | Curated / official catalog, installed scan, GitHub registry, DeepSeek compat eval, module conf (**no install yet**) |
 | Config / Backup / SQL / Audit | Conf editing, backups, read-only SQL browser, audit log |
-| i18n | Panel UI zh-CN / en-US; map/class/disable reasons follow locale |
+| i18n | Panel UI zh-CN / en-US; map/class/disable reasons follow locale; **evaluation text follows UI language** |
 
-See [docs/tasks.md](docs/tasks.md) for the checklist and [docs/architecture.md](docs/architecture.md) for design notes.
+See [docs/tasks.md](docs/tasks.md) for the checklist and [docs/architecture.md](docs/architecture.md) for design notes. Module manager design: [docs/module-manager.md](docs/module-manager.md).
+
+## Module manager (P2-A shipped)
+
+Open **Modules** in the sidebar (`/modules`). This stage is **browse + evaluate only** — it does not clone, compile, or change your realm.
+
+| Capability | Notes |
+|------------|------|
+| Curated catalog | Local `api/data/modules/curated.json` (localized names/summaries); GitHub fills missing `pushed_at` / stars |
+| Official catalog | Repos tagged `azerothcore-module` from the [AzerothCore catalogue](https://www.azerothcore.org/data/catalogue.json) |
+| Sorting | Click column headers: name, repo, **last push**, **★**, source, … |
+| Installed | Scan `AC_ROOT/modules` + `modules.list`; SOAP `server debug` for loaded state |
+| Custom registry | Paste a GitHub URL to evaluate (superadmin) |
+| AI evaluation | README / `acore-module.json` / Issues → DeepSeek + rules → score, feature summary, advice, risks |
+| Module conf | Edit `etc/modules/*.conf` from the modules or config page |
+
+**Local core version** resolution order: SOAP `server info` → `AC_ROOT` git → `.env` fallback:
+
+```bash
+AC_CORE_VERSION=AzerothCore rev. 413bea61a85e+ …
+AC_CORE_REVISION=413bea61a85e
+```
+
+Optional evaluation settings:
+
+```bash
+MODULES_DEPLOY=docker          # docker | source
+DEEPSEEK_API_KEY=              # without it, rule-based eval only
+DEEPSEEK_MODEL=deepseek-v4-flash
+GITHUB_TOKEN=                  # higher GitHub API limits (read-only is enough for public repos)
+```
+
+**P2-B checkpoints / rollback** and **P2-C install orchestration** are not available yet — see the design doc.
 
 ## Quick start
 

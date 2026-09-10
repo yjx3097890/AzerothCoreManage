@@ -19,11 +19,43 @@
 | 公会 / 竞技场 / 拍卖 | 浏览与常用管理；拍卖行当前以浏览为主 |
 | 世界事件 / 禁用项 | 启停事件；disables 列表本地化展示 |
 | Playerbots | 概览、在线 Bot、rndbot、配置项、公会等 |
-| 模块（P2-A） | 精选目录、已装扫描、GitHub 登记、DeepSeek 评估、模块 conf |
+| 模块（P2-A） | 精选 / 官网目录、已装扫描、GitHub 登记、DeepSeek 兼容评估、模块 conf（**不执行安装**） |
 | 配置 / 备份 / SQL / 审计 | conf 编辑、备份、只读 SQL 浏览、操作审计 |
-| 多语言 | 面板 UI 中 / 英；游戏地名、职业、禁用原因等跟随语言 |
+| 多语言 | 面板 UI 中 / 英；游戏地名、职业、禁用原因等跟随语言；**评估文案随界面语言** |
 
-详细任务与进度见 [docs/tasks.md](docs/tasks.md)，架构见 [docs/architecture.md](docs/architecture.md)。
+详细任务与进度见 [docs/tasks.md](docs/tasks.md)，架构见 [docs/architecture.md](docs/architecture.md)。模块管理方案见 [docs/module-manager.md](docs/module-manager.md)。
+
+## 模块管理（已实现 P2-A）
+
+侧栏进入 **模块**（`/modules`）。当前阶段只做**浏览与评估**，不会 clone、编译或改你的服。
+
+| 能力 | 说明 |
+|------|------|
+| 精选目录 | 本地 `api/data/modules/curated.json`（中文名 / 摘要）；缺日期时用 GitHub 补 `pushed_at` 与星数 |
+| 官网目录 | [AzerothCore catalogue](https://www.azerothcore.org/data/catalogue.json) 中带 `azerothcore-module` 的仓库 |
+| 列表排序 | 表头可按名称、仓库、**最后提交**、**★**、来源等排序 |
+| 已安装 | 扫描 `AC_ROOT/modules` + `modules.list`；SOAP `server debug` 判断是否已加载 |
+| 自定义登记 | 粘贴 GitHub 地址加入评估列表（超管） |
+| AI 评估 | 拉取 README / `acore-module.json` / Issues，DeepSeek + 规则给出兼容分、功能说明、建议与风险 |
+| 模块 conf | `etc/modules/*.conf` 可在模块页或配置页编辑 |
+
+**本机核心版本**探测顺序：SOAP `server info` → `AC_ROOT` git → `.env` 保底：
+
+```bash
+AC_CORE_VERSION=AzerothCore rev. 413bea61a85e+ …
+AC_CORE_REVISION=413bea61a85e
+```
+
+评估相关可选配置：
+
+```bash
+MODULES_DEPLOY=docker          # docker | source，影响评估里的部署语境
+DEEPSEEK_API_KEY=              # 未配置则仅规则评估
+DEEPSEEK_MODEL=deepseek-v4-flash
+GITHUB_TOKEN=                  # 提高 GitHub API 限额（公开库只读即可）
+```
+
+后续 **P2-B 检查点回退**、**P2-C 安装编排**尚未开放，见方案文档。
 
 ## 快速开始
 
