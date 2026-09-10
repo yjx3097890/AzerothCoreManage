@@ -19,7 +19,7 @@ func TestParseModelEvaluationLoose(t *testing.T) {
 		"steps": ["clone 模块", {"title": "重建", "command": "docker compose up -d --build"}],
 		"issue_findings": [{"number": 1, "title": "compile fail"}]
 	}`)
-	ev, err := parseModelEvaluation(raw)
+	ev, err := parseModelEvaluation(raw, "zh-CN")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,5 +43,43 @@ func TestParseModelEvaluationLoose(t *testing.T) {
 	}
 	if len(ev.IssueFindings) != 1 || ev.IssueFindings[0].Summary == "" {
 		t.Fatalf("findings=%v", ev.IssueFindings)
+	}
+}
+
+func TestParseModelEvaluationIgnoresEnglishFeaturesOnZH(t *testing.T) {
+	raw := json.RawMessage(`{
+		"verdict": "caution",
+		"compat_score": 50,
+		"features_en": "This module adds transmogrification for gear appearances.",
+		"features_zh": "",
+		"summary": "Can try after a checkpoint."
+	}`)
+	ev, err := parseModelEvaluation(raw, "zh-CN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.FeaturesZH != "" {
+		t.Fatalf("expected empty features for zh when only features_en present, got %q", ev.FeaturesZH)
+	}
+}
+
+func TestHeuristicFeaturesZHPrefersCuratedZH(t *testing.T) {
+	got := heuristicFeatures(EvaluateInput{
+		Locale:           "zh-CN",
+		CuratedSummaryZH: "中文简介",
+		CuratedSummaryEN: "English blurb",
+		Material:         &RepoMaterial{Readme: "This is a long English README paragraph about the module features."},
+	})
+	if got != "中文简介" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestMostlyLatin(t *testing.T) {
+	if !mostlyLatin("This module automatically stocks the auction house with items for your server economy.") {
+		t.Fatal("expected latin")
+	}
+	if mostlyLatin("自动在拍卖行上架物品，填充服务器经济。") {
+		t.Fatal("expected not latin")
 	}
 }

@@ -169,7 +169,7 @@ func Evaluate(ctx context.Context, in EvaluateInput) (*Evaluation, error) {
 			ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
 				"DeepSeek 调用失败，已使用规则评估："+shortErr(err),
 				"DeepSeek call failed; using rule-based evaluation: "+shortErr(err)))
-		} else if parsed, perr := parseModelEvaluation(raw); perr != nil {
+		} else if parsed, perr := parseModelEvaluation(raw, in.Locale); perr != nil {
 			ev.Degraded = true
 			ev.DegradedReason = "invalid model json: " + perr.Error()
 			ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
@@ -192,6 +192,7 @@ func Evaluate(ctx context.Context, in EvaluateInput) (*Evaluation, error) {
 
 	applyRuleOverlay(ev, in)
 	finalizeScoreAndSummary(ev, in, modelOK)
+	ensureLocaleText(ev, in, modelOK)
 
 	if in.CacheDir != "" && !ev.Degraded {
 		_ = saveEvalCache(in.CacheDir, cacheKey, ev)
@@ -317,7 +318,7 @@ func finalizeScoreAndSummary(ev *Evaluation, in EvaluateInput, modelOK bool) {
 			if ev.CoreVersion != "" {
 				parts = append(parts, "本机核心："+ev.CoreVersion+"。")
 			}
-			if ev.VersionNote != "" {
+			if ev.VersionNote != "" && !mostlyLatin(ev.VersionNote) {
 				parts = append(parts, ev.VersionNote)
 			} else if ev.ACVersionMatch == "unknown" {
 				parts = append(parts, "模块未声明可精确比对的 AC 版本，兼容性未知。")
@@ -337,25 +338,99 @@ func finalizeScoreAndSummary(ev *Evaluation, in EvaluateInput, modelOK bool) {
 	}
 }
 
+// ensureLocaleText replaces English-looking blurb/summary when the UI locale is Chinese (and vice versa).
+func ensureLocaleText(ev *Evaluation, in EvaluateInput, modelOK bool) {
+	if isEvalEN(in.Locale) {
+		if mostlyCJK(ev.FeaturesZH) {
+			if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
+				ev.FeaturesZH = s
+			} else {
+				ev.FeaturesZH = heuristicFeatures(in)
+			}
+		}
+		if mostlyCJK(ev.Summary) {
+			ev.Summary = ""
+			finalizeScoreAndSummary(ev, in, modelOK)
+		}
+		return
+	}
+	if mostlyLatin(ev.FeaturesZH) {
+		if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
+			ev.FeaturesZH = s
+		} else {
+			ev.FeaturesZH = heuristicFeatures(in)
+		}
+	}
+	if mostlyLatin(ev.Summary) {
+		ev.Summary = ""
+		finalizeScoreAndSummary(ev, in, modelOK)
+	}
+	if mostlyLatin(ev.VersionNote) {
+		acJSON := ""
+		if in.Material != nil {
+			acJSON = in.Material.ACoreModuleJSON
+		}
+		if _, note := matchACoreVersion(in.Locale, acJSON, in.Core.Revision, in.Core.Version); note != "" {
+			ev.VersionNote = note
+		} else {
+			ev.VersionNote = ""
+		}
+	}
+}
+
+func mostlyLatin(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	letters, cjk := 0, 0
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+			letters++
+		case r >= 0x4E00 && r <= 0x9FFF, r >= 0x3400 && r <= 0x4DBF:
+			cjk++
+		}
+	}
+	if letters+cjk == 0 {
+		return false
+	}
+	// Treat as Latin when Latin letters dominate and CJK is scarce.
+	return letters >= 12 && letters*2 >= cjk*5
+}
+
+func mostlyCJK(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	letters, cjk := 0, 0
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+			letters++
+		case r >= 0x4E00 && r <= 0x9FFF, r >= 0x3400 && r <= 0x4DBF:
+			cjk++
+		}
+	}
+	return cjk >= 4 && cjk >= letters
+}
+
 func heuristicFeatures(in EvaluateInput) string {
 	en := isEvalEN(in.Locale)
 	if en {
 		if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
 			return s
 		}
-		if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
-			return s
-		}
+		// Do not fall back to Chinese curated text on English UI.
 	} else {
 		if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
 			return s
 		}
-		if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
-			return s
-		}
+		// Do not fall back to English curated / README on Chinese UI.
 	}
 	if in.Material == nil {
-		return ""
+		return localeText(in.Locale, "暂无功能说明。", "No feature summary available.")
 	}
 	readme := strings.TrimSpace(in.Material.Readme)
 	if readme == "" {
@@ -371,13 +446,23 @@ func heuristicFeatures(in EvaluateInput) string {
 		if len(line) < 8 {
 			continue
 		}
+		// Keep only lines matching the UI language.
+		if en {
+			if mostlyCJK(line) {
+				continue
+			}
+		} else if mostlyLatin(line) {
+			continue
+		}
 		lines = append(lines, line)
 		if len(lines) >= 3 {
 			break
 		}
 	}
 	if len(lines) == 0 {
-		return localeText(in.Locale, "请参阅仓库 README 了解功能。", "See the repository README for features.")
+		return localeText(in.Locale,
+			"仓库 README 主要为英文，精选列表暂无中文简介。请结合下方评估建议，或前往 GitHub 查看 README。",
+			"No localized feature blurb in the catalog; see the advice below or the GitHub README.")
 	}
 	return strings.Join(lines, " ")
 }
@@ -432,7 +517,7 @@ func mergeModelEval(dst, src *Evaluation) {
 	}
 }
 
-func parseModelEvaluation(raw json.RawMessage) (*Evaluation, error) {
+func parseModelEvaluation(raw json.RawMessage, locale string) (*Evaluation, error) {
 	var loose map[string]any
 	if err := json.Unmarshal(raw, &loose); err != nil {
 		return nil, err
@@ -441,21 +526,41 @@ func parseModelEvaluation(raw json.RawMessage) (*Evaluation, error) {
 	ev.Verdict = strings.ToLower(strings.TrimSpace(asString(loose["verdict"])))
 	ev.CompatScore = asInt(loose["compat_score"])
 	ev.ACVersionMatch = strings.ToLower(strings.TrimSpace(asString(loose["ac_version_match"])))
-	ev.FeaturesZH = firstNonEmpty(
-		asString(loose["features_zh"]),
-		asString(loose["features_en"]),
+	featZH := asString(loose["features_zh"])
+	featEN := asString(loose["features_en"])
+	featGeneric := firstNonEmpty(
 		asString(loose["feature_summary"]),
 		asString(loose["features"]),
-		asString(loose["description_zh"]),
-		asString(loose["description_en"]),
 		asString(loose["description"]),
 	)
+	descZH := asString(loose["description_zh"])
+	descEN := asString(loose["description_en"])
+	if isEvalEN(locale) {
+		ev.FeaturesZH = firstNonEmpty(
+			preferLatin(featEN), preferLatin(featGeneric), preferLatin(descEN),
+			featEN, featGeneric, descEN, featZH, descZH,
+		)
+	} else {
+		ev.FeaturesZH = firstNonEmpty(
+			preferCJK(featZH), preferCJK(descZH), preferCJK(featGeneric),
+			featZH, descZH, featGeneric,
+			// Intentionally omit features_en / description_en for Chinese UI.
+		)
+	}
 	ev.Summary = firstNonEmpty(asString(loose["summary"]), asString(loose["advice"]), asString(loose["recommendation"]))
-	ev.VersionNote = firstNonEmpty(
-		asString(loose["version_note"]),
-		asString(loose["version_note_zh"]),
-		asString(loose["version_note_en"]),
-	)
+	if isEvalEN(locale) {
+		ev.VersionNote = firstNonEmpty(
+			asString(loose["version_note_en"]),
+			asString(loose["version_note"]),
+			asString(loose["version_note_zh"]),
+		)
+	} else {
+		ev.VersionNote = firstNonEmpty(
+			asString(loose["version_note_zh"]),
+			asString(loose["version_note"]),
+			// skip version_note_en for zh UI
+		)
+	}
 	ev.NeedsRebuild = asBool(loose["needs_rebuild"], true)
 	ev.NeedsSQL = asBool(loose["needs_sql"], false)
 	ev.NeedsClientPatch = asBool(loose["needs_client_patch"], false)
@@ -470,6 +575,22 @@ func parseModelEvaluation(raw json.RawMessage) (*Evaluation, error) {
 		ev.Verdict = "caution"
 	}
 	return ev, nil
+}
+
+func preferCJK(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || mostlyLatin(s) {
+		return ""
+	}
+	return s
+}
+
+func preferLatin(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || mostlyCJK(s) {
+		return ""
+	}
+	return s
 }
 
 func asString(v any) string {
@@ -776,7 +897,7 @@ func buildRetrievalPack(in EvaluateInput) map[string]any {
 			"compat_score(0-100)只表示模块与本机核心/仓库证据的兼容性，不要因「已安装」大幅扣分或因「未探测到已装」加分",
 			"compat_score(0-100) measures module↔core/repo evidence only; do not slash score just because already installed, nor inflate it when inventory is missing"),
 		localeText(in.Locale,
-			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文建议）、compat_score、verdict(ok|caution|no)；若已安装可设 already_installed=true",
+			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文建议）、compat_score、verdict(ok|caution|no)；若已安装可设 already_installed=true；禁止用英文段落填写 features_zh/summary",
 			"Must provide features_en, summary, compat_score, verdict(ok|caution|no); set already_installed=true if the pack shows it is installed"),
 		localeText(in.Locale,
 			"ac_version_match 为 match|unknown|mismatch，并写 version_note",
@@ -825,7 +946,7 @@ already_installed, needs_rebuild, needs_sql, needs_client_patch,
 conflicts, issue_findings, risks, steps, missing_evidence, citations.
 Always fill features_en (or features), summary, and compat_score.`
 	}
-	return `你是 AzerothCore 模块兼容性顾问。所有说明文字使用简体中文。
+	return `你是 AzerothCore 模块兼容性顾问。所有面向用户的说明文字必须使用简体中文（features_zh、summary、version_note、risks、steps.title、issue_findings.summary 等），禁止用英文段落充数。
 只根据检索包判断。
 compat_score = 模块与本机核心 + 仓库证据（README / acore-module.json / Issues）的契合度，不是「要不要重装」的分。
 若 inventory_ok=false，不得把空的 installed 当成「什么都没装」，也不要臆造已装模块。
@@ -835,7 +956,7 @@ features_zh, summary, verdict(ok|caution|no), compat_score(0-100),
 ac_version_match(match|unknown|mismatch), version_note,
 already_installed, needs_rebuild, needs_sql, needs_client_patch,
 conflicts, issue_findings, risks, steps, missing_evidence, citations。
-务必填写 features_zh、summary 与 compat_score。`
+务必填写中文 features_zh、中文 summary 与 compat_score。即便 README 是英文，也要用中文概括功能，不要直接粘贴英文 README。`
 }
 
 func heuristicSteps(in EvaluateInput) []EvalStep {
@@ -893,7 +1014,7 @@ func evalCacheKey(in EvaluateInput) string {
 	if in.InventoryOK {
 		invFlag = "1"
 	}
-	fmt.Fprintf(h, "%s|%s|%s|%s|%s|inv%s|v6|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale, invFlag)
+	fmt.Fprintf(h, "%s|%s|%s|%s|%s|inv%s|v7|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale, invFlag)
 	for _, m := range in.Installed {
 		fmt.Fprintf(h, "%s@%s;", m.ID, m.Commit)
 	}
