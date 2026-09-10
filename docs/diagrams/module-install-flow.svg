@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" width="1200" height="780">
+  <defs>
+    <marker id="arrowA" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowB" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+    </marker>
+    <marker id="arrowC" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowE" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f97316"/>
+    </marker>
+    <marker id="arrowF" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowG" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+    <marker id="arrowH" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+    </marker>
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadowGlass" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+    <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei', sans-serif; }
+    .title { font-size: 30px; font-weight: 700; fill: #111827; }
+    .subtitle { font-size: 14px; font-weight: 500; fill: #6b7280; }
+    .section { font-size: 13px; font-weight: 700; fill: #2563eb; letter-spacing: 1.4px; }
+    .section-sub { font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    .node-title { font-size: 18px; font-weight: 700; fill: #111827; }
+    .node-sub { font-size: 12px; font-weight: 500; fill: #6b7280; }
+    .node-type { font-size: 12px; font-weight: 700; fill: #9ca3af; letter-spacing: 0.08em; }
+    .arrow-label { font-size: 12px; font-weight: 600; fill: #6b7280; }
+    .legend { font-size: 12px; font-weight: 500; fill: #6b7280; }
+    .footnote { font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    </style>
+  </defs>
+  <rect width="1200.0" height="780.0" fill="#ffffff"/>
+  <text x="600.0" y="56" text-anchor="middle" class="title">安装与检查点回退</text>
+  <text x="600.0" y="82" text-anchor="middle" class="subtitle">编译失败不必回退；切换镜像或执行 SQL 之后失败才整包倒回</text>
+  <path d="M 600.0,144.0 L 600.0,176.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 600.0,240.0 L 600.0,272.0" fill="none" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <path d="M 490.0,208.0 L 190.0,208.0 L 190.0,524.0" fill="none" stroke="#ef4444" stroke-width="2.4" marker-end="url(#arrowG)"/>
+  <path d="M 600.0,328.0 L 600.0,360.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 600.0,412.0 L 600.0,440.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 600.0,492.0 L 600.0,520.0" fill="none" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <path d="M 490.0,550.0 L 469.6,550.0 L 320.4,552.0 L 300.0,552.0" fill="none" stroke="#ef4444" stroke-width="2.4" marker-end="url(#arrowG)"/>
+  <path d="M 600.0,580.0 L 600.0,612.0" fill="none" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <path d="M 710.0,638.0 L 860.0,638.0" fill="none" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <path d="M 970.0,668.0 L 970.0,700.0" fill="none" stroke="#2563eb" stroke-width="2.4" marker-end="url(#arrowC)"/>
+  <path d="M 860.0,638.0 L 360.0,638.0 L 360.0,724.0" fill="none" stroke="#ef4444" stroke-width="2.4" marker-end="url(#arrowG)"/>
+  <rect x="490.0" y="88.0" width="220.0" height="56.0" rx="10.0" fill="#faf5ff" stroke="#d8b4fe" stroke-width="1.8"/>
+  <text x="600.0" y="106.0" text-anchor="middle" class="node-type">P2-A</text>
+  <text x="600.0" y="122.0" text-anchor="middle" class="node-title">DeepSeek 评估</text>
+  <path d="M 512.0 176.0 L 688.0 176.0 L 710.0 208.0 L 688.0 240.0 L 512.0 240.0 L 490.0 208.0 Z" fill="#fff7ed" stroke="#fed7aa" stroke-width="2.0" filter="url(#shadowSoft)"/>
+  <text x="600.0" y="194.0" text-anchor="middle" class="node-type">规则覆盖</text>
+  <text x="600.0" y="214.0" text-anchor="middle" class="node-title">verdict 允许？</text>
+  <rect x="490.0" y="272.0" width="220.0" height="56.0" rx="10.0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.8"/>
+  <text x="600.0" y="300.0" text-anchor="middle" class="node-title">打检查点包</text>
+  <text x="600.0" y="322.0" text-anchor="middle" class="node-sub">镜像 tag + 四库 + 清单</text>
+  <rect x="490.0" y="360.0" width="220.0" height="52.0" rx="10.0" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.8"/>
+  <text x="600.0" y="386.0" text-anchor="middle" class="node-title">clone 到 modules/</text>
+  <rect x="490.0" y="440.0" width="220.0" height="52.0" rx="10.0" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+  <text x="600.0" y="466.0" text-anchor="middle" class="node-title">重建 world 镜像</text>
+  <path d="M 512.0 520.0 L 688.0 520.0 L 710.0 550.0 L 688.0 580.0 L 512.0 580.0 L 490.0 550.0 Z" fill="#fff7ed" stroke="#fed7aa" stroke-width="2.0" filter="url(#shadowSoft)"/>
+  <text x="600.0" y="550.0" text-anchor="middle" class="node-title">编译成功？</text>
+  <rect x="80.0" y="524.0" width="220.0" height="56.0" rx="10.0" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.8"/>
+  <text x="190.0" y="552.0" text-anchor="middle" class="node-title">保留旧进程</text>
+  <text x="190.0" y="574.0" text-anchor="middle" class="node-sub">不必回退</text>
+  <rect x="490.0" y="612.0" width="220.0" height="52.0" rx="10.0" fill="#fef2f2" stroke="#fecaca" stroke-width="1.8"/>
+  <text x="600.0" y="638.0" text-anchor="middle" class="node-title">停服并切换新镜像</text>
+  <path d="M 882.0 608.0 L 1058.0 608.0 L 1080.0 638.0 L 1058.0 668.0 L 882.0 668.0 L 860.0 638.0 Z" fill="#fff7ed" stroke="#fed7aa" stroke-width="2.0" filter="url(#shadowSoft)"/>
+  <text x="970.0" y="638.0" text-anchor="middle" class="node-title">健康检查通过？</text>
+  <text x="970.0" y="660.0" text-anchor="middle" class="node-sub">info + debug</text>
+  <rect x="860.0" y="700.0" width="220.0" height="48.0" rx="10.0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.8"/>
+  <text x="970.0" y="724.0" text-anchor="middle" class="node-title">安装成功</text>
+  <rect x="80.0" y="700.0" width="280.0" height="48.0" rx="10.0" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.8"/>
+  <text x="220.0" y="724.0" text-anchor="middle" class="node-title">整包回退检查点</text>
+  <text x="220.0" y="746.0" text-anchor="middle" class="node-sub">镜像+SQL+文件</text>
+  <rect x="568.5" y="242.0" width="63" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="600.0" y="256.0" text-anchor="middle" class="arrow-label">允许 / 忽略</text>
+  <rect x="154.0" y="352.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="172.0" y="366.0" text-anchor="middle" class="arrow-label">no</text>
+  <rect x="582.0" y="412.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="600.0" y="426.0" text-anchor="middle" class="arrow-label">Job</text>
+  <rect x="377.0" y="521.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="395.0" y="535.0" text-anchor="middle" class="arrow-label">失败</text>
+  <rect x="582.0" y="582.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="600.0" y="596.0" text-anchor="middle" class="arrow-label">成功</text>
+  <rect x="952.0" y="670.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="970.0" y="684.0" text-anchor="middle" class="arrow-label">通过</text>
+  <rect x="324.0" y="667.0" width="36" height="20" rx="6" fill="#ffffff" opacity="0.94"/>
+  <text x="342.0" y="681.0" text-anchor="middle" class="arrow-label">失败</text>
+  <rect x="420.0" y="686.0" width="121" height="112" rx="10" fill="#ffffff" opacity="0.88"/>
+  <line x1="430.0" y1="700.0" x2="460.0" y2="700.0" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <text x="470.0" y="704.0" class="legend">主路径</text>
+  <line x1="430.0" y1="722.0" x2="460.0" y2="722.0" stroke="#10b981" stroke-width="2.4" marker-end="url(#arrowB)"/>
+  <text x="470.0" y="726.0" class="legend">会改运行中服务</text>
+  <line x1="430.0" y1="744.0" x2="460.0" y2="744.0" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#arrowA)"/>
+  <text x="470.0" y="748.0" class="legend">长任务</text>
+  <line x1="430.0" y1="766.0" x2="460.0" y2="766.0" stroke="#ef4444" stroke-width="2.4" marker-end="url(#arrowG)"/>
+  <text x="470.0" y="770.0" class="legend">失败分支</text>
+</svg>

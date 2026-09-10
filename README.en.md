@@ -87,6 +87,7 @@ The browser never talks to SOAP, MySQL, or Docker directly. Credentials stay ins
 
 - [Architecture](docs/architecture.md) (Chinese)
 - [Task list](docs/tasks.md) (Chinese)
+- [Module manager design (P2)](docs/module-manager.md) (Chinese)
 - [i18n notes](docs/i18n.md) (Chinese)
 - [简体中文 README](README.md)
 

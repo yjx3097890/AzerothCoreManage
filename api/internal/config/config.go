@@ -15,6 +15,9 @@ type Config struct {
 	Targets  []Target   `mapstructure:"targets"`
 	SOAP     SOAPPolicy `mapstructure:"soap"`
 	SOAPDeny []string   `mapstructure:"soap_deny"`
+	DeepSeek DeepSeek   `mapstructure:"deepseek"`
+	GitHub   GitHub     `mapstructure:"github"`
+	Modules  ModulesGlobal `mapstructure:"modules_global"`
 }
 
 type Panel struct {
@@ -25,14 +28,49 @@ type Panel struct {
 }
 
 type Target struct {
-	ID     string       `mapstructure:"id"`
-	Name   string       `mapstructure:"name"`
-	Docker Docker       `mapstructure:"docker"`
-	SOAP   SOAPEndpoint `mapstructure:"soap"`
-	MySQL  MySQL        `mapstructure:"mysql"`
-	Conf   ConfPaths    `mapstructure:"conf"`
-	Bots   Bots         `mapstructure:"bots"`
-	Backup Backup       `mapstructure:"backup"`
+	ID      string       `mapstructure:"id"`
+	Name    string       `mapstructure:"name"`
+	Docker  Docker       `mapstructure:"docker"`
+	SOAP    SOAPEndpoint `mapstructure:"soap"`
+	MySQL   MySQL        `mapstructure:"mysql"`
+	Conf    ConfPaths    `mapstructure:"conf"`
+	Bots    Bots         `mapstructure:"bots"`
+	Backup  Backup       `mapstructure:"backup"`
+	Modules Modules      `mapstructure:"modules"`
+}
+
+type DeepSeek struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+	Model   string `mapstructure:"model"`
+}
+
+type GitHub struct {
+	Token string `mapstructure:"token"`
+}
+
+// ModulesGlobal holds panel-side paths shared across targets (registry, caches).
+type ModulesGlobal struct {
+	RegistryPath  string `mapstructure:"registry_path"`
+	CacheDir      string `mapstructure:"cache_dir"`
+	CuratedPath   string `mapstructure:"curated_path"`
+}
+
+type Modules struct {
+	Enabled             bool     `mapstructure:"enabled"`
+	Deploy              string   `mapstructure:"deploy"` // docker | source
+	ModulesDir          string   `mapstructure:"modules_dir"`
+	ModulesList         string   `mapstructure:"modules_list"`
+	EtcModulesDir       string   `mapstructure:"etc_modules_dir"`
+	ComposeDir          string   `mapstructure:"compose_dir"`
+	WorldService        string   `mapstructure:"world_service"`
+	// CoreVersion / CoreRevision: last-resort when SOAP server info and AC_ROOT git are unavailable.
+	CoreVersion         string   `mapstructure:"core_version"`
+	CoreRevision        string   `mapstructure:"core_revision"`
+	AllowOwners         []string `mapstructure:"allow_owners"`
+	AllowedHosts        []string `mapstructure:"allowed_hosts"`
+	CheckpointKeep      int      `mapstructure:"checkpoint_keep"`
+	BuildTimeoutMinutes int      `mapstructure:"build_timeout_minutes"`
 }
 
 type Docker struct {
@@ -128,7 +166,74 @@ func Load(path string) (*Config, error) {
 	if len(cfg.Targets) == 0 {
 		return nil, fmt.Errorf("config.targets is empty")
 	}
+	applyModulesDefaults(&cfg)
 	return &cfg, nil
+}
+
+func applyModulesDefaults(cfg *Config) {
+	if cfg.DeepSeek.BaseURL == "" {
+		cfg.DeepSeek.BaseURL = "https://api.deepseek.com"
+	}
+	if cfg.DeepSeek.Model == "" || cfg.DeepSeek.Model == "${DEEPSEEK_MODEL}" {
+		cfg.DeepSeek.Model = "deepseek-v4-flash"
+	}
+	if cfg.DeepSeek.APIKey == "" {
+		cfg.DeepSeek.APIKey = os.Getenv("DEEPSEEK_API_KEY")
+	}
+	if cfg.GitHub.Token == "" {
+		cfg.GitHub.Token = os.Getenv("GITHUB_TOKEN")
+	}
+	if cfg.Modules.RegistryPath == "" {
+		cfg.Modules.RegistryPath = "../data/module-registry.json"
+	}
+	if cfg.Modules.CacheDir == "" {
+		cfg.Modules.CacheDir = "../data/module-cache"
+	}
+	for i := range cfg.Targets {
+		m := &cfg.Targets[i].Modules
+		if m.Deploy == "" {
+			m.Deploy = "docker"
+		}
+		if m.WorldService == "" {
+			m.WorldService = "ac-worldserver"
+		}
+		if len(m.AllowOwners) == 0 {
+			m.AllowOwners = []string{"azerothcore"}
+		}
+		if len(m.AllowedHosts) == 0 {
+			m.AllowedHosts = []string{"github.com"}
+		}
+		if m.CheckpointKeep <= 0 {
+			m.CheckpointKeep = 5
+		}
+		if m.BuildTimeoutMinutes <= 0 {
+			m.BuildTimeoutMinutes = 45
+		}
+		// Default Enabled=true when modules_dir is configured or AC_ROOT is set.
+		if !m.Enabled && (m.ModulesDir != "" || os.Getenv("AC_ROOT") != "") {
+			m.Enabled = true
+		}
+		if m.ModulesDir == "" {
+			if root := os.Getenv("AC_ROOT"); root != "" {
+				m.ModulesDir = filepath.Join(root, "modules")
+			}
+		}
+		if m.ModulesList == "" {
+			if root := os.Getenv("AC_ROOT"); root != "" {
+				m.ModulesList = filepath.Join(root, "conf", "modules.list")
+			}
+		}
+		if m.EtcModulesDir == "" {
+			if cfg.Targets[i].Conf.EtcDir != "" {
+				m.EtcModulesDir = filepath.Join(cfg.Targets[i].Conf.EtcDir, "modules")
+			}
+		}
+		if m.ComposeDir == "" {
+			if root := os.Getenv("AC_ROOT"); root != "" {
+				m.ComposeDir = root
+			}
+		}
+	}
 }
 
 func (c *Config) Target(id string) (*Target, error) {

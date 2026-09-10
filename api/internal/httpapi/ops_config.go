@@ -13,6 +13,7 @@ import (
 
 	"acmanage/internal/audit"
 	"acmanage/internal/config"
+	"acmanage/internal/modules"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,72 +38,16 @@ func (s *Server) listConfigFiles(c *gin.Context) {
 		}
 		files = append(files, entry)
 	}
+	// P2-A: etc/modules/*.conf
+	etcMods := rt.Cfg.Modules.EtcModulesDir
+	if etcMods == "" && rt.Cfg.Conf.EtcDir != "" {
+		etcMods = filepath.Join(rt.Cfg.Conf.EtcDir, "modules")
+	}
+	for _, mc := range modules.ListEtcModuleConfs(etcMods) {
+		entry := gin.H{"id": mc.ID, "path": mc.Path, "available": mc.Available, "size": mc.Size, "group": "modules"}
+		files = append(files, entry)
+	}
 	JSON(c, gin.H{"items": files})
-}
-
-func (s *Server) getConfigFile(c *gin.Context) {
-	rt, err := s.app.Target(TargetID(c))
-	if err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_target")
-		return
-	}
-	path, err := resolveConfFile(rt.Cfg.Conf, c.Param("id"))
-	if err != nil {
-		Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
-		return
-	}
-	if len(raw) > 2*1024*1024 {
-		Fail(c, http.StatusBadRequest, "bad_request", "file too large")
-		return
-	}
-	JSON(c, gin.H{"id": c.Param("id"), "path": path, "content": string(raw)})
-}
-
-func (s *Server) putConfigFile(c *gin.Context) {
-	rt, err := s.app.Target(TargetID(c))
-	if err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_target")
-		return
-	}
-	path, err := resolveConfFile(rt.Cfg.Conf, c.Param("id"))
-	if err != nil {
-		Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	var req struct {
-		Content string `json:"content"`
-		Confirm bool   `json:"confirm"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return
-	}
-	if !req.Confirm {
-		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
-		return
-	}
-	if len(req.Content) > 2*1024*1024 {
-		Fail(c, http.StatusBadRequest, "bad_request", "content too large")
-		return
-	}
-	bak := path + ".bak." + time.Now().Format("20060102-150405")
-	if raw, err := os.ReadFile(path); err == nil {
-		_ = os.WriteFile(bak, raw, 0o644)
-	}
-	if err := os.WriteFile(path, []byte(req.Content), 0o644); err != nil {
-		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
-		return
-	}
-	_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
-		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
-		Action: "conf.write", Detail: path, OK: true,
-	})
-	JSON(c, gin.H{"path": path, "backup": bak})
 }
 
 func (s *Server) createBackup(c *gin.Context) {
@@ -391,6 +336,88 @@ func resolveConfFile(conf config.ConfPaths, id string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("unknown conf id")
+}
+
+func (s *Server) getConfigFile(c *gin.Context) {
+	rt, err := s.app.Target(TargetID(c))
+	if err != nil {
+		FailCode(c, http.StatusBadRequest, "bad_target")
+		return
+	}
+	id := c.Param("id")
+	path, err := resolveConfFile(rt.Cfg.Conf, id)
+	if err != nil {
+		// try etc/modules
+		etcMods := rt.Cfg.Modules.EtcModulesDir
+		if etcMods == "" && rt.Cfg.Conf.EtcDir != "" {
+			etcMods = filepath.Join(rt.Cfg.Conf.EtcDir, "modules")
+		}
+		path, err = modules.ResolveModuleConf(etcMods, id)
+		if err != nil {
+			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
+		return
+	}
+	if len(raw) > 2*1024*1024 {
+		Fail(c, http.StatusBadRequest, "bad_request", "file too large")
+		return
+	}
+	JSON(c, gin.H{"id": id, "path": path, "content": string(raw)})
+}
+
+func (s *Server) putConfigFile(c *gin.Context) {
+	rt, err := s.app.Target(TargetID(c))
+	if err != nil {
+		FailCode(c, http.StatusBadRequest, "bad_target")
+		return
+	}
+	id := c.Param("id")
+	path, err := resolveConfFile(rt.Cfg.Conf, id)
+	if err != nil {
+		etcMods := rt.Cfg.Modules.EtcModulesDir
+		if etcMods == "" && rt.Cfg.Conf.EtcDir != "" {
+			etcMods = filepath.Join(rt.Cfg.Conf.EtcDir, "modules")
+		}
+		path, err = modules.ResolveModuleConf(etcMods, id)
+		if err != nil {
+			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+	}
+	var req struct {
+		Content string `json:"content"`
+		Confirm bool   `json:"confirm"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		FailCode(c, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if !req.Confirm {
+		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
+		return
+	}
+	if len(req.Content) > 2*1024*1024 {
+		Fail(c, http.StatusBadRequest, "bad_request", "content too large")
+		return
+	}
+	bak := path + ".bak." + time.Now().Format("20060102-150405")
+	if raw, err := os.ReadFile(path); err == nil {
+		_ = os.WriteFile(bak, raw, 0o644)
+	}
+	if err := os.WriteFile(path, []byte(req.Content), 0o644); err != nil {
+		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
+		return
+	}
+	_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
+		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+		Action: "conf.write", Detail: path, OK: true,
+	})
+	JSON(c, gin.H{"path": path, "backup": bak})
 }
 
 func updateConfKeys(path string, updates map[string]string) error {

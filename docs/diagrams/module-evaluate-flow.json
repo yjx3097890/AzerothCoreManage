@@ -1,0 +1,49 @@
+{
+  "style": 1,
+  "width": 1200,
+  "height": 720,
+  "title": "DeepSeek 评估数据流",
+  "subtitle": "先检索本机库存与 GitHub Issues，再让模型只基于检索包给出 JSON",
+  "containers": [
+    { "x": 40, "y": 100, "width": 1120, "height": 100, "label": "本机事实", "preserve_case": true },
+    { "x": 40, "y": 224, "width": 1120, "height": 100, "label": "仓库事实", "preserve_case": true },
+    { "x": 40, "y": 348, "width": 1120, "height": 88, "label": "检索包", "preserve_case": true },
+    { "x": 40, "y": 460, "width": 1120, "height": 168, "label": "评估与展示", "preserve_case": true }
+  ],
+  "nodes": [
+    { "id": "core", "kind": "rect", "x": 72, "y": 124, "width": 200, "height": 56, "label": "核心 revision", "sublabel": "server info", "fill": "#eff6ff", "stroke": "#bfdbfe", "flat": true },
+    { "id": "inst", "kind": "rect", "x": 336, "y": 124, "width": 240, "height": 56, "label": "已装模块+commit", "sublabel": "git / modules.list", "fill": "#f0fdf4", "stroke": "#bbf7d0", "flat": true },
+    { "id": "loaded", "kind": "rect", "x": 640, "y": 124, "width": 200, "height": 56, "label": "已加载列表", "sublabel": "server debug", "fill": "#eff6ff", "stroke": "#93c5fd", "flat": true },
+    { "id": "deploy", "kind": "rect", "x": 904, "y": 124, "width": 200, "height": 56, "label": "部署方式", "sublabel": "docker / source", "fill": "#f8fafc", "stroke": "#d1d5db", "flat": true },
+    { "id": "readme", "kind": "document", "x": 72, "y": 248, "width": 200, "height": 56, "label": "README", "fill": "#f8fafc", "stroke": "#d1d5db", "flat": true },
+    { "id": "acjson", "kind": "document", "x": 336, "y": 248, "width": 200, "height": 56, "label": "acore-module.json", "fill": "#f0fdf4", "stroke": "#bbf7d0", "flat": true },
+    { "id": "issues", "kind": "rect", "x": 600, "y": 248, "width": 240, "height": 56, "label": "GitHub Issues", "sublabel": "open + 近关闭 + 加权", "fill": "#fef2f2", "stroke": "#fecaca", "flat": true },
+    { "id": "tree", "kind": "folder", "x": 904, "y": 248, "width": 200, "height": 56, "label": "sql/ 与 conf.dist", "fill": "#fff7ed", "stroke": "#fed7aa", "flat": true },
+    { "id": "pack", "kind": "double_rect", "x": 400, "y": 364, "width": 400, "height": 56, "label": "检索包 JSON ≤ 48KiB", "type_label": "USER MESSAGE", "fill": "#faf5ff", "stroke": "#d8b4fe" },
+    { "id": "llm", "kind": "rect", "x": 120, "y": 500, "width": 240, "height": 72, "label": "DeepSeek", "sublabel": "v4-flash JSON Mode", "fill": "#faf5ff", "stroke": "#c084fc" },
+    { "id": "rule", "kind": "hexagon", "x": 480, "y": 504, "width": 240, "height": 64, "label": "Rule Overlay", "sublabel": "版本 / 白名单 / 证据", "fill": "#fff7ed", "stroke": "#fdba74" },
+    { "id": "ui", "kind": "rect", "x": 860, "y": 504, "width": 240, "height": 72, "label": "评估卡片", "sublabel": "verdict / Issues / 步骤", "fill": "#eff6ff", "stroke": "#93c5fd", "flat": true }
+  ],
+  "arrows": [
+    { "source": "core", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "read", "route_points": [[172, 180], [172, 350], [500, 350], [500, 364]] },
+    { "source": "inst", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "read", "route_points": [[456, 180], [456, 364]] },
+    { "source": "loaded", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "read", "route_points": [[740, 180], [740, 350], [700, 350], [700, 364]] },
+    { "source": "deploy", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "read", "route_points": [[1004, 180], [1004, 350], [760, 350], [760, 364]] },
+    { "source": "readme", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "data", "route_points": [[172, 304], [172, 350], [480, 350]] },
+    { "source": "acjson", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "data" },
+    { "source": "issues", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "data" },
+    { "source": "tree", "target": "pack", "source_port": "bottom", "target_port": "top", "flow": "data", "route_points": [[1004, 304], [1004, 350], [760, 350]] },
+    { "source": "pack", "target": "llm", "source_port": "bottom", "target_port": "top", "flow": "async", "label": "只据材料作答", "route_points": [[500, 420], [240, 420], [240, 500]] },
+    { "source": "llm", "target": "rule", "source_port": "right", "target_port": "left", "flow": "control", "label": "JSON" },
+    { "source": "rule", "target": "ui", "source_port": "right", "target_port": "left", "flow": "read", "label": "最终 verdict" }
+  ],
+  "legend": [
+    { "flow": "read", "label": "本机探测" },
+    { "flow": "data", "label": "GitHub 材料" },
+    { "flow": "async", "label": "模型调用" },
+    { "flow": "control", "label": "规则降级" }
+  ],
+  "legend_position": "bottom-left",
+  "legend_box": true,
+  "legend_y": 656
+}

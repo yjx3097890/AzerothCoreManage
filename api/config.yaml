@@ -37,6 +37,21 @@ targets:
       playerbots_conf: "${AC_ROOT}/conf/modules/playerbots.conf"
       worldserver_conf: "${AC_ROOT}/docker/vol/etc/worldserver.conf"
       authserver_conf: "${AC_ROOT}/docker/vol/etc/authserver.conf"
+    modules:
+      enabled: true
+      deploy: "${MODULES_DEPLOY}"
+      modules_dir: "${AC_ROOT}/modules"
+      modules_list: "${AC_ROOT}/conf/modules.list"
+      etc_modules_dir: "${AC_ROOT}/docker/vol/etc/modules"
+      compose_dir: "${AC_ROOT}"
+      world_service: ac-worldserver
+      # 保底：SOAP / git 都拿不到本机版本时使用（可只填 revision 短哈希）
+      core_version: "${AC_CORE_VERSION}"
+      core_revision: "${AC_CORE_REVISION}"
+      allow_owners:
+        - azerothcore
+      checkpoint_keep: 5
+      build_timeout_minutes: 45
     backup:
       dir: "../data/backups"
       mysqldump_path: "mysqldump"
@@ -47,6 +62,7 @@ soap:
   timeout_seconds: 10
   allow:
     - "server info"
+    - "server debug"
     - "server motd"
     - "server set motd"
     - "server restart"
@@ -114,3 +130,16 @@ soap_deny:
   - "playerbot rndbot revive"
   - "playerbot rndbot grind"
   - "server exit"
+
+deepseek:
+  api_key: "${DEEPSEEK_API_KEY}"
+  base_url: "https://api.deepseek.com"
+  model: "${DEEPSEEK_MODEL}"
+
+github:
+  token: "${GITHUB_TOKEN}"
+
+modules_global:
+  registry_path: "../data/module-registry.json"
+  cache_dir: "../data/module-cache"
+  curated_path: "data/modules/curated.json"

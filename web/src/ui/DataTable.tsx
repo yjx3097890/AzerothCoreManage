@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export type Column<T> = {
@@ -9,7 +9,13 @@ export type Column<T> = {
   render?: (value: unknown, record: T, index: number) => ReactNode
   width?: number | string
   className?: string
+  /** true = compare by dataIndex/sortValue; or provide a comparator */
+  sorter?: boolean | ((a: T, b: T) => number)
+  /** Value used when sorter === true */
+  sortValue?: (record: T) => string | number | null | undefined
 }
+
+type SortDir = 'asc' | 'desc'
 
 type Props<T> = {
   columns: Column<T>[]
@@ -19,6 +25,8 @@ type Props<T> = {
   pagination?: false | { pageSize?: number }
   size?: 'sm' | 'md'
   emptyText?: ReactNode
+  defaultSortKey?: string
+  defaultSortDir?: SortDir
 }
 
 function getByPath(obj: unknown, path: string): unknown {
@@ -30,6 +38,32 @@ function getByPath(obj: unknown, path: string): unknown {
   }, obj)
 }
 
+function compareValues(a: unknown, b: unknown): number {
+  if (a == null && b == null) return 0
+  if (a == null || a === '') return 1
+  if (b == null || b === '') return -1
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  const as = String(a)
+  const bs = String(b)
+  const an = Date.parse(as)
+  const bn = Date.parse(bs)
+  if (!Number.isNaN(an) && !Number.isNaN(bn) && /[-T:]/.test(as) && /[-T:]/.test(bs)) {
+    return an - bn
+  }
+  const na = Number(as)
+  const nb = Number(bs)
+  if (as.trim() !== '' && bs.trim() !== '' && !Number.isNaN(na) && !Number.isNaN(nb)) {
+    return na - nb
+  }
+  return as.localeCompare(bs, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+function resolveSortValue<T>(col: Column<T>, record: T): unknown {
+  if (col.sortValue) return col.sortValue(record)
+  if (col.dataIndex != null) return getByPath(record, String(col.dataIndex))
+  return undefined
+}
+
 export function DataTable<T>({
   columns,
   dataSource,
@@ -38,25 +72,65 @@ export function DataTable<T>({
   pagination = { pageSize: 20 },
   size = 'sm',
   emptyText,
+  defaultSortKey,
+  defaultSortDir = 'desc',
 }: Props<T>) {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
+  const [sortKey, setSortKey] = useState<string | null>(defaultSortKey ?? null)
+  const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir)
   const pageSize = pagination === false ? dataSource.length || 1 : (pagination.pageSize ?? 20)
 
-  const total = dataSource.length
+  useEffect(() => {
+    setPage(1)
+  }, [dataSource, sortKey, sortDir])
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return dataSource
+    const col = columns.find((c) => c.key === sortKey)
+    if (!col?.sorter) return dataSource
+    const rows = [...dataSource]
+    const dir = sortDir === 'asc' ? 1 : -1
+    rows.sort((a, b) => {
+      if (typeof col.sorter === 'function') {
+        return col.sorter(a, b) * dir
+      }
+      const va = resolveSortValue(col, a)
+      const vb = resolveSortValue(col, b)
+      const aEmpty = va == null || va === '' || va === -1
+      const bEmpty = vb == null || vb === '' || vb === -1
+      if (aEmpty && bEmpty) return 0
+      if (aEmpty) return 1
+      if (bEmpty) return -1
+      return compareValues(va, vb) * dir
+    })
+    return rows
+  }, [dataSource, columns, sortKey, sortDir])
+
+  const total = sorted.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1)
   const current = Math.min(page, totalPages)
 
   const pageRows = useMemo(() => {
-    if (pagination === false) return dataSource
+    if (pagination === false) return sorted
     const start = (current - 1) * pageSize
-    return dataSource.slice(start, start + pageSize)
-  }, [dataSource, current, pageSize, pagination])
+    return sorted.slice(start, start + pageSize)
+  }, [sorted, current, pageSize, pagination])
 
   const resolveKey = (record: T, index: number) => {
     if (typeof rowKey === 'function') return String(rowKey(record))
     const v = record[rowKey]
     return v == null ? String(index) : String(v)
+  }
+
+  const onHeaderClick = (col: Column<T>) => {
+    if (!col.sorter) return
+    if (sortKey !== col.key) {
+      setSortKey(col.key)
+      setSortDir(defaultSortDir)
+      return
+    }
+    setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
   }
 
   return (
@@ -70,11 +144,32 @@ export function DataTable<T>({
         <table className={`table table-zebra ${size === 'sm' ? 'table-sm' : ''} w-full`}>
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col.key} style={col.width ? { width: col.width } : undefined} className={col.className}>
-                  {col.title}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const active = sortKey === col.key
+                const marker = !col.sorter ? null : active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
+                return (
+                  <th
+                    key={col.key}
+                    style={col.width ? { width: col.width } : undefined}
+                    className={col.className}
+                  >
+                    {col.sorter ? (
+                      <button
+                        type="button"
+                        className={`btn btn-ghost btn-xs h-auto min-h-0 px-0 font-bold ${
+                          active ? 'text-primary' : ''
+                        }`}
+                        onClick={() => onHeaderClick(col)}
+                      >
+                        {col.title}
+                        <span className="opacity-60 font-normal">{marker}</span>
+                      </button>
+                    ) : (
+                      col.title
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>

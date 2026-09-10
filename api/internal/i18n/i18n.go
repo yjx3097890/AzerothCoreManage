@@ -25,6 +25,13 @@ var messages = map[Locale]map[string]string{
 		"bad_target":          "Unknown target realm",
 		"token":               "Failed to issue session token",
 		"forbidden":           "Insufficient permissions",
+		"confirm_required":    "Confirmation required",
+		"not_found":           "Not found",
+		"modules_path_unavailable": "Module path unavailable",
+		"evaluate_degraded":   "Evaluation degraded",
+		"github_rate_limited": "GitHub API rate limited",
+		"deepseek_unconfigured": "DeepSeek API key not configured",
+		"conf_error":          "Config file I/O failed",
 	},
 	ZH: {
 		"not_implemented":     "骨架占位，见 docs/tasks.md %s",
@@ -36,6 +43,13 @@ var messages = map[Locale]map[string]string{
 		"bad_target":          "未知的目标服务器",
 		"token":               "签发登录凭证失败",
 		"forbidden":           "权限不足",
+		"confirm_required":    "需要二次确认",
+		"not_found":           "未找到",
+		"modules_path_unavailable": "模块路径不可用",
+		"evaluate_degraded":   "评估降级",
+		"github_rate_limited": "GitHub API 限流",
+		"deepseek_unconfigured": "未配置 DeepSeek API Key",
+		"conf_error":          "配置文件读写失败",
 	},
 }
 

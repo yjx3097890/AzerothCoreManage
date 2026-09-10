@@ -1,6 +1,6 @@
 # 架构设计
 
-本文描述 AzerothCore + mod-playerbots 的 Web 管理端（Go + React）。范围仅 **P0 + P1**。World 内容编辑（生物 / 任务 / SmartAI）不做，交给 Keira3。
+本文描述 AzerothCore + mod-playerbots 的 Web 管理端（Go + React）。已落地范围为 **P0 + P1**。模块安装 / AI 评估 / 检查点回退见 [module-manager.md](./module-manager.md)（**P2 设计**，尚未实现）。World 内容编辑（生物 / 任务 / SmartAI）不做，交给 Keira3。
 
 ## 1. 目标与约束
 
@@ -30,8 +30,9 @@
     │                            acore_world / acore_playerbots
     ├── Docker SDK ───────────► docker.sock
     │                              启停 / 状态 / logs
-    └── Conf Adapter ──────────► 只读/受控写入已挂载的 conf 卷
-                                  （worldserver.conf / playerbots.conf）
+    ├── Conf Adapter ──────────► 只读/受控写入已挂载的 conf 卷
+    │                              （worldserver.conf / playerbots.conf / etc/modules）
+    └── Module Manager（P2）───► 目录、GitHub、DeepSeek 评估、检查点、编译编排
 ```
 
 浏览器永不直连 SOAP、MySQL 或 Docker。所有凭证留在 Go 进程内。
@@ -115,6 +116,8 @@ api/
     acmd/              命令白名单、二次确认、危险 playerbots 命令拦截
     i18n/              错误码多语言（zh-CN / en-US）
     httpapi/           Gin 路由与 handler
+    modules/           P2 目录、库存、评估、检查点、Job（设计见 module-manager.md）
+    deepseek/          P2 Chat Completions JSON Mode
 ```
 
 **写入规则**
@@ -145,6 +148,7 @@ api/
 | `/playerbots` | Bot 总览与调度 | P0 / P1 |
 | `/logs` | 容器日志 | P0 |
 | `/config` | conf 编辑 / 备份 | P1 |
+| `/modules` | 模块目录 / 评估 / 安装 / 回退 | P2 |
 | `/audit` | 操作审计 | P0 |
 | `/settings` | SOAP 控制台、Target、白名单 | P1 |
 
@@ -185,5 +189,5 @@ api/
 - Keira3 级 World 编辑
 - 依赖「当前选中单位」的 GM 命令
 - 网页指挥单个 Bot 打本（密语战术 `co/nc`）
-- 编译核心、安装模块（原调研 P2）
+- 运行时热加载 C++ 模块、按模块自动反向 SQL、保证编译一定成功（P2 用检查点回退，见 [module-manager.md](./module-manager.md)）
 - 多 Docker Engine / 远程 SSH 集群（需要时再扩展；当前假设一块 Docker Engine）

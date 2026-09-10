@@ -1,0 +1,43 @@
+{
+  "style": 1,
+  "width": 1200,
+  "height": 780,
+  "title": "安装与检查点回退",
+  "subtitle": "编译失败不必回退；切换镜像或执行 SQL 之后失败才整包倒回",
+  "nodes": [
+    { "id": "eval", "kind": "rect", "x": 490, "y": 88, "width": 220, "height": 56, "label": "DeepSeek 评估", "type_label": "P2-A", "fill": "#faf5ff", "stroke": "#d8b4fe", "flat": true },
+    { "id": "vcheck", "kind": "hexagon", "x": 490, "y": 176, "width": 220, "height": 64, "label": "verdict 允许？", "type_label": "规则覆盖", "fill": "#fff7ed", "stroke": "#fed7aa" },
+    { "id": "ckpt", "kind": "rect", "x": 490, "y": 272, "width": 220, "height": 56, "label": "打检查点包", "sublabel": "镜像 tag + 四库 + 清单", "fill": "#fff7ed", "stroke": "#fdba74", "flat": true },
+    { "id": "clone", "kind": "rect", "x": 490, "y": 360, "width": 220, "height": 52, "label": "clone 到 modules/", "fill": "#eff6ff", "stroke": "#bfdbfe", "flat": true },
+    { "id": "build", "kind": "rect", "x": 490, "y": 440, "width": 220, "height": 52, "label": "重建 world 镜像", "fill": "#eff6ff", "stroke": "#93c5fd", "flat": true },
+    { "id": "buildok", "kind": "hexagon", "x": 490, "y": 520, "width": 220, "height": 60, "label": "编译成功？", "fill": "#fff7ed", "stroke": "#fed7aa" },
+    { "id": "keep", "kind": "rect", "x": 80, "y": 524, "width": 220, "height": 56, "label": "保留旧进程", "sublabel": "不必回退", "fill": "#f0fdf4", "stroke": "#bbf7d0", "flat": true },
+    { "id": "switch", "kind": "rect", "x": 490, "y": 612, "width": 220, "height": 52, "label": "停服并切换新镜像", "fill": "#fef2f2", "stroke": "#fecaca", "flat": true },
+    { "id": "verify", "kind": "hexagon", "x": 860, "y": 608, "width": 220, "height": 60, "label": "健康检查通过？", "sublabel": "info + debug", "fill": "#fff7ed", "stroke": "#fed7aa" },
+    { "id": "ok", "kind": "rect", "x": 860, "y": 700, "width": 220, "height": 48, "label": "安装成功", "fill": "#f0fdf4", "stroke": "#86efac", "flat": true },
+    { "id": "rb", "kind": "rect", "x": 80, "y": 700, "width": 280, "height": 48, "label": "整包回退检查点", "sublabel": "镜像+SQL+文件", "fill": "#fef2f2", "stroke": "#fca5a5", "flat": true }
+  ],
+  "arrows": [
+    { "source": "eval", "target": "vcheck", "source_port": "bottom", "target_port": "top", "flow": "control" },
+    { "source": "vcheck", "target": "ckpt", "source_port": "bottom", "target_port": "top", "flow": "write", "label": "允许 / 忽略" },
+    { "source": "vcheck", "target": "keep", "source_port": "left", "target_port": "top", "flow": "feedback", "label": "no", "route_points": [[490, 208], [190, 208], [190, 524]] },
+    { "source": "ckpt", "target": "clone", "source_port": "bottom", "target_port": "top", "flow": "control" },
+    { "source": "clone", "target": "build", "source_port": "bottom", "target_port": "top", "flow": "async", "label": "Job" },
+    { "source": "build", "target": "buildok", "source_port": "bottom", "target_port": "top", "flow": "control" },
+    { "source": "buildok", "target": "keep", "source_port": "left", "target_port": "right", "flow": "feedback", "label": "失败" },
+    { "source": "buildok", "target": "switch", "source_port": "bottom", "target_port": "top", "flow": "write", "label": "成功" },
+    { "source": "switch", "target": "verify", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "verify", "target": "ok", "source_port": "bottom", "target_port": "top", "flow": "read", "label": "通过" },
+    { "source": "verify", "target": "rb", "source_port": "left", "target_port": "right", "flow": "feedback", "label": "失败", "route_points": [[860, 638], [360, 638], [360, 700]] }
+  ],
+  "legend": [
+    { "flow": "control", "label": "主路径" },
+    { "flow": "write", "label": "会改运行中服务" },
+    { "flow": "async", "label": "长任务" },
+    { "flow": "feedback", "label": "失败分支" }
+  ],
+  "legend_position": "bottom-left",
+  "legend_box": true,
+  "legend_x": 430,
+  "legend_y": 700
+}

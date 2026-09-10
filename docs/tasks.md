@@ -196,3 +196,36 @@
 
 - conf / playerbots.conf / mysqldump：远端游戏服需在 `.env` 的 `AC_ROOT` 等填可访问路径；本机无卷则对应功能返回不可用提示。
 - `setskill` / `learn` / 部分声望头衔写入：SOAP 需选中在线目标，面板仅保留只读与邮件发放类写入。
+
+---
+
+## P2 模块管理（设计已定，未实现）
+
+方案全文：[module-manager.md](./module-manager.md)。
+
+### P2-A 目录与评估
+
+- [x] P2-01 Target 配置与路径探测
+- [x] P2-02 Inventory（git 元数据 + modules.list）
+- [x] P2-03 SOAP `server debug` 解析 loaded
+- [x] P2-04 精选 JSON + Catalogue 缓存
+- [x] P2-05 登记 GitHub URL
+- [x] P2-06 GitHub 文件 + Issues 拉取与缓存
+- [x] P2-07 DeepSeek 评估 + Rule Overlay + 缓存
+- [x] P2-08 `etc/modules` conf 列入配置页
+- [x] P2-09 前端 `/modules` 目录 / 已装 / 评估 / Issues
+
+### P2-B 检查点
+
+- [ ] P2-10 检查点：四库 dump + modules.list + etc-modules 副本
+- [ ] P2-11 Docker 镜像 tag / 源码二进制指纹
+- [ ] P2-12 检查点列表与保留策略
+- [ ] P2-13 整包回退 Job
+
+### P2-C 安装编排
+
+- [ ] P2-14 安装 Job（clone、list、conf.dist、build、切换、verify）
+- [ ] P2-15 卸载 Job（删目录、重建；默认保留 SQL）
+- [ ] P2-16 Job 互斥、WS 日志、失败自动回退
+- [ ] P2-17 路径白名单与 SQL 拷贝约束
+- [ ] P2-18 审计与 i18n 错误码

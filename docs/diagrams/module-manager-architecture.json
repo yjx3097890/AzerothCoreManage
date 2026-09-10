@@ -1,0 +1,50 @@
+{
+  "style": 1,
+  "width": 1200,
+  "height": 760,
+  "title": "模块管理架构",
+  "subtitle": "浏览器只调面板 API；DeepSeek 只吃检索包，不执行安装",
+  "containers": [
+    { "x": 36, "y": 92, "width": 1128, "height": 84, "label": "界面", "preserve_case": true },
+    { "x": 36, "y": 196, "width": 1128, "height": 120, "label": "面板 API", "preserve_case": true },
+    { "x": 36, "y": 340, "width": 1128, "height": 104, "label": "外部服务", "preserve_case": true },
+    { "x": 36, "y": 468, "width": 1128, "height": 148, "label": "游戏服", "preserve_case": true }
+  ],
+  "nodes": [
+    { "id": "ui", "kind": "rect", "x": 470, "y": 110, "width": 260, "height": 48, "label": "/modules 模块页", "type_label": "REACT", "fill": "#eff6ff", "stroke": "#bfdbfe", "flat": true },
+    { "id": "http", "kind": "hexagon", "x": 56, "y": 226, "width": 168, "height": 60, "label": "Modules HTTP", "type_label": "GIN", "fill": "#eff6ff", "stroke": "#93c5fd" },
+    { "id": "inv", "kind": "rect", "x": 248, "y": 224, "width": 176, "height": 64, "label": "Inventory", "sublabel": "已装+版本+loaded", "fill": "#f0fdf4", "stroke": "#bbf7d0", "flat": true },
+    { "id": "evl", "kind": "double_rect", "x": 456, "y": 218, "width": 220, "height": 76, "label": "评估器 + 规则", "sublabel": "DeepSeek JSON Overlay", "fill": "#faf5ff", "stroke": "#d8b4fe" },
+    { "id": "ckpt", "kind": "rect", "x": 708, "y": 224, "width": 176, "height": 64, "label": "Checkpoint", "sublabel": "镜像+SQL+清单", "fill": "#fff7ed", "stroke": "#fed7aa", "flat": true },
+    { "id": "job", "kind": "rect", "x": 916, "y": 224, "width": 216, "height": 64, "label": "Job Runner", "sublabel": "clone / build / 回退", "fill": "#fff7ed", "stroke": "#fdba74", "flat": true },
+    { "id": "cat", "kind": "rect", "x": 56, "y": 364, "width": 176, "height": 56, "label": "Catalogue", "type_label": "官方目录", "fill": "#f8fafc", "stroke": "#d1d5db", "flat": true },
+    { "id": "gh", "kind": "rect", "x": 456, "y": 364, "width": 220, "height": 56, "label": "GitHub Issues", "sublabel": "README + acore-module.json", "fill": "#f8fafc", "stroke": "#d1d5db", "flat": true },
+    { "id": "ds", "kind": "rect", "x": 916, "y": 364, "width": 216, "height": 56, "label": "DeepSeek Chat", "type_label": "JSON MODE", "fill": "#faf5ff", "stroke": "#d8b4fe", "flat": true },
+    { "id": "mods", "kind": "rect", "x": 56, "y": 508, "width": 176, "height": 68, "label": "modules/ + list", "sublabel": "AC_ROOT", "fill": "#f0fdf4", "stroke": "#86efac", "flat": true },
+    { "id": "img", "kind": "rect", "x": 268, "y": 508, "width": 176, "height": 68, "label": "world 镜像", "sublabel": "acmanage-ckpt-*", "fill": "#fff7ed", "stroke": "#fdba74", "flat": true },
+    { "id": "sql", "kind": "cylinder", "x": 708, "y": 496, "width": 176, "height": 92, "label": "四库 MySQL", "sublabel": "mysqldump", "fill": "#e0f2fe", "stroke": "#7dd3fc" },
+    { "id": "soap", "kind": "rect", "x": 936, "y": 508, "width": 176, "height": 68, "label": "SOAP debug", "sublabel": "server info", "fill": "#eff6ff", "stroke": "#93c5fd", "flat": true }
+  ],
+  "arrows": [
+    { "source": "ui", "target": "http", "source_port": "left", "target_port": "top", "flow": "control", "label": "JWT", "route_points": [[470, 134], [140, 134], [140, 226]] },
+    { "source": "http", "target": "inv", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "inv", "target": "evl", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "evl", "target": "ckpt", "source_port": "right", "target_port": "left", "flow": "control" },
+    { "source": "ckpt", "target": "job", "source_port": "right", "target_port": "left", "flow": "async" },
+    { "source": "http", "target": "cat", "source_port": "bottom", "target_port": "top", "flow": "data" },
+    { "source": "evl", "target": "gh", "source_port": "bottom", "target_port": "top", "flow": "data" },
+    { "source": "evl", "target": "ds", "source_port": "bottom", "target_port": "top", "flow": "async", "label": "检索包", "route_points": [[676, 324], [1024, 324], [1024, 364]] },
+    { "source": "cat", "target": "mods", "source_port": "bottom", "target_port": "top", "flow": "read" },
+    { "source": "ckpt", "target": "sql", "source_port": "bottom", "target_port": "top", "flow": "write" }
+  ],
+  "legend": [
+    { "flow": "control", "label": "控制" },
+    { "flow": "read", "label": "只读探测" },
+    { "flow": "data", "label": "评估材料" },
+    { "flow": "write", "label": "检查点" },
+    { "flow": "async", "label": "Job / LLM" }
+  ],
+  "legend_position": "bottom-left",
+  "legend_box": true,
+  "legend_y": 640
+}

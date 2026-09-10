@@ -19,6 +19,7 @@
 | 公会 / 竞技场 / 拍卖 | 浏览与常用管理；拍卖行当前以浏览为主 |
 | 世界事件 / 禁用项 | 启停事件；disables 列表本地化展示 |
 | Playerbots | 概览、在线 Bot、rndbot、配置项、公会等 |
+| 模块（P2-A） | 精选目录、已装扫描、GitHub 登记、DeepSeek 评估、模块 conf |
 | 配置 / 备份 / SQL / 审计 | conf 编辑、备份、只读 SQL 浏览、操作审计 |
 | 多语言 | 面板 UI 中 / 英；游戏地名、职业、禁用原因等跟随语言 |
 
@@ -87,6 +88,7 @@ docker compose up -d --build
 
 - [架构设计](docs/architecture.md)
 - [任务列表](docs/tasks.md)
+- [模块管理方案（P2）](docs/module-manager.md)
 - [国际化说明](docs/i18n.md)
 - [English README](README.en.md)
 

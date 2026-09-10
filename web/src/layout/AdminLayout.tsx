@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { key: '/auctions', labelKey: 'nav.auctions' },
   { key: '/events', labelKey: 'nav.events' },
   { key: '/playerbots', labelKey: 'nav.playerbots' },
+  { key: '/modules', labelKey: 'nav.modules', minRole: 'gm' },
   { key: '/logs', labelKey: 'nav.logs', minRole: 'gm' },
   { key: '/config', labelKey: 'nav.config', minRole: 'superadmin' },
   { key: '/sql', labelKey: 'nav.sql', minRole: 'superadmin' },

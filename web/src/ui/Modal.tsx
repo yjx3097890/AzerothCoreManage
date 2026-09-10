@@ -70,7 +70,7 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative z-10 bg-base-100 text-base-content rounded-box shadow-2xl border border-base-300 w-full max-w-lg max-h-[min(90vh,720px)] overflow-y-auto p-6 ${className ?? ''}`}
+        className={`relative z-10 bg-base-100 text-base-content rounded-box shadow-2xl border border-base-300 w-full max-h-[min(90vh,720px)] overflow-y-auto p-6 ${className ?? 'max-w-lg'}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {title != null && <h3 className="font-bold text-lg mb-3">{title}</h3>}

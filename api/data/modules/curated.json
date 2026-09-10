@@ -1,0 +1,74 @@
+[
+  {
+    "id": "mod-transmog",
+    "owner_repo": "azerothcore/mod-transmog",
+    "url": "https://github.com/azerothcore/mod-transmog",
+    "name_zh": "幻化 (Transmog)",
+    "name_en": "Transmogrification",
+    "summary_zh": "装备外观幻化，常用美服/私服模块。",
+    "summary_en": "Gear appearance transmogrification.",
+    "tags": ["cosmetic", "popular"],
+    "known_risks_zh": "需重建核心；部分版本需客户端补丁。",
+    "known_risks_en": "Requires rebuild; some versions need client patches."
+  },
+  {
+    "id": "mod-ah-bot",
+    "owner_repo": "azerothcore/mod-ah-bot",
+    "url": "https://github.com/azerothcore/mod-ah-bot",
+    "name_zh": "拍卖行机器人",
+    "name_en": "Auction House Bot",
+    "summary_zh": "自动在拍卖行上架物品，填充经济。",
+    "summary_en": "Automatically stock the auction house.",
+    "tags": ["economy"],
+    "known_risks_zh": "会写 characters/world 相关表；注意与 Playerbots 经济叠加。",
+    "known_risks_en": "Touches AH tables; watch overlap with Playerbots economy."
+  },
+  {
+    "id": "mod-anticheat",
+    "owner_repo": "azerothcore/mod-anticheat",
+    "url": "https://github.com/azerothcore/mod-anticheat",
+    "name_zh": "反作弊",
+    "name_en": "Anticheat",
+    "summary_zh": "服务端反加速/飞行等检测。",
+    "summary_en": "Server-side speed/fly detection.",
+    "tags": ["security"],
+    "known_risks_zh": "误报可能；需按版本调参。",
+    "known_risks_en": "False positives possible; tune per revision."
+  },
+  {
+    "id": "mod-solocraft",
+    "owner_repo": "azerothcore/mod-solocraft",
+    "url": "https://github.com/azerothcore/mod-solocraft",
+    "name_zh": "单人副本缩放",
+    "name_en": "Solocraft",
+    "summary_zh": "按队伍人数缩放副本难度，方便单刷。",
+    "summary_en": "Scales dungeon difficulty by party size.",
+    "tags": ["gameplay"],
+    "known_risks_zh": "改变 blizzlike 体验；与某些难度脚本可能叠加。",
+    "known_risks_en": "Non-blizzlike; may stack with other difficulty scripts."
+  },
+  {
+    "id": "mod-eluna",
+    "owner_repo": "azerothcore/mod-eluna",
+    "url": "https://github.com/azerothcore/mod-eluna",
+    "name_zh": "Eluna Lua 引擎",
+    "name_en": "Eluna",
+    "summary_zh": "在服务端运行 Lua 脚本扩展玩法。",
+    "summary_en": "Embed Lua scripting in the server.",
+    "tags": ["scripting"],
+    "known_risks_zh": "与部分 C++ 模块冲突风险较高；编译依赖多。",
+    "known_risks_en": "Higher conflict risk with other C++ modules; heavier build deps."
+  },
+  {
+    "id": "mod-playerbots",
+    "owner_repo": "liyunfan1223/mod-playerbots",
+    "url": "https://github.com/liyunfan1223/mod-playerbots",
+    "name_zh": "Playerbots",
+    "name_en": "Playerbots",
+    "summary_zh": "AI 机器人队友；本面板已有专用管理页。",
+    "summary_en": "AI playerbots; this panel already has a dedicated page.",
+    "tags": ["bots"],
+    "known_risks_zh": "体量大、需独立库与 conf；安装前务必评估版本。",
+    "known_risks_en": "Large module; needs own DB and conf; check revision carefully."
+  }
+]

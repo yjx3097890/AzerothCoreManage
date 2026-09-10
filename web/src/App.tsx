@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage'
 import { LogsPage } from './pages/LogsPage'
 import { MailPage } from './pages/MailPage'
 import { ModerationPage } from './pages/ModerationPage'
+import { ModulesPage } from './pages/ModulesPage'
 import { PlayerbotsPage } from './pages/PlayerbotsPage'
 import { ServersPage } from './pages/ServersPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/auctions" element={<AuctionsPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/playerbots" element={<PlayerbotsPage />} />
+          <Route path="/modules" element={<ModulesPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/config" element={<ConfigPage />} />
           <Route

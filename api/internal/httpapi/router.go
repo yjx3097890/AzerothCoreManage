@@ -185,6 +185,19 @@ func (s *Server) Router() *gin.Engine {
 		authed.POST("/backup", RequireRole(RoleSuperAdmin), s.createBackup)
 		authed.GET("/sql", RequireRole(RoleSuperAdmin), s.sqlBrowser)
 		authed.POST("/soap/exec", RequireRole(RoleSuperAdmin), s.soapExec)
+
+		// P2-A module catalog / inventory / evaluate
+		authed.GET("/modules/catalog", s.listModulesCatalog)
+		authed.GET("/modules/installed", s.listModulesInstalled)
+		authed.GET("/modules/registry", s.listModulesRegistry)
+		authed.POST("/modules/registry", RequireRole(RoleSuperAdmin), s.postModulesRegistry)
+		authed.DELETE("/modules/registry/:id", RequireRole(RoleSuperAdmin), s.deleteModulesRegistry)
+		authed.GET("/modules/:id", s.getModule)
+		authed.POST("/modules/:id/evaluate", RequireRole(RoleGM), s.postModuleEvaluate)
+		authed.GET("/modules/:id/evaluate", RequireRole(RoleGM), s.getModuleEvaluate)
+		authed.GET("/modules/:id/issues", RequireRole(RoleGM), s.listModuleIssues)
+		authed.GET("/modules/:id/conf", RequireRole(RoleSuperAdmin), s.getModuleConf)
+		authed.PUT("/modules/:id/conf", RequireRole(RoleSuperAdmin), s.putModuleConf)
 	}
 
 	// WebSocket auth is handled inside the handler (token query / header).
