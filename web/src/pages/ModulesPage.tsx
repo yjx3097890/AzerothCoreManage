@@ -74,6 +74,8 @@ type Evaluation = {
   needs_rebuild: boolean
   needs_sql: boolean
   needs_client_patch: boolean
+  already_installed?: boolean
+  inventory_ok?: boolean
   conflicts: string[]
   issue_findings: { number: number; severity: string; summary: string }[]
   risks: string[]
@@ -86,6 +88,7 @@ type Evaluation = {
   core_version?: string
   core_revision?: string
   latest_commit_date?: string
+  module_id?: string
 }
 
 export function ModulesPage() {
@@ -112,6 +115,7 @@ export function ModulesPage() {
       rate_limited?: boolean
     }
     deepseek_configured?: boolean
+    inventory_ok?: boolean
     fetch_warning?: string
   } | null>(null)
   const [evaluating, setEvaluating] = useState(false)
@@ -178,6 +182,7 @@ export function ModulesPage() {
             rate_limited?: boolean
           }
           deepseek_configured?: boolean
+          inventory_ok?: boolean
           fetch_warning?: string
         }>(`/api/v1/modules/${encodeURIComponent(id)}/evaluate`, {
           method: 'POST',
@@ -215,6 +220,25 @@ export function ModulesPage() {
     setEvalOpen(false)
   }, [evaluating])
 
+  const installedKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const m of inventory?.items || []) {
+      if (m.id) keys.add(m.id.toLowerCase())
+      if (m.dirname) keys.add(m.dirname.toLowerCase())
+      if (m.owner_repo) keys.add(m.owner_repo.toLowerCase())
+    }
+    return keys
+  }, [inventory])
+
+  const isInstalledRow = useCallback(
+    (id?: string, fullName?: string) => {
+      if (id && installedKeys.has(id.toLowerCase())) return true
+      if (fullName && installedKeys.has(fullName.toLowerCase())) return true
+      return false
+    },
+    [installedKeys],
+  )
+
   const catalogColumns: Column<CatalogItem>[] = useMemo(
     () => [
       {
@@ -222,16 +246,24 @@ export function ModulesPage() {
         title: t('modules.colName'),
         sorter: true,
         sortValue: (row) => (zh ? row.name_zh || row.id : row.name_en || row.id),
-        render: (_v, row) => (
-          <div>
-            <div>{zh ? row.name_zh || row.id : row.name_en || row.id}</div>
-            {(zh ? row.summary_zh : row.summary_en) && (
-              <div className="text-xs text-base-content/50 line-clamp-1">
-                {zh ? row.summary_zh : row.summary_en}
+        render: (_v, row) => {
+          const installed = isInstalledRow(row.id, row.full_name)
+          return (
+            <div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span>{zh ? row.name_zh || row.id : row.name_en || row.id}</span>
+                {installed && (
+                  <span className="badge badge-success badge-sm">{t('modules.installedBadge')}</span>
+                )}
               </div>
-            )}
-          </div>
-        ),
+              {(zh ? row.summary_zh : row.summary_en) && (
+                <div className="text-xs text-base-content/50 line-clamp-1">
+                  {zh ? row.summary_zh : row.summary_en}
+                </div>
+              )}
+            </div>
+          )
+        },
       },
       {
         key: 'repo',
@@ -284,7 +316,7 @@ export function ModulesPage() {
         ),
       },
     ],
-    [t, zh, runEvaluate],
+    [t, zh, runEvaluate, isInstalledRow],
   )
 
   const installedColumns: Column<InstalledModule>[] = useMemo(
@@ -378,18 +410,6 @@ export function ModulesPage() {
         </button>
       </div>
 
-      {inventory?.core?.version && (
-        <div className="alert text-sm mb-4 py-2">
-          <span>
-            {t('modules.core')}: {inventory.core.version}
-            {inventory.core.revision ? ` · ${inventory.core.revision}` : ''}
-            {inventory.core.deploy ? ` · ${inventory.core.deploy}` : ''}
-            {inventory.core.source ? ` · ${inventory.core.source}` : ''}
-            {inventory.paths?.modules_dir_ok === false ? ` · ${t('modules.modulesDirMissing')}` : ''}
-          </span>
-        </div>
-      )}
-
       <Tabs
         activeKey={tab}
         onChange={setTab}
@@ -460,7 +480,12 @@ export function ModulesPage() {
                   {registry.map((r) => (
                     <li key={r.id} className="flex flex-row items-center gap-2 px-2">
                       <button type="button" className="flex-1 text-left" onClick={() => void runEvaluate(r.id)}>
-                        <span className="font-medium">{r.id}</span>
+                        <span className="font-medium inline-flex items-center gap-1.5">
+                          {r.id}
+                          {isInstalledRow(r.id, r.owner_repo) && (
+                            <span className="badge badge-success badge-sm">{t('modules.installedBadge')}</span>
+                          )}
+                        </span>
                         <span className="text-xs opacity-60">{r.owner_repo}</span>
                       </button>
                       {hasMinRole('superadmin') && (
@@ -531,10 +556,16 @@ export function ModulesPage() {
                     <span className="badge badge-ghost badge-sm">
                       {t('modules.versionMatch')}: {versionMatchLabel(ev.ac_version_match)}
                     </span>
+                    {(ev.already_installed || isInstalledRow(ev.module_id || selected || undefined, evalResult.material.owner_repo)) && (
+                      <span className="badge badge-success badge-sm">{t('modules.alreadyInstalled')}</span>
+                    )}
                     {ev.degraded && (
                       <span className="badge badge-warning badge-sm">{t('modules.degraded')}</span>
                     )}
                   </div>
+                  {(ev.inventory_ok === false || evalResult.inventory_ok === false) && (
+                    <p className="text-xs text-warning m-0">{t('modules.inventoryPartial')}</p>
+                  )}
                   <div className="h-1.5 w-full rounded-full bg-base-300 overflow-hidden">
                     <div className={`h-full ${barColor}`} style={{ width: `${score}%` }} />
                   </div>

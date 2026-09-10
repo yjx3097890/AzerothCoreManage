@@ -576,7 +576,10 @@
     "conf": "Config",
     "saveConf": "Save module config",
     "core": "Core",
-    "modulesDirMissing": "modules directory not reachable"
+    "modulesDirMissing": "modules directory not reachable",
+    "installedBadge": "Installed",
+    "alreadyInstalled": "Already installed",
+    "inventoryPartial": "Local modules/ unread: score excludes install conflicts (may differ from production)"
   },
   "guilds": {
     "search": "Search guild",

@@ -24,6 +24,8 @@ type Evaluation struct {
 	NeedsRebuild     bool           `json:"needs_rebuild"`
 	NeedsSQL         bool           `json:"needs_sql"`
 	NeedsClientPatch bool           `json:"needs_client_patch"`
+	AlreadyInstalled bool           `json:"already_installed,omitempty"`
+	InventoryOK      bool           `json:"inventory_ok"`
 	Conflicts        []string       `json:"conflicts"`
 	IssueFindings    []IssueFinding `json:"issue_findings"`
 	Risks            []string       `json:"risks"`
@@ -56,19 +58,20 @@ type EvalStep struct {
 }
 
 type EvaluateInput struct {
-	Locale       string
-	ModuleID     string
-	OwnerRepo    string
-	Ref          string
-	AllowOwners  []string
-	Core         CoreInfo
-	Installed    []InstalledModule
-	Material     *RepoMaterial
+	Locale           string
+	ModuleID         string
+	OwnerRepo        string
+	Ref              string
+	AllowOwners      []string
+	Core             CoreInfo
+	Installed        []InstalledModule
+	InventoryOK      bool // false when modules_dir is not readable — do not treat Installed as authoritative empty
+	Material         *RepoMaterial
 	CuratedSummaryZH string
 	CuratedSummaryEN string
-	DS           *deepseek.Client
-	CacheDir     string
-	Force        bool
+	DS               *deepseek.Client
+	CacheDir         string
+	Force            bool
 }
 
 func Evaluate(ctx context.Context, in EvaluateInput) (*Evaluation, error) {
@@ -83,6 +86,7 @@ func Evaluate(ctx context.Context, in EvaluateInput) (*Evaluation, error) {
 		Verdict:         "caution",
 		ACVersionMatch:  "unknown",
 		NeedsRebuild:    true,
+		InventoryOK:     in.InventoryOK,
 		Conflicts:       []string{},
 		IssueFindings:   []IssueFinding{},
 		Risks:           []string{},
@@ -124,6 +128,12 @@ func Evaluate(ctx context.Context, in EvaluateInput) (*Evaluation, error) {
 		ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
 			"未能探测本机 AzerothCore 版本（SOAP server info / AC_ROOT git 不可用），版本匹配只能标为未知",
 			"Local AzerothCore version could not be detected (SOAP / AC_ROOT git unavailable); version match stays unknown"))
+	}
+	if !in.InventoryOK {
+		ev.MissingEvidence = appendUnique(ev.MissingEvidence, "local_modules_inventory")
+		ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
+			"本机 modules 目录不可访问：评分仅基于仓库材料与核心版本，未计入已装模块冲突（与能读到 modules 的环境分数可能不同）",
+			"Local modules directory is unreachable: score is based on repo evidence + core only; installed conflicts are not applied (scores may differ from hosts that can read modules/)"))
 	}
 	if len(in.Material.SQLPaths) > 0 {
 		ev.NeedsSQL = true
@@ -228,18 +238,22 @@ func applyHeuristicBaseline(ev *Evaluation, in EvaluateInput) {
 			"仓库 owner 不在 allow_owners 白名单（可超管强装，但需更谨慎）",
 			"Repo owner is not in allow_owners (superadmin can still force-install, but be careful)"))
 	}
-	// soft conflict hints
-	for _, m := range in.Installed {
-		if strings.EqualFold(m.ID, in.ModuleID) {
-			ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
-				"本机已安装同名目录 "+m.ID+"（commit "+m.Commit+"），重复安装会覆盖/冲突",
-				"Same module directory already installed locally: "+m.ID+" (commit "+m.Commit+"); reinstall may overwrite/conflict"))
-			score -= 5
-		}
-		if (strings.Contains(strings.ToLower(in.ModuleID), "eluna") || strings.Contains(strings.ToLower(in.OwnerRepo), "eluna")) &&
-			strings.Contains(strings.ToLower(m.ID), "eluna") {
-			ev.Conflicts = appendUnique(ev.Conflicts, m.ID+": "+localeText(in.Locale, "可能与 Eluna 类模块重复", "possible duplicate with Eluna-class module"))
-			score -= 10
+	// Local install state: informational. Compat score stays about module↔core/evidence.
+	if in.InventoryOK {
+		for _, m := range in.Installed {
+			sameID := strings.EqualFold(m.ID, in.ModuleID)
+			sameRepo := m.OwnerRepo != "" && strings.EqualFold(m.OwnerRepo, in.OwnerRepo)
+			if sameID || sameRepo {
+				ev.AlreadyInstalled = true
+				ev.Risks = appendUnique(ev.Risks, localeText(in.Locale,
+					"本机已安装 "+m.ID+"（commit "+m.Commit+"）：兼容分仍按模块与核心评估，重复安装会覆盖目录",
+					"Already installed locally as "+m.ID+" (commit "+m.Commit+"): compat score still reflects module↔core; reinstall would overwrite the directory"))
+			}
+			if (strings.Contains(strings.ToLower(in.ModuleID), "eluna") || strings.Contains(strings.ToLower(in.OwnerRepo), "eluna")) &&
+				strings.Contains(strings.ToLower(m.ID), "eluna") && !sameID {
+				ev.Conflicts = appendUnique(ev.Conflicts, m.ID+": "+localeText(in.Locale, "可能与 Eluna 类模块重复", "possible duplicate with Eluna-class module"))
+				score -= 8
+			}
 		}
 	}
 	if score < 0 {
@@ -250,11 +264,14 @@ func applyHeuristicBaseline(ev *Evaluation, in EvaluateInput) {
 	}
 	ev.CompatScore = score
 	switch {
-	case score >= 75 && len(ev.IssueFindings) == 0:
+	case score >= 75 && len(ev.IssueFindings) == 0 && len(ev.Conflicts) == 0:
 		ev.Verdict = "ok"
 	case score < 40 || match == "mismatch":
 		ev.Verdict = "no"
 	default:
+		ev.Verdict = "caution"
+	}
+	if ev.AlreadyInstalled && ev.Verdict == "ok" {
 		ev.Verdict = "caution"
 	}
 }
@@ -388,6 +405,7 @@ func mergeModelEval(dst, src *Evaluation) {
 	dst.NeedsRebuild = src.NeedsRebuild || dst.NeedsRebuild
 	dst.NeedsSQL = src.NeedsSQL || dst.NeedsSQL
 	dst.NeedsClientPatch = src.NeedsClientPatch || dst.NeedsClientPatch
+	dst.AlreadyInstalled = dst.AlreadyInstalled || src.AlreadyInstalled
 	if len(src.Conflicts) > 0 {
 		dst.Conflicts = src.Conflicts
 	}
@@ -441,6 +459,7 @@ func parseModelEvaluation(raw json.RawMessage) (*Evaluation, error) {
 	ev.NeedsRebuild = asBool(loose["needs_rebuild"], true)
 	ev.NeedsSQL = asBool(loose["needs_sql"], false)
 	ev.NeedsClientPatch = asBool(loose["needs_client_patch"], false)
+	ev.AlreadyInstalled = asBool(loose["already_installed"], false)
 	ev.Conflicts = asStringList(loose["conflicts"])
 	ev.Risks = asStringList(loose["risks"])
 	ev.MissingEvidence = asStringList(loose["missing_evidence"])
@@ -617,6 +636,20 @@ func applyRuleOverlay(ev *Evaluation, in EvaluateInput) {
 	if ev.Verdict == "" {
 		ev.Verdict = "caution"
 	}
+	if in.InventoryOK {
+		for _, m := range in.Installed {
+			if strings.EqualFold(m.ID, in.ModuleID) || (m.OwnerRepo != "" && strings.EqualFold(m.OwnerRepo, in.OwnerRepo)) {
+				ev.AlreadyInstalled = true
+				break
+			}
+		}
+	} else {
+		// Model may invent conflicts when inventory is empty — drop them.
+		ev.Conflicts = []string{}
+	}
+	if ev.AlreadyInstalled && ev.Verdict == "ok" {
+		ev.Verdict = "caution"
+	}
 }
 
 func matchACoreVersion(locale, acJSON, revision, version string) (string, string) {
@@ -707,10 +740,12 @@ func collectVersions(v any, out *[]string) {
 
 func buildRetrievalPack(in EvaluateInput) map[string]any {
 	installed := []map[string]any{}
-	for _, m := range in.Installed {
-		installed = append(installed, map[string]any{
-			"id": m.ID, "commit": m.Commit, "branch": m.Branch, "owner_repo": m.OwnerRepo,
-		})
+	if in.InventoryOK {
+		for _, m := range in.Installed {
+			installed = append(installed, map[string]any{
+				"id": m.ID, "commit": m.Commit, "branch": m.Branch, "owner_repo": m.OwnerRepo,
+			})
+		}
 	}
 	issues := []map[string]any{}
 	for _, iss := range in.Material.Issues {
@@ -729,18 +764,26 @@ func buildRetrievalPack(in EvaluateInput) map[string]any {
 			"本机核心版本未能自动探测（非用户未提供）；ac_version_match 请标 unknown，并在 version_note 说明需先确认 SOAP/AC_ROOT",
 			"Local core version could not be auto-detected (not that the user omitted it); set ac_version_match to unknown and explain SOAP/AC_ROOT in version_note")
 	}
+	invNote := ""
+	if !in.InventoryOK {
+		invNote = localeText(in.Locale,
+			"本机 modules 目录不可读：installed 为空不代表未安装任何模块。compat_score 只评模块与核心/仓库证据，不要因「已装列表为空」加分或假设无冲突。",
+			"Local modules/ is unreadable: empty installed does NOT mean nothing is installed. Score module↔core/repo evidence only; do not boost score or assume no conflicts because installed is empty.")
+	}
 	rules := []string{
 		localeText(in.Locale, "只根据本 JSON 作答，不要用训练记忆补安装命令", "Answer only from this JSON; do not invent install commands from training memory"),
 		localeText(in.Locale,
-			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文安装/兼容建议）、compat_score(0-100)、verdict(ok|caution|no)",
-			"Must provide features_en (2-4 English sentences on what the module does), summary (2-4 English install/compat advice sentences), compat_score(0-100), verdict(ok|caution|no)"),
+			"compat_score(0-100)只表示模块与本机核心/仓库证据的兼容性，不要因「已安装」大幅扣分或因「未探测到已装」加分",
+			"compat_score(0-100) measures module↔core/repo evidence only; do not slash score just because already installed, nor inflate it when inventory is missing"),
 		localeText(in.Locale,
-			"ac_version_match 为 match|unknown|mismatch，并写 version_note 解释（中文）",
-			"ac_version_match must be match|unknown|mismatch, with an English version_note"),
+			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文建议）、compat_score、verdict(ok|caution|no)；若已安装可设 already_installed=true",
+			"Must provide features_en, summary, compat_score, verdict(ok|caution|no); set already_installed=true if the pack shows it is installed"),
 		localeText(in.Locale,
-			"risks/conflicts 等说明文字用中文",
-			"Write risks/conflicts text in English"),
-		localeText(in.Locale, "已安装模块可能冲突时写进 conflicts", "Put possible conflicts with installed modules into conflicts"),
+			"ac_version_match 为 match|unknown|mismatch，并写 version_note",
+			"ac_version_match must be match|unknown|mismatch with version_note"),
+		localeText(in.Locale,
+			"仅当 inventory_ok=true 且 installed 里有明确冲突时才写 conflicts",
+			"Only fill conflicts when inventory_ok=true and installed lists a clear conflict"),
 		"Output must be JSON only",
 	}
 	return map[string]any{
@@ -749,7 +792,9 @@ func buildRetrievalPack(in EvaluateInput) map[string]any {
 			"version": in.Core.Version, "revision": in.Core.Revision, "deploy": in.Core.Deploy,
 			"note":    coreNote,
 		},
-		"installed": installed,
+		"inventory_ok":     in.InventoryOK,
+		"inventory_note":   invNote,
+		"installed":        installed,
 		"target_module": map[string]any{
 			"repo": in.OwnerRepo, "url": "https://github.com/" + in.OwnerRepo, "ref": in.Ref,
 			"curated_summary_zh": in.CuratedSummaryZH,
@@ -768,35 +813,29 @@ func buildRetrievalPack(in EvaluateInput) map[string]any {
 
 func evalSystemPrompt(locale string) string {
 	if isEvalEN(locale) {
-		return `You are an AzerothCore module installation advisor. Write ALL human-readable strings in English.
-Judge compatibility, risks, and install steps ONLY from the user retrieval pack.
+		return `You are an AzerothCore module compatibility advisor. Write ALL human-readable strings in English.
+Judge ONLY from the retrieval pack.
+compat_score = how well the module fits the local core + repo evidence (README, acore-module.json, issues). It is NOT a "should reinstall" score.
+If inventory_ok is false, ignore empty installed lists and do not invent installed modules.
+If the module is already installed, set already_installed=true and mention it in summary/risks, but do not crush compat_score for that alone.
 Return JSON with at least:
-features_en (string, 2-4 English sentences describing what the module does),
-summary (string, clear English compatibility/install advice),
-verdict (ok|caution|no),
-compat_score (integer 0-100),
-ac_version_match (match|unknown|mismatch),
-version_note (English string),
-needs_rebuild, needs_sql, needs_client_patch,
-conflicts (array), issue_findings ([{number,severity,summary}]),
-risks (array), steps ([{title,command,phase,source}]),
-missing_evidence (array), citations (array).
-Always fill features_en (or features), summary, and compat_score; do not leave them empty or 0.`
+features_en, summary, verdict (ok|caution|no), compat_score (0-100),
+ac_version_match (match|unknown|mismatch), version_note,
+already_installed, needs_rebuild, needs_sql, needs_client_patch,
+conflicts, issue_findings, risks, steps, missing_evidence, citations.
+Always fill features_en (or features), summary, and compat_score.`
 	}
-	return `你是 AzerothCore 模块安装顾问。所有说明文字使用简体中文。
-只根据用户提供的检索包判断兼容性、风险与安装步骤。
+	return `你是 AzerothCore 模块兼容性顾问。所有说明文字使用简体中文。
+只根据检索包判断。
+compat_score = 模块与本机核心 + 仓库证据（README / acore-module.json / Issues）的契合度，不是「要不要重装」的分。
+若 inventory_ok=false，不得把空的 installed 当成「什么都没装」，也不要臆造已装模块。
+若模块已安装：already_installed=true，在 summary/risks 提示即可，不要仅因此大幅扣 compat_score。
 必须输出 JSON，字段至少包含:
-features_zh(字符串, 中文功能说明：这个模块做什么，2-4句),
-summary(字符串, 明确兼容/安装建议),
-verdict(ok|caution|no),
-compat_score(0-100整数),
-ac_version_match(match|unknown|mismatch),
-version_note(字符串),
-needs_rebuild, needs_sql, needs_client_patch,
-conflicts(数组), issue_findings([{number,severity,summary}]),
-risks(数组), steps([{title,command,phase,source}]),
-missing_evidence(数组), citations(数组)。
-务必填写 features_zh、summary 与 compat_score，不要都留空或0。`
+features_zh, summary, verdict(ok|caution|no), compat_score(0-100),
+ac_version_match(match|unknown|mismatch), version_note,
+already_installed, needs_rebuild, needs_sql, needs_client_patch,
+conflicts, issue_findings, risks, steps, missing_evidence, citations。
+务必填写 features_zh、summary 与 compat_score。`
 }
 
 func heuristicSteps(in EvaluateInput) []EvalStep {
@@ -850,7 +889,11 @@ func evalCacheKey(in EvaluateInput) string {
 	if isEvalEN(in.Locale) {
 		locale = "en"
 	}
-	fmt.Fprintf(h, "%s|%s|%s|%s|%s|v5|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale)
+	invFlag := "0"
+	if in.InventoryOK {
+		invFlag = "1"
+	}
+	fmt.Fprintf(h, "%s|%s|%s|%s|%s|inv%s|v6|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale, invFlag)
 	for _, m := range in.Installed {
 		fmt.Fprintf(h, "%s@%s;", m.ID, m.Commit)
 	}

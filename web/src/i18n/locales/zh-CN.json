@@ -680,6 +680,9 @@
     "conf": "配置",
     "saveConf": "保存模块配置",
     "core": "核心",
-    "modulesDirMissing": "modules 目录不可访问"
+    "modulesDirMissing": "modules 目录不可访问",
+    "installedBadge": "已安装",
+    "alreadyInstalled": "本机已安装",
+    "inventoryPartial": "本机 modules 不可读：兼容分未计入已装冲突，与线上可能不同"
   }
 }

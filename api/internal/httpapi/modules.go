@@ -365,6 +365,7 @@ func (s *Server) doEvaluate(c *gin.Context, rt *app.TargetRuntime, moduleID, own
 		AllowOwners:      paths.AllowOwners,
 		Core:             inv.Core,
 		Installed:        inv.Items,
+		InventoryOK:      paths.ModulesDirOK,
 		Material:         mat,
 		CuratedSummaryZH: curatedZH,
 		CuratedSummaryEN: curatedEN,
@@ -396,6 +397,7 @@ func (s *Server) doEvaluate(c *gin.Context, rt *app.TargetRuntime, moduleID, own
 			"has_readme":         strings.TrimSpace(mat.Readme) != "",
 			"has_acore_json":     strings.TrimSpace(mat.ACoreModuleJSON) != "",
 		},
+		"inventory_ok":        paths.ModulesDirOK,
 		"deepseek_configured": ds.Configured(),
 	}
 	if fetchErr != nil {
