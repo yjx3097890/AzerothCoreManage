@@ -132,6 +132,53 @@ func TestIsJunkFeatureBlurb(t *testing.T) {
 	}
 }
 
+func TestApplyRuleOverlayIgnoresModelAlreadyInstalled(t *testing.T) {
+	ev := &Evaluation{
+		Verdict:          "ok",
+		AlreadyInstalled: true,
+		Summary:          "本机已安装该模块。可以继续评估兼容性。",
+		Risks:            []string{"本机已安装 mod-ah-bot（commit abc）", "需重建核心"},
+		FeaturesZH:       "自动在拍卖行上架物品，填充服务器经济。",
+		CompatScore:      80,
+	}
+	applyRuleOverlay(ev, EvaluateInput{
+		ModuleID:    "mod-ah-bot",
+		OwnerRepo:   "azerothcore/mod-ah-bot",
+		InventoryOK: true,
+		Installed: []InstalledModule{
+			{ID: "mod-playerbots", OwnerRepo: "liyunfan1223/mod-playerbots", Commit: "deadbeef"},
+		},
+		Material: &RepoMaterial{Readme: "x", HasCMake: true},
+	})
+	if ev.AlreadyInstalled {
+		t.Fatal("expected already_installed=false when inventory has only playerbots")
+	}
+	for _, r := range ev.Risks {
+		if claimsAlreadyInstalled(r) {
+			t.Fatalf("risk still claims install: %q", r)
+		}
+	}
+	if claimsAlreadyInstalled(ev.Summary) {
+		t.Fatalf("summary still claims install: %q", ev.Summary)
+	}
+}
+
+func TestMergeModelEvalSkipsJunkFeatures(t *testing.T) {
+	dst := &Evaluation{FeaturesZH: "精选中文简介，说明模块用途。"}
+	src := &Evaluation{
+		FeaturesZH:       "|-------------|---------| | Python | 3.10+ | 1. Configure**",
+		AlreadyInstalled: true,
+		Summary:          "ok",
+	}
+	mergeModelEval(dst, src)
+	if dst.AlreadyInstalled {
+		t.Fatal("must not take already_installed from model")
+	}
+	if strings.Contains(dst.FeaturesZH, "|") {
+		t.Fatalf("junk features merged: %q", dst.FeaturesZH)
+	}
+}
+
 func TestMostlyLatin(t *testing.T) {
 	if !mostlyLatin("This module automatically stocks the auction house with items for your server economy.") {
 		t.Fatal("expected latin")

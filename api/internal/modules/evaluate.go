@@ -629,13 +629,73 @@ func isJunkFeatureBlurb(s string) bool {
 	if strings.Contains(s, "|---") || strings.Contains(s, "| ---") || strings.Contains(s, "---|") {
 		return true
 	}
+	cleaned := cleanFeatureBlurb(s)
 	letters := 0
-	for _, r := range s {
+	for _, r := range cleaned {
 		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= 0x4E00 && r <= 0x9FFF) {
 			letters++
 		}
 	}
-	return letters < 8
+	if letters < 12 {
+		return true
+	}
+	// Tech-requirement crumbs that survived pipe stripping.
+	low := strings.ToLower(cleaned)
+	if strings.Contains(low, "python") && (strings.Contains(low, "configure") || strings.Contains(cleaned, "3.10")) {
+		return true
+	}
+	if !mostlyCJK(cleaned) && !looksLikeProse(cleaned) {
+		return true
+	}
+	return false
+}
+
+func filterInstalledClaims(risks []string) []string {
+	out := make([]string, 0, len(risks))
+	for _, r := range risks {
+		if claimsAlreadyInstalled(r) {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+func scrubInstalledClaims(summary string) string {
+	summary = strings.TrimSpace(summary)
+	if summary == "" || !claimsAlreadyInstalled(summary) {
+		return summary
+	}
+	// Drop sentences that falsely claim a local install.
+	parts := splitSummarySentences(summary)
+	keep := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" || claimsAlreadyInstalled(p) {
+			continue
+		}
+		keep = append(keep, p)
+	}
+	return strings.TrimSpace(strings.Join(keep, " "))
+}
+
+func claimsAlreadyInstalled(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	low := strings.ToLower(s)
+	return strings.Contains(s, "本机已安装") ||
+		strings.Contains(s, "已经安装") ||
+		strings.Contains(s, "已安装该模块") ||
+		strings.Contains(low, "already installed") ||
+		strings.Contains(low, "already present locally")
+}
+
+func splitSummarySentences(s string) []string {
+	s = strings.ReplaceAll(s, "。", "。\n")
+	s = strings.ReplaceAll(s, ". ", ".\n")
+	return strings.Split(s, "\n")
 }
 
 func mergeModelEval(dst, src *Evaluation) {
@@ -652,7 +712,7 @@ func mergeModelEval(dst, src *Evaluation) {
 	if strings.TrimSpace(src.VersionNote) != "" {
 		dst.VersionNote = src.VersionNote
 	}
-	if strings.TrimSpace(src.FeaturesZH) != "" {
+	if strings.TrimSpace(src.FeaturesZH) != "" && !isJunkFeatureBlurb(src.FeaturesZH) {
 		dst.FeaturesZH = src.FeaturesZH
 	}
 	if strings.TrimSpace(src.Summary) != "" {
@@ -661,7 +721,7 @@ func mergeModelEval(dst, src *Evaluation) {
 	dst.NeedsRebuild = src.NeedsRebuild || dst.NeedsRebuild
 	dst.NeedsSQL = src.NeedsSQL || dst.NeedsSQL
 	dst.NeedsClientPatch = src.NeedsClientPatch || dst.NeedsClientPatch
-	dst.AlreadyInstalled = dst.AlreadyInstalled || src.AlreadyInstalled
+	// already_installed 只信本机 inventory，不采信模型臆测
 	if len(src.Conflicts) > 0 {
 		dst.Conflicts = src.Conflicts
 	}
@@ -929,6 +989,7 @@ func applyRuleOverlay(ev *Evaluation, in EvaluateInput) {
 		ev.Verdict = "caution"
 	}
 	if in.InventoryOK {
+		ev.AlreadyInstalled = false
 		for _, m := range in.Installed {
 			if strings.EqualFold(m.ID, in.ModuleID) || (m.OwnerRepo != "" && strings.EqualFold(m.OwnerRepo, in.OwnerRepo)) {
 				ev.AlreadyInstalled = true
@@ -936,8 +997,13 @@ func applyRuleOverlay(ev *Evaluation, in EvaluateInput) {
 			}
 		}
 	} else {
-		// Model may invent conflicts when inventory is empty — drop them.
+		// 读不到 modules/ 时既不标已安装，也不采信模型编的 conflicts
+		ev.AlreadyInstalled = false
 		ev.Conflicts = []string{}
+	}
+	if !ev.AlreadyInstalled {
+		ev.Risks = filterInstalledClaims(ev.Risks)
+		ev.Summary = scrubInstalledClaims(ev.Summary)
 	}
 	if ev.AlreadyInstalled && ev.Verdict == "ok" {
 		ev.Verdict = "caution"
@@ -1068,8 +1134,8 @@ func buildRetrievalPack(in EvaluateInput) map[string]any {
 			"compat_score(0-100)只表示模块与本机核心/仓库证据的兼容性，不要因「已安装」大幅扣分或因「未探测到已装」加分",
 			"compat_score(0-100) measures module↔core/repo evidence only; do not slash score just because already installed, nor inflate it when inventory is missing"),
 		localeText(in.Locale,
-			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文建议）、compat_score、verdict(ok|caution|no)；若已安装可设 already_installed=true；禁止用英文段落填写 features_zh/summary",
-			"Must provide features_en, summary, compat_score, verdict(ok|caution|no); set already_installed=true if the pack shows it is installed"),
+			"必须给出 features_zh（2-4句中文功能说明）、summary（2-4句中文建议）、compat_score、verdict(ok|caution|no)；仅当 installed 列表明确包含本模块时才设 already_installed=true，禁止臆测已安装；禁止把 README 表格/安装步骤粘进 features_zh；禁止用英文段落填写 features_zh/summary",
+			"Must provide features_en, summary, compat_score, verdict(ok|caution|no); set already_installed=true ONLY when installed clearly lists this module — never invent it; never paste README tables into features"),
 		localeText(in.Locale,
 			"ac_version_match 为 match|unknown|mismatch，并写 version_note",
 			"ac_version_match must be match|unknown|mismatch with version_note"),
@@ -1109,7 +1175,8 @@ func evalSystemPrompt(locale string) string {
 Judge ONLY from the retrieval pack.
 compat_score = how well the module fits the local core + repo evidence (README, acore-module.json, issues). It is NOT a "should reinstall" score.
 If inventory_ok is false, ignore empty installed lists and do not invent installed modules.
-If the module is already installed, set already_installed=true and mention it in summary/risks, but do not crush compat_score for that alone.
+If the module is clearly listed in installed, set already_installed=true and mention it in summary/risks, but do not crush compat_score for that alone. If it is not listed, already_installed MUST be false — never invent it.
+Never paste Markdown tables, dependency grids, or install-step crumbs into features_en.
 Return JSON with at least:
 features_en, summary, verdict (ok|caution|no), compat_score (0-100),
 ac_version_match (match|unknown|mismatch), version_note,
@@ -1121,7 +1188,8 @@ Always fill features_en (or features), summary, and compat_score.`
 只根据检索包判断。
 compat_score = 模块与本机核心 + 仓库证据（README / acore-module.json / Issues）的契合度，不是「要不要重装」的分。
 若 inventory_ok=false，不得把空的 installed 当成「什么都没装」，也不要臆造已装模块。
-若模块已安装：already_installed=true，在 summary/risks 提示即可，不要仅因此大幅扣 compat_score。
+若模块已在 installed 列表中：already_installed=true，在 summary/risks 提示即可，不要仅因此大幅扣 compat_score。若 installed 中没有本模块，already_installed 必须为 false，禁止臆测。
+features_zh 必须是可读的中文功能概括，禁止粘贴 Markdown 表格、依赖版本表或安装步骤碎片。
 必须输出 JSON，字段至少包含:
 features_zh, summary, verdict(ok|caution|no), compat_score(0-100),
 ac_version_match(match|unknown|mismatch), version_note,
@@ -1185,7 +1253,7 @@ func evalCacheKey(in EvaluateInput) string {
 	if in.InventoryOK {
 		invFlag = "1"
 	}
-	fmt.Fprintf(h, "%s|%s|%s|%s|%s|inv%s|v7|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale, invFlag)
+	fmt.Fprintf(h, "%s|%s|%s|%s|%s|inv%s|v8|", in.OwnerRepo, in.Ref, in.Core.Revision, commit, locale, invFlag)
 	for _, m := range in.Installed {
 		fmt.Fprintf(h, "%s@%s;", m.ID, m.Commit)
 	}
@@ -1208,6 +1276,9 @@ func loadEvalCache(dir, key string) (*Evaluation, bool) {
 		return nil, false
 	}
 	if ev.CompatScore <= 0 || strings.TrimSpace(ev.Summary) == "" {
+		return nil, false
+	}
+	if isJunkFeatureBlurb(ev.FeaturesZH) {
 		return nil, false
 	}
 	return &ev, true
