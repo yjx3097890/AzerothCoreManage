@@ -13,21 +13,21 @@
 | 模块 | 能力 |
 |------|------|
 | 总览 | 在线人数、uptime、真实玩家 / Bot 拆分、健康检查 |
-| 容器 | 白名单容器启停 / 重启 / 日志（可关 Docker） |
+| 容器 | 白名单容器启停 / 重启 / **日志**（可关 Docker） |
 | 账号 / 角色 | 列表检索、GM、改密、踢人、传送、物品邮件、库存等 |
 | 处罚 / 邮件 / 公告 | ban、禁言、邮件、每日消息（多语言 locale）、自动广播 |
 | 公会 / 竞技场 / 拍卖 | 浏览与常用管理；拍卖行当前以浏览为主 |
 | 世界事件 / 禁用项 | 启停事件；disables 列表本地化展示 |
 | Playerbots | 概览、在线 Bot、rndbot、配置项、公会等 |
-| 模块（P2-A） | 精选 / 官网目录、已装扫描、GitHub 登记、DeepSeek 兼容评估、模块 conf（**不执行安装**） |
-| 配置 / 备份 / SQL / 审计 | conf 编辑、备份、只读 SQL 浏览、操作审计 |
+| 模块（P2-A/B） | 精选 / 官网目录、已装扫描、GitHub 登记、DeepSeek 评估、模块 conf、**检查点备份与整包回退**（**安装编排仍未开放**） |
+| 配置 / 备份 / SQL / 审计 | conf 编辑、**四库备份/恢复**、**模块检查点**、只读 SQL、审计 |
 | 多语言 | 面板 UI 中 / 英；游戏地名、职业、禁用原因等跟随语言；**评估文案随界面语言** |
 
 详细任务与进度见 [docs/tasks.md](docs/tasks.md)，架构见 [docs/architecture.md](docs/architecture.md)。模块管理方案见 [docs/module-manager.md](docs/module-manager.md)。
 
-## 模块管理（已实现 P2-A）
+## 模块管理（已实现 P2-A / P2-B）
 
-侧栏进入 **模块**（`/modules`）。当前阶段只做**浏览与评估**，不会 clone、编译或改你的服。
+侧栏进入 **模块**（`/modules`）。**不会自动安装模块**。检查点与四库备份在 **配置 / 备份**（`/config`）。
 
 | 能力 | 说明 |
 |------|------|
@@ -38,6 +38,7 @@
 | 自定义登记 | 粘贴 GitHub 地址加入评估列表（超管） |
 | AI 评估 | 拉取 README / `acore-module.json` / Issues，DeepSeek + 规则给出兼容分、功能说明、建议与风险 |
 | 模块 conf | `etc/modules/*.conf` 可在模块页或配置页编辑 |
+| 检查点 / 整包回退（超管） | 在 **配置 / 备份 → 模块检查点**：四库 + list/etc + Docker 镜像 tag；回退须输入检查点 ID。**会丢失快照之后的角色进度** |
 
 **本机核心版本**探测顺序：SOAP `server info` → `AC_ROOT` git → `.env` 保底：
 
@@ -59,7 +60,7 @@ GITHUB_TOKEN=                  # 提高 GitHub API 限额（公开库只读即�
 评估客户端走 **OpenAI Chat Completions** 协议（`/chat/completions` + JSON Mode）。  
 因此凡兼容该接口的服务一般都能用：官方 DeepSeek、OpenAI（`https://api.openai.com/v1`）、以及多数本地 / 第三方兼容网关。按对方文档改 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL` / Key 即可；对方若要求路径带 `/v1`，把 `/v1` 写进 Base URL。
 
-后续 **P2-B 检查点回退**、**P2-C 安装编排**尚未开放，见方案文档。
+后续 **P2-C 安装编排**尚未开放，见方案文档。检查点目录默认 `data/module-checkpoints`（`modules_global.checkpoint_dir`）。
 
 ## 快速开始
 

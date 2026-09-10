@@ -1,6 +1,6 @@
 # 架构设计
 
-本文描述 AzerothCore + mod-playerbots 的 Web 管理端（Go + React）。已落地范围为 **P0 + P1**。模块安装 / AI 评估 / 检查点回退见 [module-manager.md](./module-manager.md)（**P2 设计**，尚未实现）。World 内容编辑（生物 / 任务 / SmartAI）不做，交给 Keira3。
+本文描述 AzerothCore + mod-playerbots 的 Web 管理端（Go + React）。已落地范围为 **P0 + P1 + P2-A/B**。模块安装编排见 [module-manager.md](./module-manager.md)（**P2-C 设计**）。World 内容编辑（生物 / 任务 / SmartAI）不做，交给 Keira3。
 
 ## 1. 目标与约束
 
@@ -32,7 +32,7 @@
     │                              启停 / 状态 / logs
     ├── Conf Adapter ──────────► 只读/受控写入已挂载的 conf 卷
     │                              （worldserver.conf / playerbots.conf / etc/modules）
-    └── Module Manager（P2）───► 目录、GitHub、DeepSeek 评估、检查点、编译编排
+    └── Module Manager（P2-A/B）───► 目录、评估、检查点回退（P2-C 安装编排未落地）
 ```
 
 浏览器永不直连 SOAP、MySQL 或 Docker。所有凭证留在 Go 进程内。

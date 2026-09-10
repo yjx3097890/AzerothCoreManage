@@ -199,7 +199,7 @@
 
 ---
 
-## P2 模块管理（设计已定，未实现）
+## P2 模块管理（P2-A / P2-B 已实现；P2-C 未实现）
 
 方案全文：[module-manager.md](./module-manager.md)。
 
@@ -217,10 +217,10 @@
 
 ### P2-B 检查点
 
-- [ ] P2-10 检查点：四库 dump + modules.list + etc-modules 副本
-- [ ] P2-11 Docker 镜像 tag / 源码二进制指纹
-- [ ] P2-12 检查点列表与保留策略
-- [ ] P2-13 整包回退 Job
+- [x] P2-10 检查点：四库 dump + modules.list + etc-modules 副本
+- [x] P2-11 Docker 镜像 tag / 源码二进制指纹
+- [x] P2-12 检查点列表与保留策略
+- [x] P2-13 整包回退（同步 HTTP，非 P2-C Job）
 
 ### P2-C 安装编排
 

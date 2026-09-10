@@ -2,7 +2,7 @@
 
 本文把此前讨论收敛成可实施设计：**目录与 GitHub 登记、DeepSeek 评估（含本机已装版本与仓库 Issues）、检查点备份、安装/卸载/整包回退、模块 conf 编辑**。
 
-**P2-A（目录与评估）已实现**；P2-B / P2-C 仍为设计。架构总览仍以 [architecture.md](./architecture.md) 为准。
+**P2-A（目录与评估）与 P2-B（检查点 / 整包回退）已实现**；P2-C 安装编排仍为设计。架构总览仍以 [architecture.md](./architecture.md) 为准。
 
 相关图：
 
@@ -576,22 +576,22 @@ SOAP allow 增加：`server debug`。
 
 ### P2-A
 
-- [ ] P2-01 Target 配置与路径探测
-- [ ] P2-02 Inventory（git 元数据 + modules.list）
-- [ ] P2-03 SOAP `server debug` 解析 loaded
-- [ ] P2-04 精选 JSON + Catalogue 缓存
-- [ ] P2-05 登记 GitHub URL
-- [ ] P2-06 GitHub 文件 + Issues 拉取与缓存
-- [ ] P2-07 DeepSeek 评估 + Rule Overlay + 缓存
-- [ ] P2-08 `etc/modules` conf 列入配置页
-- [ ] P2-09 前端 `/modules` 目录 / 已装 / 评估 / Issues
+- [x] P2-01 Target 配置与路径探测
+- [x] P2-02 Inventory（git 元数据 + modules.list）
+- [x] P2-03 SOAP `server debug` 解析 loaded
+- [x] P2-04 精选 JSON + Catalogue 缓存
+- [x] P2-05 登记 GitHub URL
+- [x] P2-06 GitHub 文件 + Issues 拉取与缓存
+- [x] P2-07 DeepSeek 评估 + Rule Overlay + 缓存
+- [x] P2-08 `etc/modules` conf 列入配置页
+- [x] P2-09 前端 `/modules` 目录 / 已装 / 评估 / Issues
 
 ### P2-B
 
-- [ ] P2-10 检查点：四库 dump + modules.list + etc-modules 副本
-- [ ] P2-11 Docker 镜像 tag / 源码二进制指纹
-- [ ] P2-12 检查点列表与保留策略
-- [ ] P2-13 整包回退 Job（停服 → 镜像 → SQL → 文件 → 启动）
+- [x] P2-10 检查点：四库 dump + modules.list + etc-modules 副本
+- [x] P2-11 Docker 镜像 tag / 源码二进制指纹
+- [x] P2-12 检查点列表与保留策略
+- [x] P2-13 整包回退（同步 HTTP：停服 → 镜像 → SQL → 文件 → 启动）
 
 ### P2-C
 

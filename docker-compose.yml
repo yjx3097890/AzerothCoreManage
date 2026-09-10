@@ -15,11 +15,12 @@ services:
       # 精选模块 JSON（可热改，无需重建镜像）
       - ./api/data/modules:/app/data/modules:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      # 路径来自 .env 的 AC_ROOT，与 api/config.yaml conf.* / modules.* 一致
-      # 须与游戏服在同一台宿主机，且 AC_ROOT 指向真实源码树
-      - ${AC_ROOT}/docker/vol/etc:${AC_ROOT}/docker/vol/etc
-      - ${AC_ROOT}/conf:${AC_ROOT}/conf
-      - ${AC_ROOT}/modules:${AC_ROOT}/modules
+      # 整棵 AC 源码树（须与游戏服同机）。覆盖：
+      #   docker/vol/etc  — worldserver/authserver + etc/modules（含 playerbots.conf）
+      #   conf/           — modules.list
+      #   modules/        — 已安装模块源码
+      #   根目录          — docker-compose.override.yml、核心 git 探测
+      - ${AC_ROOT}:${AC_ROOT}
     networks:
       - acmanage
       - acore

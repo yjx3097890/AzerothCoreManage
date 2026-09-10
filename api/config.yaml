@@ -34,7 +34,7 @@ targets:
       playerbots_db: "${MYSQL_PLAYERBOTS_DB}"
     conf:
       etc_dir: "${AC_ROOT}/docker/vol/etc"
-      playerbots_conf: "${AC_ROOT}/conf/modules/playerbots.conf"
+      playerbots_conf: "${AC_ROOT}/docker/vol/etc/modules/playerbots.conf"
       worldserver_conf: "${AC_ROOT}/docker/vol/etc/worldserver.conf"
       authserver_conf: "${AC_ROOT}/docker/vol/etc/authserver.conf"
     modules:
@@ -143,3 +143,5 @@ modules_global:
   registry_path: "../data/module-registry.json"
   cache_dir: "../data/module-cache"
   curated_path: "data/modules/curated.json"
+  # 本地从 api/ 启动 → ../data；容器 WORKDIR=/app → /data（compose 已挂 ./data:/data）
+  checkpoint_dir: "../data/module-checkpoints"

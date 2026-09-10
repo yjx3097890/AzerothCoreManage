@@ -13,21 +13,21 @@ Stack: **Go (Gin) + React (Vite / Tailwind CSS / DaisyUI)**. Commands go through
 | Area | Highlights |
 |------|------------|
 | Dashboard | Online players, uptime, real players vs bots, health checks |
-| Containers | Whitelisted start / stop / restart / logs (Docker can be disabled) |
+| Containers | Whitelisted start / stop / restart / **logs** (Docker can be disabled) |
 | Accounts / Characters | Search, GM level, passwords, kick, teleport, mail items, inventory, … |
 | Moderation / Mail / Announcements | Ban, mute, mail, MOTD (per client locale), autobroadcast |
 | Guilds / Arena / Auctions | Browse and common management; auctions are read-only for now |
 | World events / Disables | Start/stop events; localized disables list |
 | Playerbots | Overview, online bots, rndbot actions, config, guilds |
-| Modules (P2-A) | Curated / official catalog, installed scan, GitHub registry, DeepSeek compat eval, module conf (**no install yet**) |
-| Config / Backup / SQL / Audit | Conf editing, backups, read-only SQL browser, audit log |
+| Modules (P2-A/B) | Curated / official catalog, installed scan, GitHub registry, DeepSeek eval, module conf, **checkpoints + full rollback** (**install orchestration still closed**) |
+| Config / Backup / SQL / Audit | Conf editing, **SQL backup/restore**, **module checkpoints**, read-only SQL, audit |
 | i18n | Panel UI zh-CN / en-US; map/class/disable reasons follow locale; **evaluation text follows UI language** |
 
 See [docs/tasks.md](docs/tasks.md) for the checklist and [docs/architecture.md](docs/architecture.md) for design notes. Module manager design: [docs/module-manager.md](docs/module-manager.md).
 
-## Module manager (P2-A shipped)
+## Module manager (P2-A / P2-B shipped)
 
-Open **Modules** in the sidebar (`/modules`). This stage is **browse + evaluate only** — it does not clone, compile, or change your realm.
+Open **Modules** in the sidebar (`/modules`). **Does not auto-install modules**. Checkpoints and SQL backups live under **Config / Backup** (`/config`).
 
 | Capability | Notes |
 |------------|------|
@@ -38,6 +38,7 @@ Open **Modules** in the sidebar (`/modules`). This stage is **browse + evaluate 
 | Custom registry | Paste a GitHub URL to evaluate (superadmin) |
 | AI evaluation | README / `acore-module.json` / Issues → DeepSeek + rules → score, feature summary, advice, risks |
 | Module conf | Edit `etc/modules/*.conf` from the modules or config page |
+| Checkpoints / full rollback (superadmin) | Under **Config / Backup → Module checkpoints**: four DBs + list/etc + Docker image tag; confirm phrase = checkpoint ID. **Discards character progress after the snapshot** |
 
 **Local core version** resolution order: SOAP `server info` → `AC_ROOT` git → `.env` fallback:
 
@@ -59,7 +60,7 @@ GITHUB_TOKEN=                  # higher GitHub API limits (read-only is enough f
 The evaluator uses the **OpenAI Chat Completions** protocol (`/chat/completions` + JSON mode).  
 Any compatible endpoint usually works: official DeepSeek, OpenAI (`https://api.openai.com/v1`), and most local/third-party gateways. Point `DEEPSEEK_BASE_URL` / model / key at the provider; if they require a `/v1` prefix, include `/v1` in the base URL.
 
-**P2-B checkpoints / rollback** and **P2-C install orchestration** are not available yet — see the design doc.
+**P2-C install orchestration** is not available yet — see the design doc. Checkpoint dir defaults to `data/module-checkpoints` (`modules_global.checkpoint_dir`).
 
 ## Quick start
 
