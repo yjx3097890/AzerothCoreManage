@@ -69,6 +69,8 @@ export function ConfigPage() {
   const [backupDir, setBackupDir] = useState('')
   const [pendingBackup, setPendingBackup] = useState(false)
   const [backupBusy, setBackupBusy] = useState(false)
+  const [backupSteps, setBackupSteps] = useState<CheckpointStep[]>([])
+  const [backupStreamError, setBackupStreamError] = useState('')
   const [restoreTarget, setRestoreTarget] = useState<BackupSet | null>(null)
   const [restorePhrase, setRestorePhrase] = useState('')
   const [restoreError, setRestoreError] = useState('')
@@ -463,7 +465,11 @@ export function ConfigPage() {
                     type="button"
                     className="btn btn-sm btn-primary"
                     disabled={backupBusy}
-                    onClick={() => setPendingBackup(true)}
+                    onClick={() => {
+                      setBackupSteps([])
+                      setBackupStreamError('')
+                      setPendingBackup(true)
+                    }}
                   >
                     {backupBusy && <span className="loading loading-spinner loading-xs" />}
                     {t('config.backup')}
@@ -620,32 +626,183 @@ export function ConfigPage() {
         }}
       />
 
-      <ConfirmDanger
+      <Modal
         open={pendingBackup}
         title={t('config.backup')}
-        loading={backupBusy}
-        description={t('config.backupConfirm')}
-        onCancel={() => {
+        okDanger={!backupBusy && backupSteps.every((s) => s.status !== 'fail')}
+        confirmLoading={backupBusy}
+        okText={
+          backupBusy
+            ? t('config.backupCreating')
+            : backupSteps.some((s) => s.status === 'fail' || s.status === 'ok')
+              ? t('common.ok')
+              : t('confirm.ok')
+        }
+        onClose={() => {
           if (backupBusy) return
           setPendingBackup(false)
+          setBackupSteps([])
+          setBackupStreamError('')
         }}
-        onConfirm={async () => {
+        onOk={async () => {
+          if (backupBusy) return
+          if (backupSteps.some((s) => s.status === 'ok' || s.status === 'fail' || s.status === 'skip')) {
+            setPendingBackup(false)
+            setBackupSteps([])
+            setBackupStreamError('')
+            return
+          }
           setBackupBusy(true)
+          setBackupSteps([])
+          setBackupStreamError('')
           try {
-            await api('/api/v1/backup', {
+            const headers = new Headers({
+              'Content-Type': 'application/json',
+              Accept: 'text/event-stream',
+            })
+            const token = getToken()
+            if (token) headers.set('Authorization', `Bearer ${token}`)
+            const target = getTargetId()
+            if (target) headers.set('X-Target-Id', target)
+
+            const res = await fetch('/api/v1/backup/stream', {
               method: 'POST',
+              headers,
               body: JSON.stringify({ confirm: true }),
             })
-            toast.success(t('common.ok'))
-            setPendingBackup(false)
+            if (!res.ok || !res.body) {
+              let msg = res.statusText
+              try {
+                const body = (await res.json()) as { error?: { message?: string } }
+                msg = body.error?.message || msg
+              } catch {
+                /* ignore */
+              }
+              throw new Error(msg)
+            }
+
+            const reader = res.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
+            let doneOk = false
+            let streamErr = ''
+            let finalSteps: CheckpointStep[] = []
+
+            const upsertStep = (step: CheckpointStep) => {
+              setBackupSteps((prev) => {
+                const idx = prev.findIndex((s) => s.id === step.id)
+                if (idx < 0) return [...prev, step]
+                const next = prev.slice()
+                next[idx] = step
+                return next
+              })
+            }
+
+            while (true) {
+              const { value, done } = await reader.read()
+              if (done) break
+              buffer += decoder.decode(value, { stream: true })
+              const chunks = buffer.split('\n\n')
+              buffer = chunks.pop() || ''
+              for (const chunk of chunks) {
+                const lines = chunk.split('\n')
+                let event = 'message'
+                const dataLines: string[] = []
+                for (const line of lines) {
+                  if (line.startsWith('event:')) event = line.slice(6).trim()
+                  else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+                }
+                if (!dataLines.length) continue
+                try {
+                  const data = JSON.parse(dataLines.join('\n')) as CheckpointStep & {
+                    message?: string
+                    steps?: CheckpointStep[]
+                  }
+                  if (event === 'step') {
+                    upsertStep({
+                      id: data.id,
+                      label: data.label,
+                      status: data.status,
+                      detail: data.detail,
+                    })
+                  } else if (event === 'done') {
+                    doneOk = true
+                    if (data.steps?.length) {
+                      finalSteps = data.steps
+                      setBackupSteps(data.steps)
+                    }
+                  } else if (event === 'error') {
+                    streamErr = data.message || t('errors.backup_error')
+                    setBackupStreamError(streamErr)
+                  }
+                } catch {
+                  /* ignore partial */
+                }
+              }
+            }
+
+            if (streamErr) {
+              toast.error(streamErr)
+              return
+            }
+            if (!doneOk) {
+              throw new Error(t('errors.backup_error'))
+            }
+            const fails = (finalSteps.length ? finalSteps : backupSteps).filter((s) => s.status === 'fail')
             await loadBackups()
+            if (fails.length) {
+              toast.info(t('config.backupPartialOk'))
+              return
+            }
+            toast.success(t('common.success'))
+            setPendingBackup(false)
+            setBackupSteps([])
           } catch (err) {
             toast.error(errorMessage(err, t))
+            setBackupStreamError(errorMessage(err, t))
           } finally {
             setBackupBusy(false)
           }
         }}
-      />
+      >
+        <div className="space-y-3">
+          <p className="m-0 text-sm">{t('config.backupConfirm')}</p>
+          {(backupBusy || backupSteps.length > 0) && (
+            <ul className="m-0 list-none space-y-1.5 max-h-64 overflow-y-auto border border-base-300 rounded-box p-3">
+              {backupSteps.map((s) => (
+                <li key={s.id} className="flex items-start gap-2 text-sm">
+                  <span className="shrink-0 w-4 text-center mt-0.5">
+                    {s.status === 'running' && <span className="loading loading-spinner loading-xs" />}
+                    {s.status === 'ok' && <span className="text-success">✓</span>}
+                    {s.status === 'fail' && <span className="text-error">✗</span>}
+                    {s.status === 'skip' && <span className="opacity-40">–</span>}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">{s.label}</span>
+                    {s.detail && (
+                      <span
+                        className={`block text-xs mt-0.5 break-all ${s.status === 'fail' ? 'text-error' : 'opacity-60'}`}
+                      >
+                        {s.detail}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+              {backupBusy && backupSteps.length === 0 && (
+                <li className="text-sm opacity-60 flex items-center gap-2">
+                  <span className="loading loading-spinner loading-xs" />
+                  {t('config.backupCreating')}
+                </li>
+              )}
+            </ul>
+          )}
+          {!backupBusy && backupSteps.some((s) => s.status === 'fail') && (
+            <p className="m-0 text-sm text-warning">{t('config.backupPartialOk')}</p>
+          )}
+          {backupStreamError && <p className="m-0 text-sm text-error">{backupStreamError}</p>}
+        </div>
+      </Modal>
 
       <Modal
         open={!!restoreTarget}

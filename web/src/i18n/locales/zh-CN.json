@@ -524,6 +524,8 @@
     "fileRestore": "恢复",
     "fileRestoreConfirm": "用备份「{{name}}」覆盖当前文件？恢复前会再留一份安全备份。",
     "backup": "立即备份",
+    "backupCreating": "正在备份…",
+    "backupPartialOk": "备份已完成，但部分库失败（见列表）。",
     "backupTitle": "四库 SQL 备份",
     "backupHint": "仅备份 MySQL 四库到本地目录，不包含 world 镜像 / modules.list。需要本机或 API 容器内有 mysqldump（Docker 镜像已含；本地 make api 请 brew install mysql-client）。",
     "backupConfirm": "对四库（账号/角色/世界/机器人）执行 mysqldump？",

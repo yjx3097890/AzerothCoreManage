@@ -703,6 +703,8 @@
     "fileRestore": "Restore",
     "fileRestoreConfirm": "Overwrite the current file with backup \"{{name}}\"? A safety .bak is written first.",
     "backup": "Back up now",
+    "backupCreating": "Backing up…",
+    "backupPartialOk": "Backup finished, but some databases failed (see list).",
     "backupTitle": "Four-database SQL backup",
     "backupHint": "Dumps MySQL auth/characters/world/playerbots only — not the world image or modules.list. Requires mysqldump on the API host (included in the Docker image; for local make api: brew install mysql-client).",
     "backupConfirm": "Run mysqldump for auth/characters/world/playerbots?",

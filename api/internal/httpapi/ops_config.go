@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -56,46 +58,149 @@ func (s *Server) createBackup(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
 		return
 	}
-	dir := backupDir(rt.Cfg)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		Fail(c, http.StatusBadGateway, "backup_error", err.Error())
-		return
-	}
-	dump, err := modules.ResolveMysqldump(rt.Cfg.Backup.MysqldumpPath)
+	result, err := s.runDBBackup(c.Request.Context(), rt.Cfg, nil)
 	if err != nil {
+		_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
+			Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+			Action: "backup.mysqldump", Detail: err.Error(), OK: false,
+		})
 		Fail(c, http.StatusBadGateway, "backup_error", err.Error())
 		return
 	}
+	_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
+		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+		Action: "backup.mysqldump", Detail: result.Dir, OK: true,
+	})
+	JSON(c, result)
+}
+
+func (s *Server) createBackupStream(c *gin.Context) {
+	rt, err := s.app.Target(TargetID(c))
+	if err != nil {
+		FailCode(c, http.StatusBadRequest, "bad_target")
+		return
+	}
+	var req struct {
+		Confirm bool `json:"confirm"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if !req.Confirm {
+		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
+		return
+	}
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		Fail(c, http.StatusInternalServerError, "backup_error", "streaming unsupported")
+		return
+	}
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+	c.Status(http.StatusOK)
+	flusher.Flush()
+
+	writeSSE := func(event string, payload any) {
+		b, _ := json.Marshal(payload)
+		_, _ = fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, b)
+		flusher.Flush()
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Minute)
+	defer cancel()
+
+	result, err := s.runDBBackup(ctx, rt.Cfg, func(step modules.CheckpointStep) {
+		writeSSE("step", step)
+	})
+	if err != nil {
+		_ = s.app.Audit.Write(context.Background(), audit.Entry{
+			Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+			Action: "backup.mysqldump", Detail: err.Error(), OK: false,
+		})
+		writeSSE("error", gin.H{"code": "backup_error", "message": err.Error()})
+		return
+	}
+	_ = s.app.Audit.Write(context.Background(), audit.Entry{
+		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+		Action: "backup.mysqldump", Detail: result.Dir, OK: true,
+	})
+	writeSSE("done", result)
+}
+
+type dbBackupResult struct {
+	Dir       string                   `json:"dir"`
+	Stamp     string                   `json:"stamp"`
+	Mysqldump string                   `json:"mysqldump"`
+	Files     []gin.H                  `json:"files"`
+	Steps     []modules.CheckpointStep `json:"steps,omitempty"`
+}
+
+func (s *Server) runDBBackup(ctx context.Context, cfg *config.Target, onStep modules.StepReporter) (*dbBackupResult, error) {
+	report := func(id, label, status, detail string) {
+		step := modules.CheckpointStep{ID: id, Label: label, Status: status, Detail: detail}
+		if onStep != nil {
+			onStep(step)
+		}
+	}
+	record := func(steps *[]modules.CheckpointStep, id, label, status, detail string) {
+		report(id, label, status, detail)
+		if status == "running" {
+			return
+		}
+		*steps = append(*steps, modules.CheckpointStep{ID: id, Label: label, Status: status, Detail: detail})
+	}
+
+	steps := []modules.CheckpointStep{}
+	dir := backupDir(cfg)
+	report("prepare", "准备备份目录", "running", dir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		record(&steps, "prepare", "准备备份目录", "fail", err.Error())
+		return nil, err
+	}
+	record(&steps, "prepare", "准备备份目录", "ok", dir)
+
+	report("mysqldump", "定位 mysqldump", "running", "")
+	dump, err := modules.ResolveMysqldump(cfg.Backup.MysqldumpPath)
+	if err != nil {
+		record(&steps, "mysqldump", "定位 mysqldump", "fail", err.Error())
+		return nil, err
+	}
+	record(&steps, "mysqldump", "定位 mysqldump", "ok", dump)
+
 	stamp := time.Now().Format("20060102-150405")
 	dbs := []struct {
-		name string
-		db   string
+		name  string
+		db    string
+		label string
 	}{
-		{"auth", rt.Cfg.MySQL.AuthDB},
-		{"characters", rt.Cfg.MySQL.CharactersDB},
-		{"world", rt.Cfg.MySQL.WorldDB},
-		{"playerbots", rt.Cfg.MySQL.PlayerbotsDB},
+		{"auth", cfg.MySQL.AuthDB, "备份 auth 库"},
+		{"characters", cfg.MySQL.CharactersDB, "备份 characters 库"},
+		{"world", cfg.MySQL.WorldDB, "备份 world 库"},
+		{"playerbots", cfg.MySQL.PlayerbotsDB, "备份 playerbots 库"},
 	}
 	files := []gin.H{}
 	okCount := 0
 	var firstErr string
 	for _, d := range dbs {
+		stepID := "sql." + d.name
 		if d.db == "" {
+			record(&steps, stepID, d.label, "skip", "未配置")
 			continue
 		}
-		outPath := filepath.Join(dir, fmt.Sprintf("%s-%s-%s.sql", stamp, rt.Cfg.ID, d.name))
+		report(stepID, d.label, "running", d.db)
+		outPath := filepath.Join(dir, fmt.Sprintf("%s-%s-%s.sql", stamp, cfg.ID, d.name))
 		args := []string{
-			"-h", rt.Cfg.MySQL.Host,
-			"-P", fmt.Sprintf("%d", rt.Cfg.MySQL.Port),
-			"-u", rt.Cfg.MySQL.User,
+			"-h", cfg.MySQL.Host,
+			"-P", fmt.Sprintf("%d", cfg.MySQL.Port),
+			"-u", cfg.MySQL.User,
 			"--single-transaction",
 			"--routines",
 			"--triggers",
 			"--result-file=" + outPath,
 			d.db,
 		}
-		cmd := exec.CommandContext(c.Request.Context(), dump, args...)
-		cmd.Env = append(os.Environ(), "MYSQL_PWD="+rt.Cfg.MySQL.Password)
+		cmd := exec.CommandContext(ctx, dump, args...)
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+cfg.MySQL.Password)
 		var stderr strings.Builder
 		cmd.Stderr = &stderr
 		runErr := cmd.Run()
@@ -115,6 +220,7 @@ func (s *Server) createBackup(c *gin.Context) {
 				firstErr = d.name + ": " + msg
 			}
 			_ = os.Remove(outPath)
+			record(&steps, stepID, d.label, "fail", msg)
 		} else if size == 0 {
 			entry["ok"] = false
 			entry["error"] = "empty dump"
@@ -122,27 +228,26 @@ func (s *Server) createBackup(c *gin.Context) {
 				firstErr = d.name + ": empty dump"
 			}
 			_ = os.Remove(outPath)
+			record(&steps, stepID, d.label, "fail", "empty dump")
 		} else {
 			okCount++
+			record(&steps, stepID, d.label, "ok", fmt.Sprintf("%d bytes", size))
 		}
 		files = append(files, entry)
 	}
 	if okCount == 0 {
-		_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
-			Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
-			Action: "backup.mysqldump", Detail: firstErr, OK: false,
-		})
 		if firstErr == "" {
 			firstErr = "no databases configured"
 		}
-		Fail(c, http.StatusBadGateway, "backup_error", firstErr)
-		return
+		return nil, fmt.Errorf("%s", firstErr)
 	}
-	_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
-		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
-		Action: "backup.mysqldump", Detail: dir, OK: true,
-	})
-	JSON(c, gin.H{"dir": dir, "stamp": stamp, "mysqldump": dump, "files": files})
+	return &dbBackupResult{
+		Dir:       dir,
+		Stamp:     stamp,
+		Mysqldump: dump,
+		Files:     files,
+		Steps:     steps,
+	}, nil
 }
 
 func backupDir(cfg *config.Target) string {

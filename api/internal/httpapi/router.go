@@ -187,6 +187,7 @@ func (s *Server) Router() *gin.Engine {
 		authed.PUT("/config/files/:id", RequireRole(RoleSuperAdmin), s.putConfigFile)
 		authed.GET("/backup", RequireRole(RoleSuperAdmin), s.listBackups)
 		authed.POST("/backup", RequireRole(RoleSuperAdmin), s.createBackup)
+		authed.POST("/backup/stream", RequireRole(RoleSuperAdmin), s.createBackupStream)
 		authed.POST("/backup/restore", RequireRole(RoleSuperAdmin), s.restoreBackup)
 		authed.DELETE("/backup/:stamp", RequireRole(RoleSuperAdmin), s.deleteBackup)
 		authed.GET("/sql", RequireRole(RoleSuperAdmin), s.sqlBrowser)
