@@ -22,7 +22,7 @@ export function Tabs({ items, activeKey, defaultActiveKey, onChange, className }
 
   return (
     <div className={className}>
-      <div role="tablist" className="tabs tabs-bordered mb-3 flex-wrap">
+      <div role="tablist" className="tabs tabs-bordered mb-2 flex-wrap gap-y-1">
         {items.map((item) => (
           <button
             key={item.key}

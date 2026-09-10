@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, getTargetId, hasMinRole, setTargetId } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
@@ -17,17 +17,16 @@ type Pending =
 
 const RELOAD_TABLES = ['config', 'loot', 'quest', 'creature', 'motd', 'tele', 'item', 'spell', 'all']
 
-function HintLabel({ children, tip }: { children: ReactNode; tip: string }) {
+function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <div className="mt-6 rounded-box border border-base-300 bg-base-100 p-5 md:p-6 space-y-5">
       {children}
-      <span className="tooltip tooltip-bottom" data-tip={tip}>
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-base-content/30 text-[10px] leading-none opacity-60 cursor-help">
-          ?
-        </span>
-      </span>
-    </span>
+    </div>
   )
+}
+
+function PanelIntro({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-base-content/65 m-0 leading-relaxed max-w-2xl">{children}</p>
 }
 
 export function SettingsPage() {
@@ -70,43 +69,46 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-[880px]">
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold m-0">{t('pages.settings.title')}</h1>
-        <p className="text-sm text-base-content/60 m-0 mt-1">{t('settings.subtitle')}</p>
-      </div>
+    <div className="max-w-3xl">
+      <h1 className="text-2xl font-semibold m-0 mb-5">{t('pages.settings.title')}</h1>
 
       <Tabs
         activeKey={tab}
-        onChange={setTab}
+        onChange={(key) => {
+          setTab(key)
+          setResult('')
+        }}
+        className="settings-tabs"
         items={[
           {
             key: 'target',
-            label: <HintLabel tip={t('settings.targetHint')}>{t('settings.target')}</HintLabel>,
+            label: t('settings.target'),
             children: (
-              <div className="space-y-3 max-w-md">
-                <p className="text-sm text-base-content/60 m-0">{t('settings.targetDesc')}</p>
-                <Select
-                  value={target || undefined}
-                  options={targets.map((x) => ({ value: x.id, label: `${x.name} (${x.id})` }))}
-                  onChange={(v) => {
-                    if (!v) return
-                    setTargetId(v)
-                    setTarget(v)
-                    toast.success(t('settings.targetSwitched'))
-                  }}
-                />
-              </div>
+              <Panel>
+                <PanelIntro>{t('settings.targetDesc')}</PanelIntro>
+                <div className="max-w-sm">
+                  <Select
+                    value={target || undefined}
+                    options={targets.map((x) => ({ value: x.id, label: `${x.name} (${x.id})` }))}
+                    onChange={(v) => {
+                      if (!v) return
+                      setTargetId(v)
+                      setTarget(v)
+                      toast.success(t('settings.targetSwitched'))
+                    }}
+                  />
+                </div>
+              </Panel>
             ),
           },
           {
             key: 'reload',
-            label: <HintLabel tip={t('settings.reloadHint')}>{t('settings.reload')}</HintLabel>,
+            label: t('settings.reload'),
             children: (
-              <div className="space-y-3">
-                <p className="text-sm text-base-content/60 m-0">{t('settings.reloadDesc')}</p>
+              <Panel>
+                <PanelIntro>{t('settings.reloadDesc')}</PanelIntro>
                 <form
-                  className="flex flex-wrap items-center gap-2"
+                  className="flex flex-wrap items-end gap-3"
                   onSubmit={(e) => {
                     e.preventDefault()
                     if (!reloadTable) {
@@ -116,7 +118,8 @@ export function SettingsPage() {
                     setPending({ kind: 'soap', cmd: `reload ${reloadTable}` })
                   }}
                 >
-                  <div className="w-40">
+                  <label className="form-control w-48">
+                    <span className="label-text text-xs mb-1">{t('settings.reload')}</span>
                     <Select
                       value={reloadTable}
                       onChange={(v) => setReloadTable(v ?? '')}
@@ -125,33 +128,32 @@ export function SettingsPage() {
                         label: t(`settings.reloadTable.${v}`, { defaultValue: v }),
                       }))}
                     />
-                  </div>
-                  <span className="tooltip" data-tip={t('settings.doReloadHint')}>
-                    <button type="submit" className="btn btn-sm btn-primary">
-                      {t('settings.doReload')}
-                    </button>
-                  </span>
+                  </label>
+                  <button type="submit" className="btn btn-sm btn-primary">
+                    {t('settings.doReload')}
+                  </button>
                 </form>
                 {result && tab === 'reload' && (
-                  <pre className="mt-2 bg-neutral text-neutral-content p-3 whitespace-pre-wrap rounded-md text-xs">
+                  <pre className="m-0 bg-base-200 text-base-content p-4 whitespace-pre-wrap rounded-box text-xs border border-base-300">
                     {result}
                   </pre>
                 )}
-              </div>
+              </Panel>
             ),
           },
           ...(hasMinRole('gm')
             ? [
                 {
                   key: 'tele',
-                  label: <HintLabel tip={t('settings.teleHint')}>{t('settings.teleManage')}</HintLabel>,
+                  label: t('settings.teleManage'),
                   children: (
-                    <div className="space-y-4">
-                      <p className="text-sm text-base-content/60 m-0">{t('settings.teleDesc')}</p>
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">
-                          <HintLabel tip={t('settings.teleAddHint')}>{t('settings.teleAdd')}</HintLabel>
-                        </h3>
+                    <Panel>
+                      <PanelIntro>{t('settings.teleDesc')}</PanelIntro>
+                      <section className="space-y-3 pt-1 border-t border-base-300">
+                        <div>
+                          <h3 className="text-sm font-semibold m-0 mb-1">{t('settings.teleAdd')}</h3>
+                          <p className="text-xs text-base-content/55 m-0 mb-3">{t('settings.teleAddHint')}</p>
+                        </div>
                         <form
                           className="flex flex-wrap items-center gap-2"
                           onSubmit={(e) => {
@@ -218,11 +220,12 @@ export function SettingsPage() {
                             {t('settings.teleAdd')}
                           </button>
                         </form>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">
-                          <HintLabel tip={t('settings.teleDelHint')}>{t('settings.teleDel')}</HintLabel>
-                        </h3>
+                      </section>
+                      <section className="space-y-3 pt-4 border-t border-base-300">
+                        <div>
+                          <h3 className="text-sm font-semibold m-0 mb-1">{t('settings.teleDel')}</h3>
+                          <p className="text-xs text-base-content/55 m-0 mb-3">{t('settings.teleDelHint')}</p>
+                        </div>
                         <form
                           className="flex flex-wrap items-center gap-2"
                           onSubmit={(e) => {
@@ -235,25 +238,24 @@ export function SettingsPage() {
                           }}
                         >
                           <TeleSelect className="w-72" value={teleDelName} onChange={(v) => setTeleDelName(v ?? '')} />
-                          <button type="submit" className="btn btn-sm btn-error">
+                          <button type="submit" className="btn btn-sm btn-error btn-outline">
                             {t('settings.teleDel')}
                           </button>
                         </form>
-                      </div>
-                    </div>
+                      </section>
+                    </Panel>
                   ),
                 },
               ]
             : []),
           {
             key: 'soap',
-            label: <HintLabel tip={t('settings.soapTabHint')}>{t('settings.soap')}</HintLabel>,
+            label: t('settings.soap'),
             children: (
-              <div className="space-y-3">
-                <div className="alert alert-warning text-sm py-2">{t('settings.soapHint')}</div>
-                <p className="text-sm text-base-content/60 m-0">{t('settings.soapDesc')}</p>
+              <Panel>
+                <PanelIntro>{t('settings.soapDesc')}</PanelIntro>
                 <form
-                  className="flex flex-col gap-2"
+                  className="flex flex-col gap-3"
                   onSubmit={(e) => {
                     e.preventDefault()
                     if (!command.trim()) {
@@ -264,31 +266,27 @@ export function SettingsPage() {
                   }}
                 >
                   <label className="form-control w-full">
-                    <span className="label-text mb-1">
-                      <HintLabel tip={t('settings.commandHint')}>{t('settings.command')}</HintLabel>
-                    </span>
+                    <span className="label-text mb-1">{t('settings.command')}</span>
                     <textarea
-                      className="textarea textarea-bordered w-full"
-                      rows={3}
+                      className="textarea textarea-bordered w-full min-h-[96px]"
+                      rows={4}
                       placeholder={t('settings.soapPlaceholder')}
                       value={command}
                       onChange={(e) => setCommand(e.target.value)}
                     />
                   </label>
                   <div>
-                    <span className="tooltip" data-tip={t('settings.execHint')}>
-                      <button type="submit" className="btn btn-sm btn-primary">
-                        {t('settings.exec')}
-                      </button>
-                    </span>
+                    <button type="submit" className="btn btn-sm btn-primary">
+                      {t('settings.exec')}
+                    </button>
                   </div>
                 </form>
-                {result && (
-                  <pre className="mt-2 bg-neutral text-neutral-content p-3 whitespace-pre-wrap rounded-md text-xs">
+                {result && tab === 'soap' && (
+                  <pre className="m-0 bg-base-200 text-base-content p-4 whitespace-pre-wrap rounded-box text-xs border border-base-300">
                     {result}
                   </pre>
                 )}
-              </div>
+              </Panel>
             ),
           },
         ]}
