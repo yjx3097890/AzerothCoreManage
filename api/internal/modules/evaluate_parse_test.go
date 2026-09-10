@@ -2,6 +2,7 @@ package modules
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,62 @@ func TestHeuristicFeaturesZHPrefersCuratedZH(t *testing.T) {
 	})
 	if got != "中文简介" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestHeuristicFeaturesSkipsMarkdownTables(t *testing.T) {
+	readme := `# Mod Foo
+
+| Requirement | Version |
+|-------------|---------|
+| Python | 3.10+ |
+| Go | 1.22 |
+
+This module lets players transmogrify gear appearances on your AzerothCore realm.
+
+## Install
+
+1. Configure** the conf file
+2. Rebuild worldserver
+`
+	got := heuristicFeatures(EvaluateInput{
+		Locale:   "en-US",
+		Material: &RepoMaterial{Readme: readme},
+	})
+	if strings.Contains(got, "|") || strings.Contains(got, "---") || strings.Contains(got, "Python") {
+		t.Fatalf("table junk leaked into features: %q", got)
+	}
+	if !strings.Contains(strings.ToLower(got), "transmogrify") && !strings.Contains(strings.ToLower(got), "appearances") {
+		t.Fatalf("expected prose feature blurb, got %q", got)
+	}
+}
+
+func TestHeuristicFeaturesZHFallsBackToEnglishProse(t *testing.T) {
+	readme := `
+|-------------|---------|
+| Python | 3.10+ |
+
+Playerbots adds AI-controlled party members that can quest and dungeon with you.
+`
+	got := heuristicFeatures(EvaluateInput{
+		Locale:   "zh-CN",
+		Material: &RepoMaterial{Readme: readme},
+	})
+	if strings.Contains(got, "|") || strings.Contains(got, "Python") {
+		t.Fatalf("expected no table junk, got %q", got)
+	}
+	if !strings.Contains(got, "Playerbots") && !strings.Contains(got, "AI") {
+		t.Fatalf("expected English prose fallback, got %q", got)
+	}
+}
+
+func TestIsJunkFeatureBlurb(t *testing.T) {
+	junk := "|-------------|---------| | Python | 3.10+ | 1. Configure**"
+	if !isJunkFeatureBlurb(junk) {
+		t.Fatal("expected junk")
+	}
+	if isJunkFeatureBlurb("自动在拍卖行上架物品，填充服务器经济。") {
+		t.Fatal("expected clean Chinese blurb")
 	}
 }
 

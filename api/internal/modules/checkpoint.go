@@ -254,18 +254,22 @@ func Create(ctx context.Context, opts CreateOpts) (*CheckpointMeta, error) {
 		return nil, fmt.Errorf("all database dumps failed")
 	}
 
-	// modules.list
+	// modules.list（官方 installer 才有；手工装模块时可不存在）
 	report("files.modules_list", "复制 modules.list", "running", paths.ModulesList)
-	if paths.ModulesList != "" {
-		if err := copyFile(paths.ModulesList, filepath.Join(dir, "files", "modules.list")); err != nil {
+	if paths.ModulesList == "" {
+		record(meta, "files.modules_list", "复制 modules.list", "skip", "path empty")
+	} else if _, err := os.Stat(paths.ModulesList); err != nil {
+		if os.IsNotExist(err) {
+			record(meta, "files.modules_list", "复制 modules.list", "skip", "file not found")
+		} else {
 			meta.Warnings = append(meta.Warnings, "modules.list: "+err.Error())
 			record(meta, "files.modules_list", "复制 modules.list", "fail", err.Error())
-		} else {
-			record(meta, "files.modules_list", "复制 modules.list", "ok", "")
 		}
+	} else if err := copyFile(paths.ModulesList, filepath.Join(dir, "files", "modules.list")); err != nil {
+		meta.Warnings = append(meta.Warnings, "modules.list: "+err.Error())
+		record(meta, "files.modules_list", "复制 modules.list", "fail", err.Error())
 	} else {
-		meta.Warnings = append(meta.Warnings, "modules.list path empty")
-		record(meta, "files.modules_list", "复制 modules.list", "skip", "path empty")
+		record(meta, "files.modules_list", "复制 modules.list", "ok", "")
 	}
 
 	// etc-modules directory

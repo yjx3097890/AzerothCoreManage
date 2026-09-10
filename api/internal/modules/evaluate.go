@@ -284,8 +284,10 @@ func finalizeScoreAndSummary(ev *Evaluation, in EvaluateInput, modelOK bool) {
 	if len(ev.Steps) == 0 {
 		ev.Steps = heuristicSteps(in)
 	}
-	if strings.TrimSpace(ev.FeaturesZH) == "" {
+	if strings.TrimSpace(ev.FeaturesZH) == "" || isJunkFeatureBlurb(ev.FeaturesZH) {
 		ev.FeaturesZH = heuristicFeatures(in)
+	} else {
+		ev.FeaturesZH = cleanFeatureBlurb(ev.FeaturesZH)
 	}
 	if strings.TrimSpace(ev.Summary) == "" {
 		if isEvalEN(in.Locale) {
@@ -341,12 +343,14 @@ func finalizeScoreAndSummary(ev *Evaluation, in EvaluateInput, modelOK bool) {
 // ensureLocaleText replaces English-looking blurb/summary when the UI locale is Chinese (and vice versa).
 func ensureLocaleText(ev *Evaluation, in EvaluateInput, modelOK bool) {
 	if isEvalEN(in.Locale) {
-		if mostlyCJK(ev.FeaturesZH) {
+		if mostlyCJK(ev.FeaturesZH) || isJunkFeatureBlurb(ev.FeaturesZH) {
 			if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
 				ev.FeaturesZH = s
 			} else {
 				ev.FeaturesZH = heuristicFeatures(in)
 			}
+		} else {
+			ev.FeaturesZH = cleanFeatureBlurb(ev.FeaturesZH)
 		}
 		if mostlyCJK(ev.Summary) {
 			ev.Summary = ""
@@ -354,12 +358,14 @@ func ensureLocaleText(ev *Evaluation, in EvaluateInput, modelOK bool) {
 		}
 		return
 	}
-	if mostlyLatin(ev.FeaturesZH) {
+	if mostlyLatin(ev.FeaturesZH) || isJunkFeatureBlurb(ev.FeaturesZH) {
 		if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
 			ev.FeaturesZH = s
 		} else {
 			ev.FeaturesZH = heuristicFeatures(in)
 		}
+	} else {
+		ev.FeaturesZH = cleanFeatureBlurb(ev.FeaturesZH)
 	}
 	if mostlyLatin(ev.Summary) {
 		ev.Summary = ""
@@ -422,12 +428,8 @@ func heuristicFeatures(in EvaluateInput) string {
 		if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
 			return s
 		}
-		// Do not fall back to Chinese curated text on English UI.
-	} else {
-		if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
-			return s
-		}
-		// Do not fall back to English curated / README on Chinese UI.
+	} else if s := strings.TrimSpace(in.CuratedSummaryZH); s != "" {
+		return s
 	}
 	if in.Material == nil {
 		return localeText(in.Locale, "暂无功能说明。", "No feature summary available.")
@@ -436,22 +438,52 @@ func heuristicFeatures(in EvaluateInput) string {
 	if readme == "" {
 		return localeText(in.Locale, "暂无功能说明（README 缺失）。", "No feature summary available (README missing).")
 	}
-	lines := []string{}
-	for _, line := range strings.Split(readme, "\n") {
+
+	preferCJK := !en
+	lines := extractReadmeProse(readme, preferCJK)
+	// 中文界面若 README 无中文段落，改抽英文正文（避免把表格碎片当成「非英文」收下）
+	if len(lines) == 0 && preferCJK {
+		lines = extractReadmeProse(readme, false)
+	}
+	if len(lines) == 0 {
+		if !en {
+			if s := strings.TrimSpace(in.CuratedSummaryEN); s != "" {
+				return s
+			}
+		}
+		return localeText(in.Locale, "暂无可用的功能说明。", "No usable feature summary available.")
+	}
+	return cleanFeatureBlurb(strings.Join(lines, " "))
+}
+
+// extractReadmeProse picks short prose lines from a README, skipping tables/badges/headings.
+func extractReadmeProse(readme string, wantCJK bool) []string {
+	var lines []string
+	inFence := false
+	for _, raw := range strings.Split(readme, "\n") {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "```") {
+			inFence = !inFence
+			continue
+		}
+		if inFence || isJunkReadmeLine(line) {
+			continue
+		}
+		line = cleanFeatureBlurb(line)
+		line = strings.TrimLeft(line, "*-•0123456789.）) ")
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "![") || strings.HasPrefix(line, "<") {
+		if len([]rune(line)) < 12 {
 			continue
 		}
-		line = strings.TrimLeft(line, "*-• ")
-		if len(line) < 8 {
-			continue
-		}
-		// Keep only lines matching the UI language.
-		if en {
-			if mostlyCJK(line) {
+		if wantCJK {
+			if !mostlyCJK(line) {
 				continue
 			}
-		} else if mostlyLatin(line) {
+		} else if mostlyCJK(line) {
+			continue
+		}
+		// Prefer sentence-like prose over label chips ("Python", "Go").
+		if !looksLikeProse(line) {
 			continue
 		}
 		lines = append(lines, line)
@@ -459,12 +491,151 @@ func heuristicFeatures(in EvaluateInput) string {
 			break
 		}
 	}
-	if len(lines) == 0 {
-		return localeText(in.Locale,
-			"仓库 README 主要为英文，精选列表暂无中文简介。请结合下方评估建议，或前往 GitHub 查看 README。",
-			"No localized feature blurb in the catalog; see the advice below or the GitHub README.")
+	return lines
+}
+
+func isJunkReadmeLine(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return true
 	}
-	return strings.Join(lines, " ")
+	if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "![") || strings.HasPrefix(line, "<") {
+		return true
+	}
+	if strings.HasPrefix(line, "[!") || strings.Contains(line, "shields.io") || strings.Contains(line, "img.shields") {
+		return true
+	}
+	// Markdown tables / alignment rows: | --- | :---: |
+	if strings.Count(line, "|") >= 2 {
+		return true
+	}
+	if isMarkdownTableRule(line) {
+		return true
+	}
+	if isMarkdownRule(line) {
+		return true
+	}
+	// Link-only / badge-only lines.
+	if strings.HasPrefix(line, "[") && strings.Contains(line, "](") && !strings.Contains(line, " ") {
+		return true
+	}
+	letters, digits, other := 0, 0, 0
+	for _, r := range line {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= 0x4E00 && r <= 0x9FFF:
+			letters++
+		case r >= '0' && r <= '9':
+			digits++
+		case r == ' ' || r == '\t':
+			// ignore
+		default:
+			other++
+		}
+	}
+	if letters == 0 {
+		return true
+	}
+	// Mostly punctuation / pipes / asterisks → junk.
+	if other >= letters*2 && other >= 6 {
+		return true
+	}
+	return false
+}
+
+func isMarkdownTableRule(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+	for _, r := range line {
+		switch r {
+		case '|', '-', ':', ' ', '\t':
+		default:
+			return false
+		}
+	}
+	return strings.Contains(line, "-")
+}
+
+func isMarkdownRule(line string) bool {
+	line = strings.TrimSpace(line)
+	if len(line) < 3 {
+		return false
+	}
+	for _, r := range line {
+		if r != '-' && r != '*' && r != '_' && r != ' ' {
+			return false
+		}
+	}
+	return true
+}
+
+func looksLikeProse(line string) bool {
+	line = strings.TrimSpace(line)
+	if len([]rune(line)) < 20 && !strings.Contains(line, " ") && !mostlyCJK(line) {
+		return false
+	}
+	// Single token tech labels.
+	if !strings.ContainsAny(line, " 。，、；;.!?") && len(strings.Fields(line)) <= 2 && !mostlyCJK(line) {
+		return false
+	}
+	return true
+}
+
+func cleanFeatureBlurb(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	replacer := strings.NewReplacer(
+		"**", "", "__", "", "``", "", "`", "",
+		"&nbsp;", " ",
+	)
+	s = replacer.Replace(s)
+	// Collapse leftover table crumbs if model pasted them.
+	if strings.Count(s, "|") >= 2 {
+		parts := strings.Split(s, "|")
+		var keep []string
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" || isMarkdownTableRule(p) {
+				continue
+			}
+			if isJunkReadmeLine(p) && !mostlyCJK(p) && len([]rune(p)) < 24 {
+				continue
+			}
+			keep = append(keep, p)
+		}
+		s = strings.Join(keep, " ")
+	}
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+	return strings.TrimSpace(s)
+}
+
+func isJunkFeatureBlurb(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return true
+	}
+	if strings.Count(s, "|") >= 2 {
+		return true
+	}
+	if isMarkdownTableRule(s) || isMarkdownRule(s) {
+		return true
+	}
+	// Classic broken extract: separator + cells + install step crumbs.
+	if strings.Contains(s, "|---") || strings.Contains(s, "| ---") || strings.Contains(s, "---|") {
+		return true
+	}
+	letters := 0
+	for _, r := range s {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= 0x4E00 && r <= 0x9FFF) {
+			letters++
+		}
+	}
+	return letters < 8
 }
 
 func mergeModelEval(dst, src *Evaluation) {
