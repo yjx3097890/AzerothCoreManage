@@ -54,6 +54,7 @@ type ModulesGlobal struct {
 	RegistryPath  string `mapstructure:"registry_path"`
 	CacheDir      string `mapstructure:"cache_dir"`
 	CuratedPath   string `mapstructure:"curated_path"`
+	CheckpointDir string `mapstructure:"checkpoint_dir"`
 }
 
 type Modules struct {
@@ -195,6 +196,9 @@ func applyModulesDefaults(cfg *Config) {
 	}
 	if cfg.Modules.CuratedPath == "" {
 		cfg.Modules.CuratedPath = "data/modules/curated.json"
+	}
+	if cfg.Modules.CheckpointDir == "" {
+		cfg.Modules.CheckpointDir = "../data/module-checkpoints"
 	}
 	for i := range cfg.Targets {
 		m := &cfg.Targets[i].Modules

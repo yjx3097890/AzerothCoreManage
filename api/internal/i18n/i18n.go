@@ -32,6 +32,12 @@ var messages = map[Locale]map[string]string{
 		"github_rate_limited": "GitHub API rate limited",
 		"deepseek_unconfigured": "DeepSeek API key not configured",
 		"conf_error":          "Config file I/O failed",
+		"backup_error":        "Database backup failed",
+		"checkpoint_failed":   "Checkpoint operation failed",
+		"image_tag_missing":   "Checkpoint image tag missing",
+		"checkpoint_not_found": "Checkpoint not found",
+		"job_conflict":        "Another module job is running for this target",
+		"confirm_phrase_mismatch": "Confirmation phrase does not match",
 	},
 	ZH: {
 		"not_implemented":     "骨架占位，见 docs/tasks.md %s",
@@ -50,6 +56,12 @@ var messages = map[Locale]map[string]string{
 		"github_rate_limited": "GitHub API 限流",
 		"deepseek_unconfigured": "未配置 DeepSeek API Key",
 		"conf_error":          "配置文件读写失败",
+		"backup_error":        "数据库备份失败",
+		"checkpoint_failed":   "检查点操作失败",
+		"image_tag_missing":   "检查点镜像 tag 缺失",
+		"checkpoint_not_found": "检查点不存在",
+		"job_conflict":        "该目标已有模块任务进行中",
+		"confirm_phrase_mismatch": "确认短语不匹配",
 	},
 }
 

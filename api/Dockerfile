@@ -10,7 +10,8 @@ COPY api/ ./
 RUN CGO_ENABLED=0 go build -o /out/acmanage ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata
+# mysqldump / mysql：备份与模块检查点回退导库
+RUN apk add --no-cache ca-certificates tzdata mariadb-client
 WORKDIR /app
 COPY --from=build /out/acmanage /usr/local/bin/acmanage
 COPY api/config.yaml /etc/acmanage/config.yaml

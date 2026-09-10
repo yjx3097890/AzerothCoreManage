@@ -81,6 +81,19 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*
 	return c.http.Do(req)
 }
 
+// doLong runs a Docker API call without the short client Timeout (still respects ctx).
+func (c *Client) doLong(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	client := &http.Client{Transport: c.http.Transport}
+	return client.Do(req)
+}
+
 func (c *Client) Ping(ctx context.Context) error {
 	resp, err := c.do(ctx, http.MethodGet, "/_ping", nil)
 	if err != nil {
