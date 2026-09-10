@@ -85,6 +85,7 @@ func CollectInventory(ctx context.Context, targetID string, paths Paths, core Co
 	}
 	listed := parseModulesList(paths.ModulesList)
 	confIndex := indexModuleConfs(paths.EtcModulesDir)
+	applyPlayerbotsConfOverride(confIndex, paths.PlayerbotsConf)
 
 	if paths.ModulesDirOK {
 		entries, err := os.ReadDir(paths.ModulesDir)

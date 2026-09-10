@@ -8,11 +8,11 @@ import (
 )
 
 type ModuleConfFile struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Available bool   `json:"available"`
-	Size      int64  `json:"size,omitempty"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	Available  bool   `json:"available"`
+	Size       int64  `json:"size,omitempty"`
 	ModuleHint string `json:"module_hint,omitempty"`
 }
 
@@ -71,12 +71,40 @@ func ResolveModuleConf(etcModulesDir, idOrName string) (string, error) {
 	return absPath, nil
 }
 
-func FindConfForModule(etcModulesDir, moduleID string) (ModuleConfFile, bool) {
+// FindConfForModule resolves a module's live .conf.
+// For playerbots, ConfPaths.playerbots_conf (if set and present) wins so the panel
+// and checkpoint use the same path as worldserver (typically docker/vol/etc/modules).
+func FindConfForModule(paths Paths, moduleID string) (ModuleConfFile, bool) {
 	key := normalizeConfKey(moduleID)
-	for _, c := range ListEtcModuleConfs(etcModulesDir) {
-		if normalizeConfKey(c.ModuleHint) == key {
-			return c, true
+	index := indexModuleConfs(paths.EtcModulesDir)
+	applyPlayerbotsConfOverride(index, paths.PlayerbotsConf)
+	if e, ok := index[key]; ok {
+		st, err := os.Stat(e.path)
+		item := ModuleConfFile{
+			ID:         e.id,
+			Name:       filepath.Base(e.path),
+			Path:       e.path,
+			Available:  err == nil,
+			ModuleHint: key,
 		}
+		if err == nil {
+			item.Size = st.Size()
+		}
+		return item, true
 	}
 	return ModuleConfFile{}, false
+}
+
+func applyPlayerbotsConfOverride(index map[string]confEntry, playerbotsPath string) {
+	playerbotsPath = strings.TrimSpace(playerbotsPath)
+	if playerbotsPath == "" {
+		return
+	}
+	st, err := os.Stat(playerbotsPath)
+	if err != nil || st.IsDir() {
+		return
+	}
+	e := confEntry{id: "modconf:playerbots", path: playerbotsPath}
+	index[normalizeConfKey("playerbots")] = e
+	index[normalizeConfKey("mod-playerbots")] = e
 }

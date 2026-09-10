@@ -283,7 +283,7 @@ func resolvePlayerbotsConfPath(conf config.ConfPaths) string {
 		return conf.PlayerbotsConf
 	}
 	if conf.EtcDir != "" {
-		// Docker 常见：conf/modules/playerbots.conf；也兼容 etc 根目录。
+		// Docker 运行时：etc/modules/playerbots.conf（与 docker/vol/etc 挂载一致）。
 		candidates := []string{
 			filepath.Join(conf.EtcDir, "modules", "playerbots.conf"),
 			filepath.Join(conf.EtcDir, "playerbots.conf"),

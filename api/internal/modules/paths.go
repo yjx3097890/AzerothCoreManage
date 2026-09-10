@@ -14,26 +14,28 @@ type Paths struct {
 	Deploy        string   `json:"deploy"`
 	ModulesDir    string   `json:"modules_dir"`
 	ModulesList   string   `json:"modules_list"`
-	EtcModulesDir string   `json:"etc_modules_dir"`
-	ComposeDir    string   `json:"compose_dir"`
-	AllowOwners   []string `json:"allow_owners"`
-	AllowedHosts  []string `json:"allowed_hosts"`
-	ModulesDirOK  bool     `json:"modules_dir_ok"`
-	ModulesDirRW  bool     `json:"modules_dir_rw"`
-	EtcModulesOK  bool     `json:"etc_modules_ok"`
+	EtcModulesDir  string   `json:"etc_modules_dir"`
+	ComposeDir     string   `json:"compose_dir"`
+	PlayerbotsConf string   `json:"playerbots_conf,omitempty"`
+	AllowOwners    []string `json:"allow_owners"`
+	AllowedHosts   []string `json:"allowed_hosts"`
+	ModulesDirOK   bool     `json:"modules_dir_ok"`
+	ModulesDirRW   bool     `json:"modules_dir_rw"`
+	EtcModulesOK   bool     `json:"etc_modules_ok"`
 }
 
 func ResolvePaths(t *config.Target) Paths {
 	m := t.Modules
 	p := Paths{
-		Enabled:       m.Enabled,
-		Deploy:        m.Deploy,
-		ModulesDir:    m.ModulesDir,
-		ModulesList:   m.ModulesList,
-		EtcModulesDir: m.EtcModulesDir,
-		ComposeDir:    m.ComposeDir,
-		AllowOwners:   append([]string{}, m.AllowOwners...),
-		AllowedHosts:  append([]string{}, m.AllowedHosts...),
+		Enabled:        m.Enabled,
+		Deploy:         m.Deploy,
+		ModulesDir:     m.ModulesDir,
+		ModulesList:    m.ModulesList,
+		EtcModulesDir:  m.EtcModulesDir,
+		ComposeDir:     m.ComposeDir,
+		PlayerbotsConf: strings.TrimSpace(t.Conf.PlayerbotsConf),
+		AllowOwners:    append([]string{}, m.AllowOwners...),
+		AllowedHosts:   append([]string{}, m.AllowedHosts...),
 	}
 	if p.Deploy == "" {
 		p.Deploy = "docker"

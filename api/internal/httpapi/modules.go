@@ -450,7 +450,7 @@ func (s *Server) getModuleConf(c *gin.Context) {
 	}
 	paths := modules.ResolvePaths(rt.Cfg)
 	id := c.Param("id")
-	conf, ok := modules.FindConfForModule(paths.EtcModulesDir, id)
+	conf, ok := modules.FindConfForModule(paths, id)
 	if !ok {
 		path, err := modules.ResolveModuleConf(paths.EtcModulesDir, id)
 		if err != nil {
@@ -482,7 +482,7 @@ func (s *Server) putModuleConf(c *gin.Context) {
 	paths := modules.ResolvePaths(rt.Cfg)
 	id := c.Param("id")
 	path := ""
-	if conf, ok := modules.FindConfForModule(paths.EtcModulesDir, id); ok {
+	if conf, ok := modules.FindConfForModule(paths, id); ok {
 		path = conf.Path
 	} else {
 		path, err = modules.ResolveModuleConf(paths.EtcModulesDir, id)
