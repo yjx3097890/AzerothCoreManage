@@ -181,6 +181,7 @@ func (s *Server) Router() *gin.Engine {
 
 		authed.GET("/config/files", RequireRole(RoleSuperAdmin), s.listConfigFiles)
 		authed.GET("/config/files/:id/backups", RequireRole(RoleSuperAdmin), s.listConfigFileBackups)
+		authed.POST("/config/files/:id/backup", RequireRole(RoleSuperAdmin), s.backupConfigFile)
 		authed.POST("/config/files/:id/restore", RequireRole(RoleSuperAdmin), s.restoreConfigFileBackup)
 		authed.GET("/config/files/:id", RequireRole(RoleSuperAdmin), s.getConfigFile)
 		authed.PUT("/config/files/:id", RequireRole(RoleSuperAdmin), s.putConfigFile)

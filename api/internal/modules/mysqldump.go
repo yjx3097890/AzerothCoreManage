@@ -39,5 +39,5 @@ func ResolveMysqldump(configured string) (string, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("未找到 mysqldump：本地请 brew install mysql-client；Docker 部署请重建 API 镜像（已含 mariadb-client）。也可在 config 设置 backup.mysqldump_path")
+	return "", fmt.Errorf("未找到 mysqldump：本地请 brew install mysql-client；Docker 部署请重建 API 镜像（已含 default-mysql-client）。也可在 config 设置 backup.mysqldump_path")
 }

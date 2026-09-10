@@ -692,6 +692,43 @@ func (s *Server) putConfigFile(c *gin.Context) {
 	JSON(c, gin.H{"path": path, "backup": bak})
 }
 
+func (s *Server) backupConfigFile(c *gin.Context) {
+	rt, err := s.app.Target(TargetID(c))
+	if err != nil {
+		FailCode(c, http.StatusBadRequest, "bad_target")
+		return
+	}
+	id := c.Param("id")
+	path, err := resolveConfFile(rt.Cfg, id)
+	if err != nil {
+		Fail(c, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	var req struct {
+		Confirm bool `json:"confirm"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if !req.Confirm {
+		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
+		return
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
+		return
+	}
+	bak := path + ".bak." + time.Now().Format("20060102-150405")
+	if err := os.WriteFile(bak, raw, 0o644); err != nil {
+		Fail(c, http.StatusBadGateway, "conf_error", err.Error())
+		return
+	}
+	_ = s.app.Audit.Write(c.Request.Context(), audit.Entry{
+		Username: Username(c), Role: Role(c), TargetID: rt.Cfg.ID,
+		Action: "conf.backup", Detail: bak, OK: true,
+	})
+	JSON(c, gin.H{"path": path, "backup": bak, "name": filepath.Base(bak), "size": len(raw)})
+}
+
 func (s *Server) listConfigFileBackups(c *gin.Context) {
 	rt, err := s.app.Target(TargetID(c))
 	if err != nil {

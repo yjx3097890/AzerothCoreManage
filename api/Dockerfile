@@ -9,9 +9,12 @@ RUN go mod download
 COPY api/ ./
 RUN CGO_ENABLED=0 go build -o /out/acmanage ./cmd/server
 
-FROM alpine:3.20
-# mysqldump / mysql：备份与模块检查点回退导库
-RUN apk add --no-cache ca-certificates tzdata mariadb-client
+# 运行态用 Debian + Oracle/MySQL 客户端：Alpine mariadb-client 缺 caching_sha2_password，
+# 连 MySQL 8（AC 常见）会 1045 Plugin could not be loaded。
+FROM debian:bookworm-slim
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates tzdata default-mysql-client \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out/acmanage /usr/local/bin/acmanage
 COPY api/config.yaml /etc/acmanage/config.yaml

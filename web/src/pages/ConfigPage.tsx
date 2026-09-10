@@ -149,6 +149,22 @@ export function ConfigPage() {
     void refresh()
   }, [refresh])
 
+  const backupFile = useCallback(
+    async (id: string) => {
+      try {
+        await api(`/api/v1/config/files/${encodeURIComponent(id)}/backup`, {
+          method: 'POST',
+          body: JSON.stringify({ confirm: true }),
+        })
+        toast.success(t('config.fileBackupOk'))
+        if (selected === id) await loadConfBackups(id)
+      } catch (err) {
+        toast.error(errorMessage(err, t))
+      }
+    },
+    [t, selected, loadConfBackups],
+  )
+
   const fileColumns: Column<ConfFile>[] = useMemo(
     () => [
       {
@@ -192,18 +208,28 @@ export function ConfigPage() {
         key: 'actions',
         title: t('common.actions'),
         render: (_v, r) => (
-          <button
-            type="button"
-            className="btn btn-xs"
-            disabled={!r.available && r.id !== 'compose_override'}
-            onClick={() => void loadFile(r.id)}
-          >
-            {t('config.open')}
-          </button>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              className="btn btn-xs"
+              disabled={!r.available && r.id !== 'compose_override'}
+              onClick={() => void loadFile(r.id)}
+            >
+              {t('config.open')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-xs"
+              disabled={!r.available}
+              onClick={() => void backupFile(r.id)}
+            >
+              {t('config.fileBackup')}
+            </button>
+          </div>
         ),
       },
     ],
-    [t, zh, loadFile],
+    [t, zh, loadFile, backupFile],
   )
 
   const confBackupColumns: Column<ConfFileBackup>[] = useMemo(
@@ -521,7 +547,17 @@ export function ConfigPage() {
                 />
               </label>
               <div>
-                <h4 className="text-sm font-medium m-0 mb-1">{t('config.fileBackups')}</h4>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <h4 className="text-sm font-medium m-0">{t('config.fileBackups')}</h4>
+                  <button
+                    type="button"
+                    className="btn btn-xs"
+                    disabled={!selected}
+                    onClick={() => selected && void backupFile(selected)}
+                  >
+                    {t('config.fileBackup')}
+                  </button>
+                </div>
                 <p className="text-xs text-base-content/50 m-0 mb-2">{t('config.fileBackupsHint')}</p>
                 <DataTable
                   columns={confBackupColumns}
