@@ -128,7 +128,7 @@ func (s *Server) catalogAreas(c *gin.Context) {
 
 func (s *Server) catalogEvents(c *gin.Context) {
 	q := strings.TrimSpace(c.Query("q"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "80"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "500"))
 	loc := i18n.FromRequest(c)
 	rows := gamelocale.SearchEvents(q, limit, loc)
 	items := make([]gin.H, 0, len(rows))

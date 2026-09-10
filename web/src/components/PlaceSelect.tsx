@@ -178,7 +178,8 @@ export function EventSelect({ value, onChange, disabled, className }: NumProps) 
     async (q: string) => {
       setLoading(true)
       try {
-        const params = new URLSearchParams({ limit: '80' })
+        // Full catalog is small (~180); load all so local SearchSelect filter covers everything.
+        const params = new URLSearchParams({ limit: '500' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: EventHit[] }>(`/api/v1/catalog/events?${params}`)
         setOptions(
@@ -198,7 +199,8 @@ export function EventSelect({ value, onChange, disabled, className }: NumProps) 
   )
 
   useEffect(() => {
-    void search(value != null ? String(value) : '')
+    // Always load full list once; typing filters locally in SearchSelect.
+    void search('')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const merged = useMemo(() => {
@@ -217,7 +219,7 @@ export function EventSelect({ value, onChange, disabled, className }: NumProps) 
       options={merged}
       value={value}
       placeholder={t('events.eventPlaceholder')}
-      onSearch={(q) => void search(q)}
+      onSearch={undefined}
       onChange={(v) => onChange?.(v ?? null)}
     />
   )
