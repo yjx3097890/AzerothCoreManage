@@ -165,7 +165,7 @@ func (s *Server) listGroups(c *gin.Context) {
 	rows, err := rt.DB.Characters.QueryContext(c.Request.Context(), `
 SELECT g.guid, g.leaderGuid, COALESCE(c.name,''), g.groupType, g.difficulty, g.raidDifficulty,
        (SELECT COUNT(*) FROM group_member gm WHERE gm.guid = g.guid) AS members
-FROM groups g
+FROM `+"`groups`"+` g
 LEFT JOIN characters c ON c.guid = g.leaderGuid
 ORDER BY g.guid DESC
 LIMIT ?`, limit)

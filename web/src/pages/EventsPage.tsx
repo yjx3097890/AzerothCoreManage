@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { EventSelect, MapSelect } from '../components/PlaceSelect'
-import { DataTable, Select, toast, type Column } from '../ui'
+import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type DisableRow = {
   source_type: number
@@ -28,10 +28,12 @@ type EventRow = {
 
 export function EventsPage() {
   const { t, i18n } = useTranslation()
+  const [tab, setTab] = useState('events')
   const [events, setEvents] = useState<EventRow[]>([])
   const [eventsLoading, setEventsLoading] = useState(false)
   const [disables, setDisables] = useState<DisableRow[]>([])
   const [disablesLoading, setDisablesLoading] = useState(false)
+  const [disablesLoaded, setDisablesLoaded] = useState(false)
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
 
   const [eventAction, setEventAction] = useState('start')
@@ -60,6 +62,7 @@ export function EventsPage() {
     try {
       const data = await api<{ items: DisableRow[] }>('/api/v1/disables?limit=200')
       setDisables(data.items)
+      setDisablesLoaded(true)
     } catch (err) {
       toast.error(errorMessage(err, t))
     } finally {
@@ -69,8 +72,13 @@ export function EventsPage() {
 
   useEffect(() => {
     void load()
-    void loadDisables()
-  }, [load, loadDisables, i18n.language])
+  }, [load, i18n.language])
+
+  useEffect(() => {
+    if (tab === 'disables' && !disablesLoaded) {
+      void loadDisables()
+    }
+  }, [tab, disablesLoaded, loadDisables])
 
   const usesMapPicker = ['map', 'vmap', 'battleground'].includes(disableType)
 
@@ -195,190 +203,213 @@ export function EventsPage() {
           type="button"
           className="btn btn-sm"
           onClick={() => {
-            void load()
-            void loadDisables()
+            if (tab === 'disables') void loadDisables()
+            else void load()
           }}
         >
           {t('common.refresh')}
         </button>
       </div>
 
-      <div className="alert alert-info mb-4">
-        <span>{t('events.hint')}</span>
-      </div>
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={[
+          {
+            key: 'events',
+            label: t('events.tabEvents'),
+            children: (
+              <div>
+                <div className="alert alert-info mb-4">
+                  <span>{t('events.hint')}</span>
+                </div>
 
-      <div className="mb-4">
-        <DataTable
-          rowKey="id"
-          loading={eventsLoading}
-          dataSource={events}
-          columns={eventColumns}
-          pagination={false}
-        />
-      </div>
-
-      {hasMinRole('gm') && (
-        <form
-          className="flex flex-wrap items-center gap-2 mt-2 mb-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (eventId == null) {
-              toast.error(t('validation.required'))
-              return
-            }
-            const values = { action: eventAction, event_id: eventId }
-            setPending({
-              title: t('events.action'),
-              description: `${values.action} #${values.event_id}`,
-              run: async () => {
-                await api('/api/v1/events', {
-                  method: 'POST',
-                  body: JSON.stringify({ ...values, confirm: true }),
-                })
-                await load()
-              },
-            })
-          }}
-        >
-          <Select
-            className="w-32"
-            value={eventAction}
-            onChange={(v) => setEventAction(v ?? 'start')}
-            options={[
-              { value: 'start', label: t('common.start') },
-              { value: 'stop', label: t('common.stop') },
-            ]}
-          />
-          <EventSelect
-            className="w-72 min-w-[16rem]"
-            value={eventId}
-            onChange={(v) => setEventId(v ?? undefined)}
-          />
-          <button type="submit" className="btn btn-primary">
-            {t('events.action')}
-          </button>
-        </form>
-      )}
-
-      <h2 className="text-lg font-semibold mt-8 mb-3">{t('events.disables')}</h2>
-
-      {hasMinRole('gm') && (
-        <form
-          className="flex flex-wrap items-center gap-2 mb-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (disableAction !== 'reload' && disableEntry == null) {
-              toast.error(t('validation.required'))
-              return
-            }
-            const values =
-              disableAction === 'reload'
-                ? { action: disableAction }
-                : {
-                    action: disableAction,
-                    type: disableType,
-                    entry: disableEntry,
-                    ...(disableAction === 'add'
-                      ? {
-                          flag: disableFlag === '' ? undefined : Number(disableFlag),
-                          comment: disableComment,
-                        }
-                      : {}),
-                  }
-            setPending({
-              title: t('events.disables'),
-              description: t('events.disableConfirm', {
-                action: disableAction,
-                type: disableAction === 'reload' ? '' : disableType,
-                entry: disableAction === 'reload' ? '' : (disableEntry ?? ''),
-              }),
-              run: async () => {
-                await api('/api/v1/disables', {
-                  method: 'POST',
-                  body: JSON.stringify({ ...values, confirm: true }),
-                })
-                await loadDisables()
-              },
-            })
-          }}
-        >
-          <Select
-            className="w-28"
-            value={disableAction}
-            onChange={(v) => setDisableAction(v ?? 'add')}
-            options={[
-              { value: 'add', label: t('common.add') },
-              { value: 'remove', label: t('common.remove') },
-              { value: 'reload', label: t('common.reload') },
-            ]}
-          />
-          {disableAction !== 'reload' && (
-            <>
-              <Select
-                className="w-36"
-                value={disableType}
-                onChange={(v) => {
-                  setDisableType(v ?? 'spell')
-                  setDisableEntry(undefined)
-                }}
-                options={[
-                  { value: 'spell', label: t('events.typeSpell') },
-                  { value: 'map', label: t('events.typeMap') },
-                  { value: 'battleground', label: t('events.typeBattleground') },
-                  { value: 'quest', label: t('events.typeQuest') },
-                  { value: 'vmap', label: t('events.typeVmap') },
-                  { value: 'outdoorpvp', label: t('events.typeOutdoorpvp') },
-                ]}
-              />
-              {usesMapPicker ? (
-                <MapSelect
-                  className="w-60"
-                  value={disableEntry}
-                  onChange={(v) => setDisableEntry(v ?? undefined)}
-                />
-              ) : (
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  className="input input-bordered w-40"
-                  placeholder={t('common.entry')}
-                  value={disableEntry ?? ''}
-                  onChange={(e) => setDisableEntry(e.target.value === '' ? undefined : Number(e.target.value))}
-                />
-              )}
-              {disableAction === 'add' && (
-                <>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered w-32"
-                    placeholder={t('accounts.flag')}
-                    value={disableFlag}
-                    onChange={(e) => setDisableFlag(e.target.value)}
+                <div className="mb-4">
+                  <DataTable
+                    rowKey="id"
+                    loading={eventsLoading}
+                    dataSource={events}
+                    columns={eventColumns}
+                    pagination={false}
                   />
-                  <input
-                    className="input input-bordered w-36"
-                    placeholder={t('moderation.reason')}
-                    value={disableComment}
-                    onChange={(e) => setDisableComment(e.target.value)}
-                  />
-                </>
-              )}
-            </>
-          )}
-          <button type="submit" className="btn">
-            {t('events.disableAction')}
-          </button>
-        </form>
-      )}
+                </div>
 
-      <DataTable
-        rowKey={(r) => `${r.source_type}-${r.entry}`}
-        loading={disablesLoading}
-        dataSource={disables}
-        columns={disableColumns}
-        pagination={{ pageSize: 20 }}
+                {hasMinRole('gm') && (
+                  <form
+                    className="flex flex-wrap items-center gap-2 mt-2 mb-2"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (eventId == null) {
+                        toast.error(t('validation.required'))
+                        return
+                      }
+                      const values = { action: eventAction, event_id: eventId }
+                      setPending({
+                        title: t('events.action'),
+                        description: `${values.action} #${values.event_id}`,
+                        run: async () => {
+                          await api('/api/v1/events', {
+                            method: 'POST',
+                            body: JSON.stringify({ ...values, confirm: true }),
+                          })
+                          await load()
+                        },
+                      })
+                    }}
+                  >
+                    <Select
+                      className="w-32"
+                      value={eventAction}
+                      onChange={(v) => setEventAction(v ?? 'start')}
+                      options={[
+                        { value: 'start', label: t('common.start') },
+                        { value: 'stop', label: t('common.stop') },
+                      ]}
+                    />
+                    <EventSelect
+                      className="w-72 min-w-[16rem]"
+                      value={eventId}
+                      onChange={(v) => setEventId(v ?? undefined)}
+                    />
+                    <button type="submit" className="btn btn-primary">
+                      {t('events.action')}
+                    </button>
+                  </form>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'disables',
+            label: t('events.tabDisables'),
+            children: (
+              <div>
+                <div className="alert alert-info mb-4">
+                  <span>{t('events.disablesHint')}</span>
+                </div>
+
+                {hasMinRole('gm') && (
+                  <form
+                    className="flex flex-wrap items-center gap-2 mb-4"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (disableAction !== 'reload' && disableEntry == null) {
+                        toast.error(t('validation.required'))
+                        return
+                      }
+                      const values =
+                        disableAction === 'reload'
+                          ? { action: disableAction }
+                          : {
+                              action: disableAction,
+                              type: disableType,
+                              entry: disableEntry,
+                              ...(disableAction === 'add'
+                                ? {
+                                    flag: disableFlag === '' ? undefined : Number(disableFlag),
+                                    comment: disableComment,
+                                  }
+                                : {}),
+                            }
+                      setPending({
+                        title: t('events.disables'),
+                        description: t('events.disableConfirm', {
+                          action: disableAction,
+                          type: disableAction === 'reload' ? '' : disableType,
+                          entry: disableAction === 'reload' ? '' : (disableEntry ?? ''),
+                        }),
+                        run: async () => {
+                          await api('/api/v1/disables', {
+                            method: 'POST',
+                            body: JSON.stringify({ ...values, confirm: true }),
+                          })
+                          await loadDisables()
+                        },
+                      })
+                    }}
+                  >
+                    <Select
+                      className="w-28"
+                      value={disableAction}
+                      onChange={(v) => setDisableAction(v ?? 'add')}
+                      options={[
+                        { value: 'add', label: t('common.add') },
+                        { value: 'remove', label: t('common.remove') },
+                        { value: 'reload', label: t('common.reload') },
+                      ]}
+                    />
+                    {disableAction !== 'reload' && (
+                      <>
+                        <Select
+                          className="w-36"
+                          value={disableType}
+                          onChange={(v) => {
+                            setDisableType(v ?? 'spell')
+                            setDisableEntry(undefined)
+                          }}
+                          options={[
+                            { value: 'spell', label: t('events.typeSpell') },
+                            { value: 'map', label: t('events.typeMap') },
+                            { value: 'battleground', label: t('events.typeBattleground') },
+                            { value: 'quest', label: t('events.typeQuest') },
+                            { value: 'vmap', label: t('events.typeVmap') },
+                            { value: 'outdoorpvp', label: t('events.typeOutdoorpvp') },
+                          ]}
+                        />
+                        {usesMapPicker ? (
+                          <MapSelect
+                            className="w-60"
+                            value={disableEntry}
+                            onChange={(v) => setDisableEntry(v ?? undefined)}
+                          />
+                        ) : (
+                          <input
+                            type="number"
+                            min={1}
+                            required
+                            className="input input-bordered w-40"
+                            placeholder={t('common.entry')}
+                            value={disableEntry ?? ''}
+                            onChange={(e) => setDisableEntry(e.target.value === '' ? undefined : Number(e.target.value))}
+                          />
+                        )}
+                        {disableAction === 'add' && (
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              className="input input-bordered w-32"
+                              placeholder={t('accounts.flag')}
+                              value={disableFlag}
+                              onChange={(e) => setDisableFlag(e.target.value)}
+                            />
+                            <input
+                              className="input input-bordered w-36"
+                              placeholder={t('moderation.reason')}
+                              value={disableComment}
+                              onChange={(e) => setDisableComment(e.target.value)}
+                            />
+                          </>
+                        )}
+                      </>
+                    )}
+                    <button type="submit" className="btn">
+                      {t('events.disableAction')}
+                    </button>
+                  </form>
+                )}
+
+                <DataTable
+                  rowKey={(r) => `${r.source_type}-${r.entry}`}
+                  loading={disablesLoading}
+                  dataSource={disables}
+                  columns={disableColumns}
+                  pagination={{ pageSize: 20 }}
+                />
+              </div>
+            ),
+          },
+        ]}
       />
 
       <ConfirmDanger

@@ -255,6 +255,12 @@
   },
   "announcements": {
     "currentMotd": "Current MOTD",
+    "tabAnnounce": "Live announce",
+    "tabMotd": "MOTD",
+    "tabBroadcast": "Autobroadcast",
+    "announceHint": "Send a one-shot announce or screen notification to online players. Not stored in the database.",
+    "motdHint": "Server message of the day shown on login; set per client locale.",
+    "broadcastHint": "Rotating autobroadcast entries (autobroadcast table), weighted or cycled.",
     "send": "Send announcement",
     "type": "Type",
     "typeAnnounce": "Announce",
@@ -661,6 +667,9 @@
   },
   "events": {
     "hint": "Active world events from SOAP (names localized when available).",
+    "tabEvents": "World events",
+    "tabDisables": "Disables",
+    "disablesHint": "World DB disables table: turn off spells, quests, maps, battlegrounds, VMaps, outdoor PvP, etc. Not the same as world events.",
     "action": "Start/stop event",
     "eventId": "Event ID",
     "eventPlaceholder": "Search event ID / name",

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
-import { DataTable, Select, toast, type Column } from '../ui'
+import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type Broadcast = { id: number; text: string; weight: number }
 
@@ -20,11 +20,14 @@ const MOTD_LOCALES = [
 
 export function AnnouncementsPage() {
   const { t, i18n } = useTranslation()
+  const [tab, setTab] = useState('announce')
   const [motdByLocale, setMotdByLocale] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [motdLoaded, setMotdLoaded] = useState(false)
   const [pendingMotd, setPendingMotd] = useState<{ message: string; locale: string } | null>(null)
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
   const [broadcastLoading, setBroadcastLoading] = useState(false)
+  const [broadcastLoaded, setBroadcastLoaded] = useState(false)
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(
     null,
   )
@@ -49,7 +52,7 @@ export function AnnouncementsPage() {
     setMotdMessage(byLocale[locale] ?? '')
   }, [])
 
-  const load = useCallback(async () => {
+  const loadMotd = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api<{ motd: string; by_locale?: Record<string, string> }>('/api/v1/motd')
@@ -57,6 +60,7 @@ export function AnnouncementsPage() {
       setMotdByLocale(byLocale)
       const locale = localeRef.current || defaultMotdLocale
       applyMotdLocale(locale, byLocale)
+      setMotdLoaded(true)
     } catch (err) {
       toast.error(errorMessage(err, t))
     } finally {
@@ -69,17 +73,19 @@ export function AnnouncementsPage() {
     try {
       const data = await api<{ items: Broadcast[] }>('/api/v1/autobroadcast')
       setBroadcasts(data.items)
+      setBroadcastLoaded(true)
     } catch {
       setBroadcasts([])
+      setBroadcastLoaded(true)
     } finally {
       setBroadcastLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void load()
-    void loadBroadcast()
-  }, [load, loadBroadcast])
+    if (tab === 'motd' && !motdLoaded) void loadMotd()
+    if (tab === 'broadcast' && !broadcastLoaded) void loadBroadcast()
+  }, [tab, motdLoaded, broadcastLoaded, loadMotd, loadBroadcast])
 
   const columns: Column<Broadcast>[] = [
     { key: 'id', title: 'ID', dataIndex: 'id', width: 70 },
@@ -114,112 +120,204 @@ export function AnnouncementsPage() {
     },
   ]
 
+  const refresh = () => {
+    if (tab === 'motd') void loadMotd()
+    else if (tab === 'broadcast') void loadBroadcast()
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-2xl font-semibold m-0">{t('pages.announcements.title')}</h1>
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={loading}
-          onClick={() => {
-            void load()
-            void loadBroadcast()
-          }}
-        >
-          {loading && <span className="loading loading-spinner loading-xs" />}
-          {t('common.refresh')}
-        </button>
+        {tab !== 'announce' && (
+          <button type="button" className="btn btn-sm" disabled={loading || broadcastLoading} onClick={refresh}>
+            {(loading || broadcastLoading) && <span className="loading loading-spinner loading-xs" />}
+            {t('common.refresh')}
+          </button>
+        )}
       </div>
 
-      {hasMinRole('gm') && (
-        <div className="flex flex-col gap-8 w-full max-w-[640px]">
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={async (e) => {
-              e.preventDefault()
-              try {
-                await api('/api/v1/announce', {
-                  method: 'POST',
-                  body: JSON.stringify({ type: announceType, message: announceMessage }),
-                })
-                toast.success(t('common.ok'))
-                setAnnounceMessage('')
-              } catch (err) {
-                toast.error(errorMessage(err, t))
-              }
-            }}
-          >
-            <h2 className="text-base font-semibold m-0">{t('announcements.send')}</h2>
-            <label className="form-control w-full">
-              <span className="label-text mb-1">{t('announcements.type')}</span>
-              <Select
-                value={announceType}
-                onChange={(v) => setAnnounceType(v ?? 'announce')}
-                options={[
-                  { value: 'announce', label: t('announcements.typeAnnounce') },
-                  { value: 'notify', label: t('announcements.typeNotify') },
-                ]}
-              />
-            </label>
-            <label className="form-control w-full">
-              <span className="label-text mb-1">{t('announcements.message')}</span>
-              <textarea
-                className="textarea textarea-bordered w-full"
-                rows={3}
-                maxLength={255}
-                required
-                value={announceMessage}
-                onChange={(e) => setAnnounceMessage(e.target.value)}
-              />
-            </label>
-            <div>
-              <button type="submit" className="btn btn-primary btn-sm">
-                {t('announcements.send')}
-              </button>
-            </div>
-          </form>
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={[
+          {
+            key: 'announce',
+            label: t('announcements.tabAnnounce'),
+            children: (
+              <div className="max-w-[640px]">
+                <p className="text-sm text-base-content/65 m-0 mb-4 leading-relaxed">
+                  {t('announcements.announceHint')}
+                </p>
+                {hasMinRole('gm') && (
+                  <form
+                    className="flex flex-col gap-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      try {
+                        await api('/api/v1/announce', {
+                          method: 'POST',
+                          body: JSON.stringify({ type: announceType, message: announceMessage }),
+                        })
+                        toast.success(t('common.ok'))
+                        setAnnounceMessage('')
+                      } catch (err) {
+                        toast.error(errorMessage(err, t))
+                      }
+                    }}
+                  >
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1">{t('announcements.type')}</span>
+                      <Select
+                        value={announceType}
+                        onChange={(v) => setAnnounceType(v ?? 'announce')}
+                        options={[
+                          { value: 'announce', label: t('announcements.typeAnnounce') },
+                          { value: 'notify', label: t('announcements.typeNotify') },
+                        ]}
+                      />
+                    </label>
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1">{t('announcements.message')}</span>
+                      <textarea
+                        className="textarea textarea-bordered w-full"
+                        rows={3}
+                        maxLength={255}
+                        required
+                        value={announceMessage}
+                        onChange={(e) => setAnnounceMessage(e.target.value)}
+                      />
+                    </label>
+                    <div>
+                      <button type="submit" className="btn btn-primary btn-sm">
+                        {t('announcements.send')}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'motd',
+            label: t('announcements.tabMotd'),
+            children: (
+              <div className="max-w-[640px]">
+                <p className="text-sm text-base-content/65 m-0 mb-4 leading-relaxed">{t('announcements.motdHint')}</p>
+                {hasMinRole('gm') && (
+                  <form
+                    className="flex flex-col gap-3"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      setPendingMotd({
+                        message: motdMessage ?? '',
+                        locale: motdLocale || defaultMotdLocale,
+                      })
+                    }}
+                  >
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1">{t('announcements.motdLocale')}</span>
+                      <Select
+                        value={motdLocale}
+                        onChange={(v) => applyMotdLocale(v ?? defaultMotdLocale, motdByLocale)}
+                        options={MOTD_LOCALES}
+                      />
+                      <span className="label-text-alt text-base-content/60 mt-1">
+                        {t('announcements.motdLocaleHint')}
+                      </span>
+                    </label>
+                    <label className="form-control w-full">
+                      <span className="label-text mb-1">{t('announcements.motdLabel')}</span>
+                      <textarea
+                        className="textarea textarea-bordered w-full"
+                        rows={3}
+                        maxLength={255}
+                        required
+                        placeholder={loading ? t('common.loading') : t('announcements.motdEmpty')}
+                        value={motdMessage}
+                        onChange={(e) => setMotdMessage(e.target.value)}
+                        disabled={loading && !motdLoaded}
+                      />
+                    </label>
+                    <div>
+                      <button type="submit" className="btn btn-sm btn-primary" disabled={loading && !motdLoaded}>
+                        {t('announcements.setMotd')}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'broadcast',
+            label: t('announcements.tabBroadcast'),
+            children: (
+              <div>
+                <p className="text-sm text-base-content/65 m-0 mb-4 leading-relaxed max-w-2xl">
+                  {t('announcements.broadcastHint')}
+                </p>
 
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setPendingMotd({
-                message: motdMessage ?? '',
-                locale: motdLocale || defaultMotdLocale,
-              })
-            }}
-          >
-            <h2 className="text-base font-semibold m-0">{t('announcements.setMotd')}</h2>
-            <label className="form-control w-full">
-              <span className="label-text mb-1">{t('announcements.motdLocale')}</span>
-              <Select
-                value={motdLocale}
-                onChange={(v) => applyMotdLocale(v ?? defaultMotdLocale, motdByLocale)}
-                options={MOTD_LOCALES}
-              />
-              <span className="label-text-alt text-base-content/60 mt-1">{t('announcements.motdLocaleHint')}</span>
-            </label>
-            <label className="form-control w-full">
-              <span className="label-text mb-1">{t('announcements.motdLabel')}</span>
-              <textarea
-                className="textarea textarea-bordered w-full"
-                rows={3}
-                maxLength={255}
-                required
-                placeholder={t('announcements.motdEmpty')}
-                value={motdMessage}
-                onChange={(e) => setMotdMessage(e.target.value)}
-              />
-            </label>
-            <div>
-              <button type="submit" className="btn btn-sm">
-                {t('announcements.setMotd')}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+                {hasMinRole('gm') && (
+                  <form
+                    className="flex flex-wrap items-start gap-2 mb-4"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      const values = {
+                        text: bcText,
+                        weight: Number(bcWeight),
+                        realmid: bcRealmId === '' ? undefined : Number(bcRealmId),
+                      }
+                      setPending({
+                        title: t('announcements.createBroadcast'),
+                        description: t('announcements.createBroadcastConfirm'),
+                        run: async () => {
+                          await api('/api/v1/autobroadcast', {
+                            method: 'POST',
+                            body: JSON.stringify({ ...values, confirm: true }),
+                          })
+                          setBcText('')
+                          await loadBroadcast()
+                        },
+                      })
+                    }}
+                  >
+                    <textarea
+                      className="textarea textarea-bordered w-[280px]"
+                      rows={1}
+                      required
+                      placeholder={t('announcements.message')}
+                      value={bcText}
+                      onChange={(e) => setBcText(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      className="input input-bordered w-32"
+                      placeholder={t('announcements.weight')}
+                      value={bcWeight}
+                      onChange={(e) => setBcWeight(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      className="input input-bordered w-32"
+                      placeholder={t('announcements.realmId')}
+                      value={bcRealmId}
+                      onChange={(e) => setBcRealmId(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-primary">
+                      {t('announcements.createBroadcast')}
+                    </button>
+                  </form>
+                )}
+
+                <DataTable rowKey="id" loading={broadcastLoading} dataSource={broadcasts} columns={columns} />
+              </div>
+            ),
+          },
+        ]}
+      />
 
       <ConfirmDanger
         open={pendingMotd !== null}
@@ -240,70 +338,12 @@ export function AnnouncementsPage() {
             })
             toast.success(t('common.ok'))
             setPendingMotd(null)
-            void load()
+            void loadMotd()
           } catch (err) {
             toast.error(errorMessage(err, t))
           }
         }}
       />
-
-      <h2 className="text-base font-semibold mt-6 mb-3">{t('announcements.autobroadcast')}</h2>
-
-      {hasMinRole('gm') && (
-        <form
-          className="flex flex-wrap items-start gap-2 mb-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const values = {
-              text: bcText,
-              weight: Number(bcWeight),
-              realmid: bcRealmId === '' ? undefined : Number(bcRealmId),
-            }
-            setPending({
-              title: t('announcements.createBroadcast'),
-              description: t('announcements.createBroadcastConfirm'),
-              run: async () => {
-                await api('/api/v1/autobroadcast', {
-                  method: 'POST',
-                  body: JSON.stringify({ ...values, confirm: true }),
-                })
-                setBcText('')
-                await loadBroadcast()
-              },
-            })
-          }}
-        >
-          <textarea
-            className="textarea textarea-bordered w-[280px]"
-            rows={1}
-            required
-            placeholder={t('announcements.message')}
-            value={bcText}
-            onChange={(e) => setBcText(e.target.value)}
-          />
-          <input
-            type="number"
-            min={1}
-            required
-            className="input input-bordered w-32"
-            placeholder={t('announcements.weight')}
-            value={bcWeight}
-            onChange={(e) => setBcWeight(e.target.value)}
-          />
-          <input
-            type="number"
-            className="input input-bordered w-32"
-            placeholder={t('announcements.realmId')}
-            value={bcRealmId}
-            onChange={(e) => setBcRealmId(e.target.value)}
-          />
-          <button type="submit" className="btn btn-primary">
-            {t('announcements.createBroadcast')}
-          </button>
-        </form>
-      )}
-
-      <DataTable rowKey="id" loading={broadcastLoading} dataSource={broadcasts} columns={columns} />
 
       <ConfirmDanger
         open={!!pending}
