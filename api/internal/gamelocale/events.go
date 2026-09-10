@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -74,6 +75,33 @@ func NameForEvent(id int, fallbackEN string, loc i18n.Locale) (display, en strin
 		return entry.EN, entry.EN
 	}
 	return strconv.Itoa(id), en
+}
+
+// SearchEvents filters embedded game_event names (zh/en + id).
+func SearchEvents(q string, limit int, loc i18n.Locale) []NamedID {
+	loadEventNames()
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	q = strings.TrimSpace(q)
+	ids := make([]int, 0, len(eventNames))
+	for id := range eventNames {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	out := make([]NamedID, 0, limit)
+	for _, id := range ids {
+		entry := eventNames[id]
+		if !matchIDOrNames(id, []string{entry.ZH, entry.EN}, q) {
+			continue
+		}
+		name, en := NameForEvent(id, entry.EN, loc)
+		out = append(out, NamedID{ID: id, Name: name, NameEN: en, NameZH: entry.ZH})
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
 }
 
 // ParseActiveList turns SOAP `event activelist` output into structured rows,

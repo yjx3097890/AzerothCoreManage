@@ -663,6 +663,7 @@
     "hint": "Active world events from SOAP (names localized when available).",
     "action": "Start/stop event",
     "eventId": "Event ID",
+    "eventPlaceholder": "Search event ID / name",
     "name": "Name",
     "status": "Status",
     "active": "Active",

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
-import { MapSelect } from '../components/PlaceSelect'
+import { EventSelect, MapSelect } from '../components/PlaceSelect'
 import { DataTable, Select, toast, type Column } from '../ui'
 
 type DisableRow = {
@@ -35,7 +35,7 @@ export function EventsPage() {
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
 
   const [eventAction, setEventAction] = useState('start')
-  const [eventId, setEventId] = useState('')
+  const [eventId, setEventId] = useState<number | undefined>(undefined)
 
   const [disableAction, setDisableAction] = useState('add')
   const [disableType, setDisableType] = useState('spell')
@@ -222,7 +222,11 @@ export function EventsPage() {
           className="flex flex-wrap items-center gap-2 mt-2 mb-2"
           onSubmit={(e) => {
             e.preventDefault()
-            const values = { action: eventAction, event_id: Number(eventId) }
+            if (eventId == null) {
+              toast.error(t('validation.required'))
+              return
+            }
+            const values = { action: eventAction, event_id: eventId }
             setPending({
               title: t('events.action'),
               description: `${values.action} #${values.event_id}`,
@@ -245,14 +249,10 @@ export function EventsPage() {
               { value: 'stop', label: t('common.stop') },
             ]}
           />
-          <input
-            type="number"
-            min={1}
-            required
-            className="input input-bordered w-40"
-            placeholder={t('events.eventId')}
+          <EventSelect
+            className="w-72 min-w-[16rem]"
             value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
+            onChange={(v) => setEventId(v ?? undefined)}
           />
           <button type="submit" className="btn btn-primary">
             {t('events.action')}

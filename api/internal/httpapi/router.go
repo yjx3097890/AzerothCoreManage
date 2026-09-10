@@ -122,6 +122,7 @@ func (s *Server) Router() *gin.Engine {
 		authed.GET("/catalog/items", s.catalogItems)
 		authed.GET("/catalog/maps", s.catalogMaps)
 		authed.GET("/catalog/areas", s.catalogAreas)
+		authed.GET("/catalog/events", s.catalogEvents)
 
 		authed.GET("/moderation/bans", s.listBans)
 		authed.POST("/moderation/ban", RequireRole(RoleGM), s.moderationBan)

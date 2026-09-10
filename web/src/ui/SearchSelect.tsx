@@ -49,6 +49,17 @@ export function SearchSelect<T extends string | number>({
     valueLabel ??
     (value != null && value !== '' ? String(value) : '')
 
+  const filtered = (() => {
+    const qq = q.trim().toLowerCase()
+    if (!qq) return options
+    return options.filter((o) => {
+      const fromSearch = o.searchText?.toLowerCase()
+      if (fromSearch) return fromSearch.includes(qq)
+      if (typeof o.label === 'string') return o.label.toLowerCase().includes(qq)
+      return String(o.value).toLowerCase().includes(qq)
+    })
+  })()
+
   const place = () => {
     const el = triggerRef.current
     if (!el) return
@@ -169,12 +180,12 @@ export function SearchSelect<T extends string | number>({
               onKeyDown={(e) => e.stopPropagation()}
             />
             <ul id={listId} className="menu menu-sm max-h-60 overflow-y-auto w-full p-0" role="listbox">
-              {options.length === 0 ? (
+              {filtered.length === 0 ? (
                 <li className="disabled">
                   <span className="text-base-content/50">{loading ? '…' : '—'}</span>
                 </li>
               ) : (
-                options.map((o) => (
+                filtered.map((o) => (
                   <li key={String(o.value)}>
                     <button
                       type="button"

@@ -484,6 +484,7 @@
     "hint": "活动中的世界事件（名称优先使用中文客户端译名）。",
     "action": "启停事件",
     "eventId": "事件 ID",
+    "eventPlaceholder": "搜索事件 ID / 名称",
     "name": "名称",
     "status": "状态",
     "active": "进行中",

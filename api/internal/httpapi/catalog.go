@@ -125,3 +125,18 @@ func (s *Server) catalogAreas(c *gin.Context) {
 	}
 	JSON(c, gin.H{"items": items})
 }
+
+func (s *Server) catalogEvents(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "80"))
+	loc := i18n.FromRequest(c)
+	rows := gamelocale.SearchEvents(q, limit, loc)
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, gin.H{
+			"id": row.ID, "name": row.Name,
+			"name_en": row.NameEN, "name_zh": row.NameZH,
+		})
+	}
+	JSON(c, gin.H{"items": items})
+}

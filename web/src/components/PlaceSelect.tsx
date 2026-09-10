@@ -165,3 +165,60 @@ export function TeleSelect({ value, onChange, disabled, className }: TeleProps) 
     />
   )
 }
+
+type EventHit = { id: number; name: string; name_zh: string; name_en: string }
+
+/** World event picker (game_event id + localized name). */
+export function EventSelect({ value, onChange, disabled, className }: NumProps) {
+  const { t } = useTranslation()
+  const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const search = useCallback(
+    async (q: string) => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ limit: '80' })
+        if (q.trim()) params.set('q', q.trim())
+        const data = await api<{ items: EventHit[] }>(`/api/v1/catalog/events?${params}`)
+        setOptions(
+          data.items.map((i) => ({
+            value: i.id,
+            label: `#${i.id} ${i.name}`,
+            searchText: `${i.id} ${i.name} ${i.name_zh || ''} ${i.name_en || ''}`,
+          })),
+        )
+      } catch (err) {
+        toast.error(errorMessage(err, t))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [t],
+  )
+
+  useEffect(() => {
+    void search(value != null ? String(value) : '')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const merged = useMemo(() => {
+    if (value != null && !options.some((o) => o.value === value)) {
+      return [{ value, label: `#${value}`, searchText: String(value) }, ...options]
+    }
+    return options
+  }, [options, value])
+
+  return (
+    <SearchSelect
+      className={className ?? 'min-w-[220px]'}
+      allowClear
+      disabled={disabled}
+      loading={loading}
+      options={merged}
+      value={value}
+      placeholder={t('events.eventPlaceholder')}
+      onSearch={(q) => void search(q)}
+      onChange={(v) => onChange?.(v ?? null)}
+    />
+  )
+}
