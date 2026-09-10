@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, errorMessage } from '../api/client'
-import { DataTable, Modal, Select, toast, type Column } from '../ui'
+import { useSearchParams } from 'react-router-dom'
+import { api, errorMessage, getToken } from '../api/client'
+import { DataTable, Modal, Select, Tabs, toast, type Column } from '../ui'
 
 type ServerItem = {
   role: string
@@ -19,6 +20,8 @@ type ServersResp = {
 
 export function ServersPage() {
   const { t } = useTranslation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') === 'logs' ? 'logs' : 'containers'
   const [data, setData] = useState<ServersResp | null>(null)
   const [loading, setLoading] = useState(false)
   const [lifecycleOpen, setLifecycleOpen] = useState(false)
@@ -93,6 +96,14 @@ export function ServersPage() {
           >
             {t('servers.restart')}
           </button>
+          <button
+            type="button"
+            className="btn btn-xs btn-ghost"
+            disabled={!row.found}
+            onClick={() => setSearchParams({ tab: 'logs', c: row.role || row.name })}
+          >
+            {t('servers.viewLogs')}
+          </button>
         </div>
       ),
     },
@@ -101,29 +112,62 @@ export function ServersPage() {
   return (
     <div>
       <div className="flex w-full items-center justify-between gap-2 mb-4">
-        <h2 className="text-xl font-semibold m-0">{t('pages.servers.title')}</h2>
+        <div>
+          <h2 className="text-xl font-semibold m-0">{t('pages.servers.title')}</h2>
+          <p className="text-sm text-base-content/60 m-0 mt-1">{t('servers.subtitle')}</p>
+        </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="btn btn-sm" onClick={() => void load()}>
-            {t('common.refresh')}
-          </button>
-          <button type="button" className="btn btn-sm btn-error" onClick={() => setLifecycleOpen(true)}>
-            {t('servers.lifecycle')}
-          </button>
+          {tab === 'containers' && (
+            <>
+              <button type="button" className="btn btn-sm" onClick={() => void load()}>
+                {t('common.refresh')}
+              </button>
+              <button type="button" className="btn btn-sm btn-error" onClick={() => setLifecycleOpen(true)}>
+                {t('servers.lifecycle')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {!data ? (
-        <div className="alert alert-info">{t('common.loading')}</div>
-      ) : !data.enabled ? (
-        <div className="alert alert-info">
-          <div>
-            <div className="font-medium">{t('dashboard.dockerDisabled')}</div>
-            {data.message && <div className="text-sm opacity-80">{data.message}</div>}
-          </div>
-        </div>
-      ) : (
-        <DataTable loading={loading} rowKey="name" dataSource={data.items} columns={columns} />
-      )}
+      <Tabs
+        activeKey={tab}
+        onChange={(key) => {
+          if (key === 'logs') {
+            setSearchParams({ tab: 'logs' })
+          } else {
+            setSearchParams({})
+          }
+        }}
+        items={[
+          {
+            key: 'containers',
+            label: t('servers.tabContainers'),
+            children: !data ? (
+              <div className="alert alert-info">{t('common.loading')}</div>
+            ) : !data.enabled ? (
+              <div className="alert alert-info">
+                <div>
+                  <div className="font-medium">{t('dashboard.dockerDisabled')}</div>
+                  {data.message && <div className="text-sm opacity-80">{data.message}</div>}
+                </div>
+              </div>
+            ) : (
+              <DataTable loading={loading} rowKey="name" dataSource={data.items} columns={columns} />
+            ),
+          },
+          {
+            key: 'logs',
+            label: t('servers.tabLogs'),
+            children: (
+              <ContainerLogsPanel
+                initialContainer={searchParams.get('c') || 'worldserver'}
+                dockerEnabled={data?.enabled !== false}
+              />
+            ),
+          },
+        ]}
+      />
 
       <LifecycleModal
         open={lifecycleOpen}
@@ -133,6 +177,154 @@ export function ServersPage() {
           void load()
         }}
       />
+    </div>
+  )
+}
+
+function ContainerLogsPanel({
+  initialContainer,
+  dockerEnabled,
+}: {
+  initialContainer: string
+  dockerEnabled: boolean
+}) {
+  const { t } = useTranslation()
+  const [container, setContainer] = useState(initialContainer || 'worldserver')
+  const [level, setLevel] = useState('')
+  const [lines, setLines] = useState<string[]>([])
+  const [live, setLive] = useState(false)
+  const [dockerDisabled, setDockerDisabled] = useState(!dockerEnabled)
+  const wsRef = useRef<WebSocket | null>(null)
+  const boxRef = useRef<HTMLPreElement | null>(null)
+
+  useEffect(() => {
+    setContainer(initialContainer || 'worldserver')
+  }, [initialContainer])
+
+  const loadSnapshot = async () => {
+    try {
+      const params = new URLSearchParams({ tail: '200' })
+      if (level) params.set('level', level)
+      const data = await api<{ lines: string[] }>(
+        `/api/v1/servers/${encodeURIComponent(container)}/logs?${params}`,
+      )
+      setDockerDisabled(false)
+      setLines(data.lines)
+    } catch (err) {
+      const msg = errorMessage(err, t)
+      if (String((err as { code?: string }).code) === 'docker_disabled') {
+        setDockerDisabled(true)
+      }
+      toast.error(msg)
+    }
+  }
+
+  const stopLive = () => {
+    wsRef.current?.close()
+    wsRef.current = null
+    setLive(false)
+  }
+
+  const startLive = () => {
+    stopLive()
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    const params = new URLSearchParams({
+      token: getToken(),
+      tail: '100',
+    })
+    if (level) params.set('level', level)
+    const ws = new WebSocket(
+      `${proto}://${location.host}/api/v1/servers/${encodeURIComponent(container)}/logs/ws?${params}`,
+    )
+    wsRef.current = ws
+    setLive(true)
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data as string) as { type: string; line?: string; message?: string }
+        if (msg.type === 'line' && msg.line) {
+          setLines((prev) => [...prev.slice(-500), msg.line!])
+        }
+        if (msg.type === 'error') {
+          toast.error(msg.message || t('logs.wsError'))
+          stopLive()
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    ws.onerror = () => {
+      toast.error(t('logs.wsError'))
+      stopLive()
+    }
+    ws.onclose = () => setLive(false)
+  }
+
+  useEffect(() => () => stopLive(), [])
+
+  useEffect(() => {
+    if (boxRef.current) {
+      boxRef.current.scrollTop = boxRef.current.scrollHeight
+    }
+  }, [lines])
+
+  useEffect(() => {
+    void loadSnapshot()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when container changes
+  }, [container])
+
+  return (
+    <div>
+      <div className="flex w-full flex-wrap items-center gap-2 mb-3">
+        <Select
+          className="w-40"
+          value={container}
+          onChange={(v) => {
+            stopLive()
+            setContainer(v ?? 'worldserver')
+          }}
+          options={[
+            { value: 'worldserver', label: t('logs.worldserver') },
+            { value: 'authserver', label: t('logs.authserver') },
+            { value: 'database', label: t('logs.database') },
+          ]}
+        />
+        <div className="join">
+          <input
+            className="input input-bordered input-sm join-item w-36"
+            placeholder={t('logs.levelFilter')}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+          />
+          {level && (
+            <button type="button" className="btn btn-sm join-item" onClick={() => setLevel('')}>
+              ✕
+            </button>
+          )}
+        </div>
+        <button type="button" className="btn btn-sm" onClick={() => void loadSnapshot()}>
+          {t('logs.snapshot')}
+        </button>
+        {!live ? (
+          <button type="button" className="btn btn-sm btn-primary" onClick={startLive}>
+            {t('logs.live')}
+          </button>
+        ) : (
+          <button type="button" className="btn btn-sm btn-error" onClick={stopLive}>
+            {t('logs.stop')}
+          </button>
+        )}
+      </div>
+
+      {(dockerDisabled || !dockerEnabled) && (
+        <div className="alert alert-info mb-3">{t('dashboard.dockerDisabled')}</div>
+      )}
+
+      <pre
+        ref={boxRef}
+        className="bg-neutral text-neutral-content p-3 h-[60vh] overflow-auto text-xs rounded-md"
+      >
+        {lines.join('\n') || t('logs.empty')}
+      </pre>
     </div>
   )
 }
@@ -222,3 +414,4 @@ function LifecycleModal({
     </Modal>
   )
 }
+

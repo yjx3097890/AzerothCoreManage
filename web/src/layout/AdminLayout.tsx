@@ -11,25 +11,52 @@ type NavItem = {
   minRole?: Role
 }
 
-const NAV: NavItem[] = [
-  { key: '/', labelKey: 'nav.dashboard' },
-  { key: '/servers', labelKey: 'nav.servers', minRole: 'gm' },
-  { key: '/accounts', labelKey: 'nav.accounts' },
-  { key: '/characters', labelKey: 'nav.characters' },
-  { key: '/moderation', labelKey: 'nav.moderation', minRole: 'gm' },
-  { key: '/mail', labelKey: 'nav.mail', minRole: 'gm' },
-  { key: '/announcements', labelKey: 'nav.announcements' },
-  { key: '/tickets', labelKey: 'nav.tickets' },
-  { key: '/guilds', labelKey: 'nav.guilds' },
-  { key: '/auctions', labelKey: 'nav.auctions' },
-  { key: '/events', labelKey: 'nav.events' },
-  { key: '/playerbots', labelKey: 'nav.playerbots' },
-  { key: '/modules', labelKey: 'nav.modules', minRole: 'gm' },
-  { key: '/logs', labelKey: 'nav.logs', minRole: 'gm' },
-  { key: '/config', labelKey: 'nav.config', minRole: 'superadmin' },
-  { key: '/sql', labelKey: 'nav.sql', minRole: 'superadmin' },
-  { key: '/audit', labelKey: 'nav.audit', minRole: 'gm' },
-  { key: '/settings', labelKey: 'nav.settings', minRole: 'superadmin' },
+type NavGroup = {
+  labelKey: string
+  items: NavItem[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'nav.groupOverview',
+    items: [{ key: '/', labelKey: 'nav.dashboard' }],
+  },
+  {
+    labelKey: 'nav.groupPlayers',
+    items: [
+      { key: '/accounts', labelKey: 'nav.accounts' },
+      { key: '/characters', labelKey: 'nav.characters' },
+      { key: '/moderation', labelKey: 'nav.moderation', minRole: 'gm' },
+      { key: '/mail', labelKey: 'nav.mail', minRole: 'gm' },
+      { key: '/tickets', labelKey: 'nav.tickets' },
+    ],
+  },
+  {
+    labelKey: 'nav.groupWorld',
+    items: [
+      { key: '/announcements', labelKey: 'nav.announcements' },
+      { key: '/guilds', labelKey: 'nav.guilds' },
+      { key: '/auctions', labelKey: 'nav.auctions' },
+      { key: '/events', labelKey: 'nav.events' },
+    ],
+  },
+  {
+    labelKey: 'nav.groupExt',
+    items: [
+      { key: '/playerbots', labelKey: 'nav.playerbots' },
+      { key: '/modules', labelKey: 'nav.modules', minRole: 'gm' },
+    ],
+  },
+  {
+    labelKey: 'nav.groupOps',
+    items: [
+      { key: '/servers', labelKey: 'nav.servers', minRole: 'gm' },
+      { key: '/config', labelKey: 'nav.config', minRole: 'superadmin' },
+      { key: '/sql', labelKey: 'nav.sql', minRole: 'superadmin' },
+      { key: '/audit', labelKey: 'nav.audit', minRole: 'gm' },
+      { key: '/settings', labelKey: 'nav.settings', minRole: 'superadmin' },
+    ],
+  },
 ]
 
 export function AdminLayout({ children }: { children: ReactNode }) {
@@ -38,8 +65,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const role = getRole()
 
-  const items = NAV.filter((item) => !item.minRole || hasMinRole(item.minRole))
-  const selected = items.find((i) => i.key !== '/' && location.pathname.startsWith(i.key))?.key ?? '/'
+  const groups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => !item.minRole || hasMinRole(item.minRole)),
+  })).filter((g) => g.items.length > 0)
+
+  const flat = groups.flatMap((g) => g.items)
+  const selected = flat.find((i) => i.key !== '/' && location.pathname.startsWith(i.key))?.key ?? '/'
 
   const roleLabel =
     role === 'readonly'
@@ -53,13 +85,24 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="h-screen overflow-hidden flex bg-base-200">
       <aside className="w-[220px] shrink-0 h-full overflow-y-auto bg-neutral text-neutral-content flex flex-col">
-        <div className="p-4 font-semibold text-base sticky top-0 bg-neutral z-10">{t('app.name')}</div>
-        <ul className="menu menu-sm px-2 pb-4 gap-0.5 flex-1">
-          {items.map((item) => (
-            <li key={item.key}>
-              <Link to={item.key} className={item.key === selected ? 'active' : ''}>
-                {t(item.labelKey)}
-              </Link>
+        <div className="p-4 font-semibold text-base sticky top-0 bg-neutral z-10 border-b border-neutral-content/10">
+          {t('app.name')}
+        </div>
+        <ul className="menu menu-sm px-2 py-3 gap-0.5 flex-1">
+          {groups.map((group) => (
+            <li key={group.labelKey} className="menu-group">
+              <h2 className="menu-title px-3 pt-3 pb-1 first:pt-1 text-[11px] uppercase tracking-wide text-neutral-content/45 font-medium">
+                {t(group.labelKey)}
+              </h2>
+              <ul className="m-0">
+                {group.items.map((item) => (
+                  <li key={item.key}>
+                    <Link to={item.key} className={item.key === selected ? 'active' : ''}>
+                      {t(item.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>

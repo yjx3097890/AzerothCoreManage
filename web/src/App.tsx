@@ -8,7 +8,6 @@ import { CharactersPage } from './pages/CharactersPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
-import { LogsPage } from './pages/LogsPage'
 import { MailPage } from './pages/MailPage'
 import { ModerationPage } from './pages/ModerationPage'
 import { ModulesPage } from './pages/ModulesPage'
@@ -48,7 +47,7 @@ export default function App() {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/playerbots" element={<PlayerbotsPage />} />
           <Route path="/modules" element={<ModulesPage />} />
-          <Route path="/logs" element={<LogsPage />} />
+          <Route path="/logs" element={<Navigate to="/servers?tab=logs" replace />} />
           <Route path="/config" element={<ConfigPage />} />
           <Route
             path="/sql"

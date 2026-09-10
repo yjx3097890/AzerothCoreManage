@@ -33,6 +33,7 @@ type InstalledModule = {
   listed_in_modules_list?: boolean
   has_conf?: boolean
   conf_id?: string
+  conf_path?: string
   loaded?: boolean | null
   loaded_label?: string
 }
@@ -368,7 +369,12 @@ export function ModulesPage() {
               {t('modules.evaluate')}
             </button>
             {r.has_conf && hasMinRole('superadmin') && (
-              <button type="button" className="btn btn-xs" onClick={() => void loadConf(r.id)}>
+              <button
+                type="button"
+                className="btn btn-xs"
+                title={r.conf_path || undefined}
+                onClick={() => void loadConf(r.id)}
+              >
                 {t('modules.conf')}
               </button>
             )}
