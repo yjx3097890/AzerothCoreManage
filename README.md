@@ -31,10 +31,10 @@
 
 | 能力 | 说明 |
 |------|------|
-| 精选目录 | 本地 `api/data/modules/curated.json`（中文名 / 摘要）；缺日期时用 GitHub 补 `pushed_at` 与星数 |
+| 精选目录 | 本地 `api/data/modules/curated.json`（中文名 / 摘要）；缺日期时用 GitHub 补 `pushed_at` 与星数。Docker 镜像会打进该文件，compose 也挂载同路径，改完刷新即可 |
 | 官网目录 | [AzerothCore catalogue](https://www.azerothcore.org/data/catalogue.json) 中带 `azerothcore-module` 的仓库 |
 | 列表排序 | 表头可按名称、仓库、**最后提交**、**★**、来源等排序 |
-| 已安装 | 扫描 `AC_ROOT/modules` + `modules.list`；SOAP `server debug` 判断是否已加载 |
+| 已安装 | 扫描 `AC_ROOT/modules` + `modules.list`；SOAP `server debug` 判断是否已加载（**API 进程必须能读到该路径**；Docker 部署需挂载，见 `docker-compose.yml`） |
 | 自定义登记 | 粘贴 GitHub 地址加入评估列表（超管） |
 | AI 评估 | 拉取 README / `acore-module.json` / Issues，DeepSeek + 规则给出兼容分、功能说明、建议与风险 |
 | 模块 conf | `etc/modules/*.conf` 可在模块页或配置页编辑 |
@@ -51,9 +51,13 @@ AC_CORE_REVISION=413bea61a85e
 ```bash
 MODULES_DEPLOY=docker          # docker | source，影响评估里的部署语境
 DEEPSEEK_API_KEY=              # 未配置则仅规则评估
+DEEPSEEK_BASE_URL=https://api.deepseek.com   # OpenAI 兼容；请求发往 {BASE}/chat/completions
 DEEPSEEK_MODEL=deepseek-v4-flash
 GITHUB_TOKEN=                  # 提高 GitHub API 限额（公开库只读即可）
 ```
+
+评估客户端走 **OpenAI Chat Completions** 协议（`/chat/completions` + JSON Mode）。  
+因此凡兼容该接口的服务一般都能用：官方 DeepSeek、OpenAI（`https://api.openai.com/v1`）、以及多数本地 / 第三方兼容网关。按对方文档改 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL` / Key 即可；对方若要求路径带 `/v1`，把 `/v1` 写进 Base URL。
 
 后续 **P2-B 检查点回退**、**P2-C 安装编排**尚未开放，见方案文档。
 

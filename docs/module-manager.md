@@ -522,6 +522,7 @@ cancelled（仅 queued / checkpointing / cloning）
 
 ```bash
 DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com   # OpenAI 兼容；请求 {BASE}/chat/completions
 DEEPSEEK_MODEL=deepseek-v4-flash
 GITHUB_TOKEN=          # 可选，提高 Issues/API 限额
 MODULES_DEPLOY=docker  # docker | source

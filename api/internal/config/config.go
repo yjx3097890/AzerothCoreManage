@@ -171,8 +171,12 @@ func Load(path string) (*Config, error) {
 }
 
 func applyModulesDefaults(cfg *Config) {
-	if cfg.DeepSeek.BaseURL == "" {
-		cfg.DeepSeek.BaseURL = "https://api.deepseek.com"
+	if cfg.DeepSeek.BaseURL == "" || cfg.DeepSeek.BaseURL == "${DEEPSEEK_BASE_URL}" {
+		if v := strings.TrimSpace(os.Getenv("DEEPSEEK_BASE_URL")); v != "" {
+			cfg.DeepSeek.BaseURL = v
+		} else {
+			cfg.DeepSeek.BaseURL = "https://api.deepseek.com"
+		}
 	}
 	if cfg.DeepSeek.Model == "" || cfg.DeepSeek.Model == "${DEEPSEEK_MODEL}" {
 		cfg.DeepSeek.Model = "deepseek-v4-flash"
@@ -188,6 +192,9 @@ func applyModulesDefaults(cfg *Config) {
 	}
 	if cfg.Modules.CacheDir == "" {
 		cfg.Modules.CacheDir = "../data/module-cache"
+	}
+	if cfg.Modules.CuratedPath == "" {
+		cfg.Modules.CuratedPath = "data/modules/curated.json"
 	}
 	for i := range cfg.Targets {
 		m := &cfg.Targets[i].Modules

@@ -57,16 +57,27 @@ const catalogueURL = "https://www.azerothcore.org/data/catalogue.json"
 func LoadCurated(path string) ([]CuratedModule, error) {
 	candidates := []string{path}
 	if path == "" {
-		candidates = []string{
-			"data/modules/curated.json",
-			"../data/modules/curated.json",
-			"api/data/modules/curated.json",
-		}
+		candidates = []string{}
 	}
+	candidates = append(candidates,
+		"data/modules/curated.json",
+		"/app/data/modules/curated.json",
+		"/data/modules/curated.json",
+		"../data/modules/curated.json",
+		"api/data/modules/curated.json",
+	)
 	var lastErr error
+	seen := map[string]bool{}
 	for _, p := range candidates {
 		if p == "" {
 			continue
+		}
+		abs, err := filepath.Abs(p)
+		if err == nil {
+			if seen[abs] {
+				continue
+			}
+			seen[abs] = true
 		}
 		raw, err := os.ReadFile(p)
 		if err != nil {

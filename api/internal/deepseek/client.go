@@ -43,7 +43,8 @@ type chatResponse struct {
 }
 
 func New(apiKey, baseURL, model string) *Client {
-	if baseURL == "" {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" || baseURL == "${DEEPSEEK_BASE_URL}" {
 		baseURL = "https://api.deepseek.com"
 	}
 	if model == "" || model == "${DEEPSEEK_MODEL}" {

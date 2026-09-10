@@ -31,10 +31,10 @@ Open **Modules** in the sidebar (`/modules`). This stage is **browse + evaluate 
 
 | Capability | Notes |
 |------------|------|
-| Curated catalog | Local `api/data/modules/curated.json` (localized names/summaries); GitHub fills missing `pushed_at` / stars |
+| Curated catalog | Local `api/data/modules/curated.json` (localized names/summaries); GitHub fills missing `pushed_at` / stars. Packaged into the Docker image and bind-mounted for live edits |
 | Official catalog | Repos tagged `azerothcore-module` from the [AzerothCore catalogue](https://www.azerothcore.org/data/catalogue.json) |
 | Sorting | Click column headers: name, repo, **last push**, **★**, source, … |
-| Installed | Scan `AC_ROOT/modules` + `modules.list`; SOAP `server debug` for loaded state |
+| Installed | Scan `AC_ROOT/modules` + `modules.list`; SOAP `server debug` for loaded state (**API must see that path**; Docker deploy needs the volume mounts in `docker-compose.yml`) |
 | Custom registry | Paste a GitHub URL to evaluate (superadmin) |
 | AI evaluation | README / `acore-module.json` / Issues → DeepSeek + rules → score, feature summary, advice, risks |
 | Module conf | Edit `etc/modules/*.conf` from the modules or config page |
@@ -51,9 +51,13 @@ Optional evaluation settings:
 ```bash
 MODULES_DEPLOY=docker          # docker | source
 DEEPSEEK_API_KEY=              # without it, rule-based eval only
+DEEPSEEK_BASE_URL=https://api.deepseek.com   # OpenAI-compatible; calls {BASE}/chat/completions
 DEEPSEEK_MODEL=deepseek-v4-flash
 GITHUB_TOKEN=                  # higher GitHub API limits (read-only is enough for public repos)
 ```
+
+The evaluator uses the **OpenAI Chat Completions** protocol (`/chat/completions` + JSON mode).  
+Any compatible endpoint usually works: official DeepSeek, OpenAI (`https://api.openai.com/v1`), and most local/third-party gateways. Point `DEEPSEEK_BASE_URL` / model / key at the provider; if they require a `/v1` prefix, include `/v1` in the base URL.
 
 **P2-B checkpoints / rollback** and **P2-C install orchestration** are not available yet — see the design doc.
 

@@ -14,5 +14,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/acmanage /usr/local/bin/acmanage
 COPY api/config.yaml /etc/acmanage/config.yaml
+# 精选模块目录（相对 WORKDIR → data/modules/curated.json）
+COPY api/data/modules /app/data/modules
 EXPOSE 8080
 ENTRYPOINT ["acmanage", "-config", "/etc/acmanage/config.yaml", "-audit-db", "/data/audit.db", "-log-dir", "/app/logs"]
