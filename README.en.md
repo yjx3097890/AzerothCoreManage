@@ -20,7 +20,7 @@ Stack: **Go (Gin) + React (Vite / Tailwind CSS / DaisyUI)**. Commands go through
 | World events / Disables | Start/stop events; localized disables list |
 | Playerbots | Overview, online bots, rndbot actions, config, guilds |
 | Modules (P2-A/B) | Curated / official catalog, installed scan, GitHub registry, DeepSeek eval, module conf, **checkpoints + full rollback** (**install orchestration still closed**) |
-| Config / Backup / SQL / Audit | Conf editing, **SQL backup/restore**, **module checkpoints**, read-only SQL, audit |
+| Config / Backup / DB browser / Audit | Conf editing, **SQL backup/restore**, **module checkpoints**, read-only table browser, audit |
 | i18n | Panel UI zh-CN / en-US; map/class/disable reasons follow locale; **evaluation text follows UI language** |
 
 See [docs/tasks.md](docs/tasks.md) for the checklist and [docs/architecture.md](docs/architecture.md) for design notes. Module manager design: [docs/module-manager.md](docs/module-manager.md).

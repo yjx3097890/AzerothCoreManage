@@ -20,7 +20,7 @@
 | 世界事件 / 禁用项 | 启停事件；disables 列表本地化展示 |
 | Playerbots | 概览、在线 Bot、rndbot、配置项、公会等 |
 | 模块（P2-A/B） | 精选 / 官网目录、已装扫描、GitHub 登记、DeepSeek 评估、模块 conf、**检查点备份与整包回退**（**安装编排仍未开放**） |
-| 配置 / 备份 / SQL / 审计 | conf 编辑、**四库备份/恢复**、**模块检查点**、只读 SQL、审计 |
+| 配置 / 备份 / 数据库浏览 / 审计 | conf 编辑、**四库备份/恢复**、**模块检查点**、只读库表浏览、审计 |
 | 多语言 | 面板 UI 中 / 英；游戏地名、职业、禁用原因等跟随语言；**评估文案随界面语言** |
 
 详细任务与进度见 [docs/tasks.md](docs/tasks.md)，架构见 [docs/architecture.md](docs/architecture.md)。模块管理方案见 [docs/module-manager.md](docs/module-manager.md)。

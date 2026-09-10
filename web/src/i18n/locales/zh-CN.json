@@ -25,9 +25,9 @@
     "modules": "模块",
     "logs": "日志",
     "config": "配置 / 备份",
-    "sql": "SQL 浏览",
+    "sql": "数据库浏览",
     "audit": "审计",
-    "settings": "设置 / SOAP"
+    "settings": "设置"
   },
   "common": {
     "logout": "退出",
@@ -555,23 +555,48 @@
   },
   "sql": {
     "table": "选择表",
-    "readonly": "只读浏览（白名单表）",
+    "readonly": "只读浏览白名单表（不支持任意 SQL）",
     "empty": "选择数据库与表后查询"
   },
   "settings": {
+    "subtitle": "切换目标服、热重载数据、管理传送点，或执行白名单 SOAP 命令",
     "target": "目标服务器",
+    "targetHint": "面板同时可对接多套游戏服；此处切换当前操作的目标",
+    "targetDesc": "所有页面的 SOAP / 数据库 / Docker 操作都会打到当前选中的目标服。",
     "targetSwitched": "已切换目标服",
     "reload": "重载数据表",
+    "reloadHint": "改完数据库后，让 worldserver 不重启就重新加载对应表到内存",
+    "reloadDesc": "等价于控制台「reload 表名」。例如改了掉落表后选 loot，改了传送点后选 tele。",
     "doReload": "执行重载",
+    "doReloadHint": "向世界服发送 reload 命令（需二次确认）",
+    "reloadTable": {
+      "config": "config（配置）",
+      "loot": "loot（掉落）",
+      "quest": "quest（任务）",
+      "creature": "creature（生物）",
+      "motd": "motd（每日消息）",
+      "tele": "tele（传送点）",
+      "item": "item（物品）",
+      "spell": "spell（法术）",
+      "all": "all（全部，较慢）"
+    },
     "soap": "SOAP 控制台",
-    "soapHint": "命令仍受白名单限制。",
+    "soapTabHint": "向世界服发送白名单内的 GM 控制台命令",
+    "soapHint": "命令仍受白名单限制；危险命令需二次确认。",
+    "soapDesc": "用于执行如 server info 等调试命令。常用业务请优先用对应功能页，避免手写命令。",
     "soapPlaceholder": "示例：server info",
     "command": "命令",
+    "commandHint": "一条完整的世界服控制台命令，勿带前缀斜杠",
     "exec": "执行",
+    "execHint": "通过 SOAP 发给当前目标服的 worldserver",
     "execConfirm": "确认执行：{{cmd}}？",
-    "teleManage": "传送点管理",
+    "teleManage": "传送点",
+    "teleHint": "维护游戏内 .tele / 传送石可用的 game_tele 地点",
+    "teleDesc": "写入世界库传送点表，并尽量自动 reload tele，使在线玩家立即可用。",
     "teleAdd": "添加传送点",
+    "teleAddHint": "按名称 + 地图坐标新增一条传送点",
     "teleDel": "删除传送点",
+    "teleDelHint": "按名称删除已有传送点（SOAP teleport del）",
     "teleAddConfirm": "写入传送点并重载：{{name}}？",
     "teleDelConfirm": "确认删除传送点 {{name}}？",
     "coordX": "坐标 X",
@@ -656,13 +681,13 @@
       "title": "配置 / 备份"
     },
     "sql": {
-      "title": "SQL 浏览"
+      "title": "数据库浏览"
     },
     "audit": {
       "title": "审计"
     },
     "settings": {
-      "title": "设置 / SOAP 控制台"
+      "title": "设置"
     }
   },
   "errors": {

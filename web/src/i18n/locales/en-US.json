@@ -25,9 +25,9 @@
     "modules": "Modules",
     "logs": "Logs",
     "config": "Config / Backup",
-    "sql": "SQL Browser",
+    "sql": "Database browser",
     "audit": "Audit",
-    "settings": "Settings / SOAP"
+    "settings": "Settings"
   },
   "common": {
     "logout": "Sign out",
@@ -508,13 +508,13 @@
       "title": "Config / Backup"
     },
     "sql": {
-      "title": "SQL Browser"
+      "title": "Database browser"
     },
     "audit": {
       "title": "Audit"
     },
     "settings": {
-      "title": "Settings / SOAP console"
+      "title": "Settings"
     }
   },
   "errors": {
@@ -737,25 +737,50 @@
   },
   "sql": {
     "table": "Select table",
-    "readonly": "Read-only (allow-listed tables)",
+    "readonly": "Read-only allow-listed tables (no arbitrary SQL)",
     "empty": "Pick a database and table, then search"
   },
   "settings": {
+    "subtitle": "Switch target realm, hot-reload tables, manage teleports, or run allow-listed SOAP commands",
     "target": "Target server",
+    "targetHint": "The panel can talk to multiple realms; this picks the active one",
+    "targetDesc": "SOAP, database, and Docker actions on all pages use the selected target.",
     "targetSwitched": "Target switched",
-    "reload": "Reload table",
+    "reload": "Reload tables",
+    "reloadHint": "After DB edits, ask worldserver to reload tables into memory without a full restart",
+    "reloadDesc": "Same as console \"reload <table>\". E.g. pick loot after loot changes, tele after teleport edits.",
     "doReload": "Run reload",
+    "doReloadHint": "Sends a reload command to the worldserver (confirm required)",
+    "reloadTable": {
+      "config": "config",
+      "loot": "loot",
+      "quest": "quest",
+      "creature": "creature",
+      "motd": "motd",
+      "tele": "tele",
+      "item": "item",
+      "spell": "spell",
+      "all": "all (slow)"
+    },
     "soap": "SOAP console",
-    "soapHint": "Commands still go through the allow-list.",
+    "soapTabHint": "Send allow-listed GM console commands to the worldserver",
+    "soapHint": "Commands still go through the allow-list; dangerous ones need confirmation.",
+    "soapDesc": "For debug commands such as server info. Prefer dedicated pages for day-to-day ops.",
     "soapPlaceholder": "e.g. server info",
     "command": "Command",
+    "commandHint": "A full worldserver console command (no leading slash)",
     "exec": "Execute",
+    "execHint": "Sends via SOAP to the current target worldserver",
     "execConfirm": "Run: {{cmd}}?",
-    "teleManage": "Teleport locations",
+    "teleManage": "Teleports",
+    "teleHint": "Maintain game_tele locations used by .tele / portals",
+    "teleDesc": "Writes world DB teleports and tries to reload tele so online players can use them immediately.",
     "teleAdd": "Add location",
+    "teleAddHint": "Insert a teleport by name and map coordinates",
     "teleDel": "Delete location",
+    "teleDelHint": "Remove an existing teleport by name (SOAP teleport del)",
     "teleAddConfirm": "Insert game_tele and reload tele: {{name}}?",
-    "teleDelConfirm": "SOAP teleport del {{name}}?",
+    "teleDelConfirm": "Delete teleport {{name}}?",
     "coordX": "X",
     "coordY": "Y",
     "coordZ": "Z",
