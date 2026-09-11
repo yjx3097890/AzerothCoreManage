@@ -346,6 +346,22 @@
     "resetConfirm": "ticket reset: clear closed tickets and reset counter?"
   },
   "playerbots": {
+    "tabOverview": "Overview",
+    "tabRndbot": "Random bots",
+    "tabBots": "Add / link",
+    "tabOnline": "Online",
+    "tabGuilds": "Guilds",
+    "tabConfig": "Config",
+    "overviewHint": "Random-bot account scale, online count, and account prefix; optionally fetch a SOAP status summary.",
+    "rndbotHint": "Manage random-bot lifecycle: reload, refresh, gather, init/reset, batch level, and performance monitor.",
+    "botsTabHint": "Add/remove bots by name, account, or class, and manage main/alt account link keys.",
+    "onlineTabHint": "Online characters whose accounts use the bot prefix.",
+    "guildsTabHint": "Guilds that include bot members (sorted by bot count).",
+    "configTabHint": "Edit common playerbots.conf keys; saving tries a SOAP reload. Superadmin only to edit.",
+    "gmOnly": "GM role required for actions on this tab.",
+    "rndbotOps": "Lifecycle actions",
+    "rndbotOpsHint": "Maintenance commands for the random-bot system (some are dangerous and need confirmation).",
+    "pmonHint": "Use performance monitoring when investigating bot-related lag.",
     "notePrefixStats": "AddClass / Altbot breakdown needs the full playerbots schema; currently counting accounts with the rndbot prefix only.",
     "accounts": "Rndbot accounts",
     "accountsHint": "Total accounts whose username starts with the configured bot prefix.",
@@ -386,7 +402,55 @@
     "onlineList": "Online bots",
     "config": "playerbots.conf keys",
     "configMissing": "Conf path not configured",
-    "configSaveHint": "Write the values below to playerbots.conf and optionally reload.",
+    "configSaveHint": "Write the values below to playerbots.conf and try a SOAP reload.",
+    "configColName": "Setting",
+    "configColValue": "Value",
+    "configKeys": {
+      "autologin": {
+        "label": "Random bot autologin",
+        "desc": "1 = auto-login random bots after world start; 0 = add them manually."
+      },
+      "minBots": {
+        "label": "Min random bots",
+        "desc": "Lower bound of online random bots; the system tries to top up when below this."
+      },
+      "maxBots": {
+        "label": "Max random bots",
+        "desc": "Upper bound of online random bots; no further auto-fill above this."
+      },
+      "minLevel": {
+        "label": "Min bot level",
+        "desc": "Minimum level for newly spawned / auto-logged random bots."
+      },
+      "maxLevel": {
+        "label": "Max bot level",
+        "desc": "Maximum level for newly spawned / auto-logged random bots."
+      },
+      "disableDK": {
+        "label": "Disable Death Knight login",
+        "desc": "1 = random bots will not log in as Death Knights."
+      },
+      "accountPrefix": {
+        "label": "Bot account prefix",
+        "desc": "Username prefix for random-bot accounts (e.g. rndbot); the panel uses it to detect bots."
+      },
+      "accountCount": {
+        "label": "Bot account count",
+        "desc": "How many random-bot accounts to create/maintain (related to init)."
+      },
+      "gearQuality": {
+        "label": "Auto gear quality",
+        "desc": "Gear quality tier for auto-equip (see module docs; often 1–5)."
+      },
+      "timedLogout": {
+        "label": "Timed logout",
+        "desc": "1 = random bots periodically log out to simulate natural online churn."
+      },
+      "timedOffline": {
+        "label": "Timed offline",
+        "desc": "1 = allow timed offline periods for random bots (works with timed logout)."
+      }
+    },
     "actionConfirm": "Run playerbot rndbot {{action}}?",
     "rndbotTitle": "rndbot {{action}}",
     "pmon": "Performance monitor",

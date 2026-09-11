@@ -346,6 +346,22 @@
     "resetConfirm": "清除已关闭工单并重置计数器？"
   },
   "playerbots": {
+    "tabOverview": "概览",
+    "tabRndbot": "随机机器人",
+    "tabBots": "增减 / 关联",
+    "tabOnline": "在线列表",
+    "tabGuilds": "公会",
+    "tabConfig": "配置",
+    "overviewHint": "查看随机机器人账号规模、在线数量与账号前缀；可拉取 SOAP 状态摘要。",
+    "rndbotHint": "管理随机机器人生命周期：重载配置、刷新、汇合、初始化/重置，以及批量改等级与性能监控。",
+    "botsTabHint": "按角色名/账号/职业增减机器人，或管理主号与小号的关联密钥。",
+    "onlineTabHint": "当前在线、且账号带机器人前缀的角色列表。",
+    "guildsTabHint": "成员中含有机器人的公会（按机器人数量排序）。",
+    "configTabHint": "编辑 playerbots.conf 中常用项；保存后会尝试 SOAP 重载。仅超管可改。",
+    "gmOnly": "需要 GM 权限才能执行此页操作。",
+    "rndbotOps": "生命周期操作",
+    "rndbotOpsHint": "对随机机器人系统执行维护命令（部分操作危险，会二次确认）。",
+    "pmonHint": "排查机器人导致的卡顿时可打开性能监控并采样。",
     "notePrefixStats": "按职业添加 / 小号机器人等分类统计需要完整的 playerbots 表结构；当前先统计带随机机器人前缀的账号数量。",
     "accounts": "随机机器人账号数",
     "accountsHint": "用户名以配置前缀（如 rndbot）开头的账号总数。",
@@ -386,7 +402,55 @@
     "onlineList": "在线机器人列表",
     "config": "playerbots.conf 配置项",
     "configMissing": "未配置 conf 路径",
-    "configSaveHint": "把下方键值写入 playerbots.conf，并可触发重载。",
+    "configSaveHint": "把下方键值写入 playerbots.conf，并尝试 SOAP 重载。",
+    "configColName": "配置项",
+    "configColValue": "当前值",
+    "configKeys": {
+      "autologin": {
+        "label": "随机机器人自动登录",
+        "desc": "为 1 时世界服启动后自动让随机机器人上线；0 则需手动添加。"
+      },
+      "minBots": {
+        "label": "最少随机机器人数",
+        "desc": "维持在线的随机机器人下限，不足时会尝试补齐。"
+      },
+      "maxBots": {
+        "label": "最多随机机器人数",
+        "desc": "随机机器人在线上限，超过后不再自动补充。"
+      },
+      "minLevel": {
+        "label": "随机机器人最低等级",
+        "desc": "新刷出/自动登录的随机机器人最低等级。"
+      },
+      "maxLevel": {
+        "label": "随机机器人最高等级",
+        "desc": "新刷出/自动登录的随机机器人最高等级。"
+      },
+      "disableDK": {
+        "label": "禁止死亡骑士登录",
+        "desc": "为 1 时随机机器人不会以死亡骑士职业登录。"
+      },
+      "accountPrefix": {
+        "label": "机器人账号前缀",
+        "desc": "随机机器人账号用户名前缀（如 rndbot），面板也用它识别 bot。"
+      },
+      "accountCount": {
+        "label": "机器人账号数量",
+        "desc": "预创建/维护的随机机器人账号个数（与 init 等相关）。"
+      },
+      "gearQuality": {
+        "label": "自动装备品质",
+        "desc": "自动配装时的装备品质档位（具体数值含义见模块文档，常见 1–5）。"
+      },
+      "timedLogout": {
+        "label": "定时登出",
+        "desc": "为 1 时随机机器人会按策略定时下线，模拟更真实的在线波动。"
+      },
+      "timedOffline": {
+        "label": "定时离线",
+        "desc": "为 1 时允许随机机器人进入定时离线状态（与 timed logout 配合）。"
+      }
+    },
     "actionConfirm": "确认执行随机机器人操作：{{action}}？",
     "rndbotTitle": "随机机器人 · {{action}}",
     "pmon": "性能监控",
