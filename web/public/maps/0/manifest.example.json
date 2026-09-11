@@ -2,6 +2,7 @@
   "mapId": 0,
   "name": "Eastern Kingdoms",
   "mode": "minimap",
+  "note": "Fallback only. Prefer web/public/maps/worldmap/index.json (Interface/WorldMap). Run scripts/extract_worldmaps.py.",
   "tileSize": 256,
   "tileScale": 533.333333333,
   "minimap": {

@@ -1,0 +1,1058 @@
+{
+  "version": 1,
+  "source": "Interface/WorldMap + WorldMapArea.dbc",
+  "byAreaId": {
+    "14": {
+      "folder": "Durotar",
+      "mapId": 1,
+      "areaId": 14,
+      "image": "zones/Durotar/overview.png",
+      "minX": -7249.99951171875,
+      "maxX": -1962.4998779296875,
+      "minY": -1716.6666259765625,
+      "maxY": 1808.333251953125
+    },
+    "215": {
+      "folder": "Mulgore",
+      "mapId": 1,
+      "areaId": 215,
+      "image": "zones/Mulgore/overview.png",
+      "minX": -3089.583251953125,
+      "maxX": 2047.9166259765625,
+      "minY": -3697.91650390625,
+      "maxY": -272.9166564941406
+    },
+    "17": {
+      "folder": "Barrens",
+      "mapId": 1,
+      "areaId": 17,
+      "image": "zones/Barrens/overview.png",
+      "minX": -7510.41650390625,
+      "maxX": 2622.91650390625,
+      "minY": -5143.75,
+      "maxY": 1612.4998779296875
+    },
+    "36": {
+      "folder": "Alterac",
+      "mapId": 0,
+      "areaId": 36,
+      "image": "zones/Alterac/overview.png",
+      "minX": -2016.6666259765625,
+      "maxX": 783.3333129882812,
+      "minY": -366.6666564941406,
+      "maxY": 1500.0
+    },
+    "45": {
+      "folder": "Arathi",
+      "mapId": 0,
+      "areaId": 45,
+      "image": "zones/Arathi/overview.png",
+      "minX": -4466.66650390625,
+      "maxX": -866.6666259765625,
+      "minY": -2533.333251953125,
+      "maxY": -133.3333282470703
+    },
+    "3": {
+      "folder": "Badlands",
+      "mapId": 0,
+      "areaId": 3,
+      "image": "zones/Badlands/overview.png",
+      "minX": -4566.66650390625,
+      "maxX": -2079.16650390625,
+      "minY": -7547.91650390625,
+      "maxY": -5889.5830078125
+    },
+    "4": {
+      "folder": "BlastedLands",
+      "mapId": 0,
+      "areaId": 4,
+      "image": "zones/BlastedLands/overview.png",
+      "minX": -4591.66650390625,
+      "maxX": -1241.6666259765625,
+      "minY": -12800.0,
+      "maxY": -10566.666015625
+    },
+    "85": {
+      "folder": "Tirisfal",
+      "mapId": 0,
+      "areaId": 85,
+      "image": "zones/Tirisfal/overview.png",
+      "minX": -1485.4166259765625,
+      "maxX": 3033.333251953125,
+      "minY": 824.9999389648438,
+      "maxY": 3837.499755859375
+    },
+    "130": {
+      "folder": "Silverpine",
+      "mapId": 0,
+      "areaId": 130,
+      "image": "zones/Silverpine/overview.png",
+      "minX": -750.0,
+      "maxX": 3449.999755859375,
+      "minY": -1133.333251953125,
+      "maxY": 1666.6666259765625
+    },
+    "28": {
+      "folder": "WesternPlaguelands",
+      "mapId": 0,
+      "areaId": 28,
+      "image": "zones/WesternPlaguelands/overview.png",
+      "minX": -3883.333251953125,
+      "maxX": 416.6666564941406,
+      "minY": 499.9999694824219,
+      "maxY": 3366.66650390625
+    },
+    "139": {
+      "folder": "EasternPlaguelands",
+      "mapId": 0,
+      "areaId": 139,
+      "image": "zones/EasternPlaguelands/overview.png",
+      "minX": -6318.75,
+      "maxX": -2287.5,
+      "minY": 1016.6666259765625,
+      "maxY": 3704.16650390625
+    },
+    "267": {
+      "folder": "Hilsbrad",
+      "mapId": 0,
+      "areaId": 267,
+      "image": "zones/Hilsbrad/overview.png",
+      "minX": -2133.333251953125,
+      "maxX": 1066.6666259765625,
+      "minY": -1733.333251953125,
+      "maxY": 400.0
+    },
+    "47": {
+      "folder": "Hinterlands",
+      "mapId": 0,
+      "areaId": 47,
+      "image": "zones/Hinterlands/overview.png",
+      "minX": -5425.0,
+      "maxX": -1575.0,
+      "minY": -1100.0,
+      "maxY": 1466.6666259765625
+    },
+    "1": {
+      "folder": "DunMorogh",
+      "mapId": 0,
+      "areaId": 1,
+      "image": "zones/DunMorogh/overview.png",
+      "minX": -3122.91650390625,
+      "maxX": 1802.083251953125,
+      "minY": -7160.41650390625,
+      "maxY": -3877.083251953125
+    },
+    "51": {
+      "folder": "SearingGorge",
+      "mapId": 0,
+      "areaId": 51,
+      "image": "zones/SearingGorge/overview.png",
+      "minX": -2554.16650390625,
+      "maxX": -322.9166564941406,
+      "minY": -7587.49951171875,
+      "maxY": -6100.0
+    },
+    "46": {
+      "folder": "BurningSteppes",
+      "mapId": 0,
+      "areaId": 46,
+      "image": "zones/BurningSteppes/overview.png",
+      "minX": -3195.833251953125,
+      "maxX": -266.6666564941406,
+      "minY": -8983.3330078125,
+      "maxY": -7031.24951171875
+    },
+    "12": {
+      "folder": "Elwynn",
+      "mapId": 0,
+      "areaId": 12,
+      "image": "zones/Elwynn/overview.png",
+      "minX": -1935.4166259765625,
+      "maxX": 1535.4166259765625,
+      "minY": -10254.166015625,
+      "maxY": -7939.5830078125
+    },
+    "41": {
+      "folder": "DeadwindPass",
+      "mapId": 0,
+      "areaId": 41,
+      "image": "zones/DeadwindPass/overview.png",
+      "minX": -3333.333251953125,
+      "maxX": -833.3333129882812,
+      "minY": -11533.3330078125,
+      "maxY": -9866.666015625
+    },
+    "10": {
+      "folder": "Duskwood",
+      "mapId": 0,
+      "areaId": 10,
+      "image": "zones/Duskwood/overview.png",
+      "minX": -1866.6666259765625,
+      "maxX": 833.3333129882812,
+      "minY": -11516.666015625,
+      "maxY": -9716.666015625
+    },
+    "38": {
+      "folder": "LochModan",
+      "mapId": 0,
+      "areaId": 38,
+      "image": "zones/LochModan/overview.png",
+      "minX": -4752.0830078125,
+      "maxX": -1993.7498779296875,
+      "minY": -6327.0830078125,
+      "maxY": -4487.5
+    },
+    "44": {
+      "folder": "Redridge",
+      "mapId": 0,
+      "areaId": 44,
+      "image": "zones/Redridge/overview.png",
+      "minX": -3741.66650390625,
+      "maxX": -1570.833251953125,
+      "minY": -10022.916015625,
+      "maxY": -8575.0
+    },
+    "33": {
+      "folder": "Stranglethorn",
+      "mapId": 0,
+      "areaId": 33,
+      "image": "zones/Stranglethorn/overview.png",
+      "minX": -4160.41650390625,
+      "maxX": 2220.833251953125,
+      "minY": -15422.916015625,
+      "maxY": -11168.75
+    },
+    "8": {
+      "folder": "SwampOfSorrows",
+      "mapId": 0,
+      "areaId": 8,
+      "image": "zones/SwampOfSorrows/overview.png",
+      "minX": -4516.66650390625,
+      "maxX": -2222.91650390625,
+      "minY": -11150.0,
+      "maxY": -9620.8330078125
+    },
+    "40": {
+      "folder": "Westfall",
+      "mapId": 0,
+      "areaId": 40,
+      "image": "zones/Westfall/overview.png",
+      "minX": -483.33331298828125,
+      "maxX": 3016.66650390625,
+      "minY": -11733.3330078125,
+      "maxY": -9400.0
+    },
+    "11": {
+      "folder": "Wetlands",
+      "mapId": 0,
+      "areaId": 11,
+      "image": "zones/Wetlands/overview.png",
+      "minX": -4525.0,
+      "maxX": -389.58331298828125,
+      "minY": -4904.16650390625,
+      "maxY": -2147.91650390625
+    },
+    "141": {
+      "folder": "Teldrassil",
+      "mapId": 1,
+      "areaId": 141,
+      "image": "zones/Teldrassil/overview.png",
+      "minX": -1277.083251953125,
+      "maxX": 3814.583251953125,
+      "minY": 8437.5,
+      "maxY": 11831.25
+    },
+    "148": {
+      "folder": "Darkshore",
+      "mapId": 1,
+      "areaId": 148,
+      "image": "zones/Darkshore/overview.png",
+      "minX": -3608.333251953125,
+      "maxX": 2941.66650390625,
+      "minY": 3966.66650390625,
+      "maxY": 8333.3330078125
+    },
+    "331": {
+      "folder": "Ashenvale",
+      "mapId": 1,
+      "areaId": 331,
+      "image": "zones/Ashenvale/overview.png",
+      "minX": -4066.66650390625,
+      "maxX": 1699.9998779296875,
+      "minY": 829.1666259765625,
+      "maxY": 4672.91650390625
+    },
+    "400": {
+      "folder": "ThousandNeedles",
+      "mapId": 1,
+      "areaId": 400,
+      "image": "zones/ThousandNeedles/overview.png",
+      "minX": -4833.3330078125,
+      "maxX": -433.33331298828125,
+      "minY": -6899.99951171875,
+      "maxY": -3966.66650390625
+    },
+    "406": {
+      "folder": "StonetalonMountains",
+      "mapId": 1,
+      "areaId": 406,
+      "image": "zones/StonetalonMountains/overview.png",
+      "minX": -1637.4998779296875,
+      "maxX": 3245.833251953125,
+      "minY": -339.58331298828125,
+      "maxY": 2916.66650390625
+    },
+    "405": {
+      "folder": "Desolace",
+      "mapId": 1,
+      "areaId": 405,
+      "image": "zones/Desolace/overview.png",
+      "minX": -262.5,
+      "maxX": 4233.3330078125,
+      "minY": -2545.833251953125,
+      "maxY": 452.08331298828125
+    },
+    "357": {
+      "folder": "Feralas",
+      "mapId": 1,
+      "areaId": 357,
+      "image": "zones/Feralas/overview.png",
+      "minX": -1508.333251953125,
+      "maxX": 5441.66650390625,
+      "minY": -6999.99951171875,
+      "maxY": -2366.66650390625
+    },
+    "15": {
+      "folder": "Dustwallow",
+      "mapId": 1,
+      "areaId": 15,
+      "image": "zones/Dustwallow/overview.png",
+      "minX": -6225.0,
+      "maxX": -974.9999389648438,
+      "minY": -5533.3330078125,
+      "maxY": -2033.333251953125
+    },
+    "440": {
+      "folder": "Tanaris",
+      "mapId": 1,
+      "areaId": 440,
+      "image": "zones/Tanaris/overview.png",
+      "minX": -7118.74951171875,
+      "maxX": -218.74998474121094,
+      "minY": -10475.0,
+      "maxY": -5875.0
+    },
+    "16": {
+      "folder": "Aszhara",
+      "mapId": 1,
+      "areaId": 16,
+      "image": "zones/Aszhara/overview.png",
+      "minX": -8347.916015625,
+      "maxX": -3277.083251953125,
+      "minY": 1960.4166259765625,
+      "maxY": 5341.66650390625
+    },
+    "361": {
+      "folder": "Felwood",
+      "mapId": 1,
+      "areaId": 361,
+      "image": "zones/Felwood/overview.png",
+      "minX": -4108.3330078125,
+      "maxX": 1641.6666259765625,
+      "minY": 3299.999755859375,
+      "maxY": 7133.3330078125
+    },
+    "490": {
+      "folder": "UngoroCrater",
+      "mapId": 1,
+      "areaId": 490,
+      "image": "zones/UngoroCrater/overview.png",
+      "minX": -3166.66650390625,
+      "maxX": 533.3333129882812,
+      "minY": -8433.3330078125,
+      "maxY": -5966.66650390625
+    },
+    "493": {
+      "folder": "Moonglade",
+      "mapId": 1,
+      "areaId": 493,
+      "image": "zones/Moonglade/overview.png",
+      "minX": -3689.583251953125,
+      "maxX": -1381.25,
+      "minY": 6952.0830078125,
+      "maxY": 8491.666015625
+    },
+    "1377": {
+      "folder": "Silithus",
+      "mapId": 1,
+      "areaId": 1377,
+      "image": "zones/Silithus/overview.png",
+      "minX": -945.833984375,
+      "maxX": 2537.5,
+      "minY": -8281.25,
+      "maxY": -5958.333984375
+    },
+    "618": {
+      "folder": "Winterspring",
+      "mapId": 1,
+      "areaId": 618,
+      "image": "zones/Winterspring/overview.png",
+      "minX": -7416.66650390625,
+      "maxX": -316.6666564941406,
+      "minY": 3799.999755859375,
+      "maxY": 8533.3330078125
+    },
+    "1519": {
+      "folder": "Stormwind",
+      "mapId": 0,
+      "areaId": 1519,
+      "image": "zones/Stormwind/overview.png",
+      "minX": -14.583333015441895,
+      "maxX": 1722.9166259765625,
+      "minY": -9154.166015625,
+      "maxY": -7995.8330078125
+    },
+    "1637": {
+      "folder": "Ogrimmar",
+      "mapId": 1,
+      "areaId": 1637,
+      "image": "zones/Ogrimmar/overview.png",
+      "minX": -5083.20556640625,
+      "maxX": -3680.60107421875,
+      "minY": 1338.4605712890625,
+      "maxY": 2273.877197265625
+    },
+    "1537": {
+      "folder": "Ironforge",
+      "mapId": 0,
+      "areaId": 1537,
+      "image": "zones/Ironforge/overview.png",
+      "minX": -1504.2164306640625,
+      "maxX": -713.5913696289062,
+      "minY": -5096.845703125,
+      "maxY": -4569.2412109375
+    },
+    "1638": {
+      "folder": "ThunderBluff",
+      "mapId": 1,
+      "areaId": 1638,
+      "image": "zones/ThunderBluff/overview.png",
+      "minX": -527.0833129882812,
+      "maxX": 516.6666259765625,
+      "minY": -1545.833251953125,
+      "maxY": -849.9999389648438
+    },
+    "1657": {
+      "folder": "Darnassis",
+      "mapId": 1,
+      "areaId": 1657,
+      "image": "zones/Darnassis/overview.png",
+      "minX": 1880.029541015625,
+      "maxX": 2938.36279296875,
+      "minY": 9532.5869140625,
+      "maxY": 10238.31640625
+    },
+    "1497": {
+      "folder": "Undercity",
+      "mapId": 0,
+      "areaId": 1497,
+      "image": "zones/Undercity/overview.png",
+      "minX": -86.18240356445312,
+      "maxX": 873.192626953125,
+      "minY": 1237.8411865234375,
+      "maxY": 1877.9453125
+    },
+    "2597": {
+      "folder": "AlteracValley",
+      "mapId": 30,
+      "areaId": 2597,
+      "image": "zones/AlteracValley/overview.png",
+      "minX": -2456.25,
+      "maxX": 1781.2498779296875,
+      "minY": -1739.583251953125,
+      "maxY": 1085.4166259765625
+    },
+    "3277": {
+      "folder": "WarsongGulch",
+      "mapId": 489,
+      "areaId": 3277,
+      "image": "zones/WarsongGulch/overview.png",
+      "minX": 895.8333129882812,
+      "maxX": 2041.6666259765625,
+      "minY": 862.4999389648438,
+      "maxY": 1627.083251953125
+    },
+    "3358": {
+      "folder": "ArathiBasin",
+      "mapId": 529,
+      "areaId": 3358,
+      "image": "zones/ArathiBasin/overview.png",
+      "minX": 102.08332824707031,
+      "maxX": 1858.333251953125,
+      "minY": 337.5,
+      "maxY": 1508.333251953125
+    },
+    "3430": {
+      "folder": "EversongWoods",
+      "mapId": 530,
+      "areaId": 3430,
+      "image": "zones/EversongWoods/overview.png",
+      "minX": -9412.5,
+      "maxX": -4487.5,
+      "minY": 7758.3330078125,
+      "maxY": 11041.666015625
+    },
+    "3433": {
+      "folder": "Ghostlands",
+      "mapId": 530,
+      "areaId": 3433,
+      "image": "zones/Ghostlands/overview.png",
+      "minX": -8583.3330078125,
+      "maxX": -5283.3330078125,
+      "minY": 6066.66650390625,
+      "maxY": 8266.666015625
+    },
+    "3524": {
+      "folder": "AzuremystIsle",
+      "mapId": 530,
+      "areaId": 3524,
+      "image": "zones/AzuremystIsle/overview.png",
+      "minX": -14570.8330078125,
+      "maxX": -10500.0,
+      "minY": -5508.3330078125,
+      "maxY": -2793.75
+    },
+    "3483": {
+      "folder": "Hellfire",
+      "mapId": 530,
+      "areaId": 3483,
+      "image": "zones/Hellfire/overview.png",
+      "minX": 375.0,
+      "maxX": 5539.5830078125,
+      "minY": -1962.4998779296875,
+      "maxY": 1481.25
+    },
+    "3521": {
+      "folder": "Zangarmarsh",
+      "mapId": 530,
+      "areaId": 3521,
+      "image": "zones/Zangarmarsh/overview.png",
+      "minX": 4447.91650390625,
+      "maxX": 9475.0,
+      "minY": -1416.6666259765625,
+      "maxY": 1935.4166259765625
+    },
+    "3557": {
+      "folder": "TheExodar",
+      "mapId": 530,
+      "areaId": 3557,
+      "image": "zones/TheExodar/overview.png",
+      "minX": -12123.1376953125,
+      "maxX": -11066.3671875,
+      "minY": -4314.37109375,
+      "maxY": -3609.683349609375
+    },
+    "3520": {
+      "folder": "ShadowmoonValley",
+      "mapId": 530,
+      "areaId": 3520,
+      "image": "zones/ShadowmoonValley/overview.png",
+      "minX": -1275.0,
+      "maxX": 4225.0,
+      "minY": -5614.5830078125,
+      "maxY": -1947.9166259765625
+    },
+    "3522": {
+      "folder": "BladesEdgeMountains",
+      "mapId": 530,
+      "areaId": 3522,
+      "image": "zones/BladesEdgeMountains/overview.png",
+      "minX": 3420.833251953125,
+      "maxX": 8845.8330078125,
+      "minY": 791.6666259765625,
+      "maxY": 4408.3330078125
+    },
+    "3525": {
+      "folder": "BloodmystIsle",
+      "mapId": 530,
+      "areaId": 3525,
+      "image": "zones/BloodmystIsle/overview.png",
+      "minX": -13337.4990234375,
+      "maxX": -10075.0,
+      "minY": -2933.333251953125,
+      "maxY": -758.3333129882812
+    },
+    "3518": {
+      "folder": "Nagrand",
+      "mapId": 530,
+      "areaId": 3518,
+      "image": "zones/Nagrand/overview.png",
+      "minX": 4770.8330078125,
+      "maxX": 10295.8330078125,
+      "minY": -3641.66650390625,
+      "maxY": 41.666664123535156
+    },
+    "3519": {
+      "folder": "TerokkarForest",
+      "mapId": 530,
+      "areaId": 3519,
+      "image": "zones/TerokkarForest/overview.png",
+      "minX": 1683.333251953125,
+      "maxX": 7083.3330078125,
+      "minY": -4600.0,
+      "maxY": -999.9999389648438
+    },
+    "3523": {
+      "folder": "Netherstorm",
+      "mapId": 530,
+      "areaId": 3523,
+      "image": "zones/Netherstorm/overview.png",
+      "minX": -91.66666412353516,
+      "maxX": 5483.3330078125,
+      "minY": 1739.583251953125,
+      "maxY": 5456.25
+    },
+    "3487": {
+      "folder": "SilvermoonCity",
+      "mapId": 530,
+      "areaId": 3487,
+      "image": "zones/SilvermoonCity/overview.png",
+      "minX": -7612.20849609375,
+      "maxX": -6400.75,
+      "minY": 9346.9384765625,
+      "maxY": 10153.708984375
+    },
+    "3703": {
+      "folder": "ShattrathCity",
+      "mapId": 530,
+      "areaId": 3703,
+      "image": "zones/ShattrathCity/overview.png",
+      "minX": 4829.0087890625,
+      "maxX": 6135.2587890625,
+      "minY": -2344.787841796875,
+      "maxY": -1473.9544677734375
+    },
+    "3820": {
+      "folder": "NetherstormArena",
+      "mapId": 566,
+      "areaId": 3820,
+      "image": "zones/NetherstormArena/overview.png",
+      "minX": 389.58331298828125,
+      "maxX": 2660.41650390625,
+      "minY": 1404.1666259765625,
+      "maxY": 2918.75
+    },
+    "3537": {
+      "folder": "BoreanTundra",
+      "mapId": 571,
+      "areaId": 3537,
+      "image": "zones/BoreanTundra/overview.png",
+      "minX": 2806.25,
+      "maxX": 8570.8330078125,
+      "minY": 1054.1666259765625,
+      "maxY": 4897.91650390625
+    },
+    "65": {
+      "folder": "Dragonblight",
+      "mapId": 571,
+      "areaId": 65,
+      "image": "zones/Dragonblight/overview.png",
+      "minX": -1981.2498779296875,
+      "maxX": 3627.083251953125,
+      "minY": 1835.4166259765625,
+      "maxY": 5575.0
+    },
+    "394": {
+      "folder": "GrizzlyHills",
+      "mapId": 571,
+      "areaId": 394,
+      "image": "zones/GrizzlyHills/overview.png",
+      "minX": -6360.41650390625,
+      "maxX": -1110.4166259765625,
+      "minY": 2016.6666259765625,
+      "maxY": 5516.66650390625
+    },
+    "495": {
+      "folder": "HowlingFjord",
+      "mapId": 571,
+      "areaId": 495,
+      "image": "zones/HowlingFjord/overview.png",
+      "minX": -7443.74951171875,
+      "maxX": -1397.9166259765625,
+      "minY": -914.5833129882812,
+      "maxY": 3116.66650390625
+    },
+    "210": {
+      "folder": "IcecrownGlacier",
+      "mapId": 571,
+      "areaId": 210,
+      "image": "zones/IcecrownGlacier/overview.png",
+      "minX": -827.0833129882812,
+      "maxX": 5443.75,
+      "minY": 5245.8330078125,
+      "maxY": 9427.0830078125
+    },
+    "3711": {
+      "folder": "SholazarBasin",
+      "mapId": 571,
+      "areaId": 3711,
+      "image": "zones/SholazarBasin/overview.png",
+      "minX": 2572.91650390625,
+      "maxX": 6929.16650390625,
+      "minY": 4383.3330078125,
+      "maxY": 7287.49951171875
+    },
+    "67": {
+      "folder": "TheStormPeaks",
+      "mapId": 571,
+      "areaId": 67,
+      "image": "zones/TheStormPeaks/overview.png",
+      "minX": -5270.8330078125,
+      "maxX": 1841.6666259765625,
+      "minY": 5456.25,
+      "maxY": 10197.916015625
+    },
+    "66": {
+      "folder": "ZulDrak",
+      "mapId": 571,
+      "areaId": 66,
+      "image": "zones/ZulDrak/overview.png",
+      "minX": -5593.75,
+      "maxX": -600.0,
+      "minY": 4339.5830078125,
+      "maxY": 7668.74951171875
+    },
+    "4080": {
+      "folder": "Sunwell",
+      "mapId": 530,
+      "areaId": 4080,
+      "image": "zones/Sunwell/overview.png",
+      "minX": -8629.166015625,
+      "maxX": -5302.0830078125,
+      "minY": 11350.0,
+      "maxY": 13568.7490234375
+    },
+    "4197": {
+      "folder": "LakeWintergrasp",
+      "mapId": 571,
+      "areaId": 4197,
+      "image": "zones/LakeWintergrasp/overview.png",
+      "minX": 1354.1666259765625,
+      "maxX": 4329.16650390625,
+      "minY": 3733.333251953125,
+      "maxY": 5716.66650390625
+    },
+    "4298": {
+      "folder": "ScarletEnclave",
+      "mapId": 609,
+      "areaId": 4298,
+      "image": "zones/ScarletEnclave/overview.png",
+      "minX": -7210.41650390625,
+      "maxX": -4047.91650390625,
+      "minY": 979.1666259765625,
+      "maxY": 3087.5
+    },
+    "2817": {
+      "folder": "CrystalsongForest",
+      "mapId": 571,
+      "areaId": 2817,
+      "image": "zones/CrystalsongForest/overview.png",
+      "minX": -1279.1666259765625,
+      "maxX": 1443.75,
+      "minY": 4687.5,
+      "maxY": 6502.0830078125
+    },
+    "4384": {
+      "folder": "StrandoftheAncients",
+      "mapId": 607,
+      "areaId": 4384,
+      "image": "zones/StrandoftheAncients/overview.png",
+      "minX": -956.2499389648438,
+      "maxX": 787.5,
+      "minY": 720.8333129882812,
+      "maxY": 1883.333251953125
+    },
+    "4100": {
+      "folder": "CoTStratholme",
+      "mapId": 595,
+      "areaId": 4100,
+      "image": "zones/CoTStratholme/overview.png",
+      "minX": 327.08331298828125,
+      "maxX": 2152.083251953125,
+      "minY": 1081.25,
+      "maxY": 2297.91650390625
+    },
+    "4494": {
+      "folder": "Ahnkahet",
+      "mapId": 619,
+      "areaId": 4494,
+      "image": "zones/Ahnkahet/overview.png",
+      "minX": -1206.25,
+      "maxX": -233.3333282470703,
+      "minY": 202.0833282470703,
+      "maxY": 849.9999389648438
+    },
+    "1196": {
+      "folder": "UtgardePinnacle",
+      "mapId": 575,
+      "areaId": 1196,
+      "image": "zones/UtgardePinnacle/overview.png",
+      "minX": -3274.999755859375,
+      "maxX": 3274.999755859375,
+      "minY": -2200.0,
+      "maxY": 2166.66650390625
+    },
+    "4272": {
+      "folder": "HallsofLightning",
+      "mapId": 602,
+      "areaId": 4272,
+      "image": "zones/HallsofLightning/overview.png",
+      "minX": -899.9999389648438,
+      "maxX": 2500.0,
+      "minY": -66.66666412353516,
+      "maxY": 2200.0
+    },
+    "4264": {
+      "folder": "Ulduar77",
+      "mapId": 599,
+      "areaId": 4264,
+      "image": "zones/Ulduar77/overview.png",
+      "minX": -633.3333129882812,
+      "maxX": 2766.66650390625,
+      "minY": -66.66666412353516,
+      "maxY": 2200.0
+    },
+    "4500": {
+      "folder": "TheEyeofEternity",
+      "mapId": 616,
+      "areaId": 4500,
+      "image": "zones/TheEyeofEternity/overview.png",
+      "minX": -633.3333129882812,
+      "maxX": 2766.66650390625,
+      "minY": -66.66666412353516,
+      "maxY": 2200.0
+    },
+    "4228": {
+      "folder": "Nexus80",
+      "mapId": 578,
+      "areaId": 4228,
+      "image": "zones/Nexus80/overview.png",
+      "minX": -262.5,
+      "maxX": 2337.5,
+      "minY": 222.91665649414062,
+      "maxY": 1956.2498779296875
+    },
+    "4273": {
+      "folder": "Ulduar",
+      "mapId": 603,
+      "areaId": 4273,
+      "image": "zones/Ulduar/overview.png",
+      "minX": -1704.1666259765625,
+      "maxX": 1583.333251953125,
+      "minY": -1022.9166259765625,
+      "maxY": 1168.75
+    },
+    "4416": {
+      "folder": "Gundrak",
+      "mapId": 604,
+      "areaId": 4416,
+      "image": "zones/Gundrak/overview.png",
+      "minX": 166.66665649414062,
+      "maxX": 1310.4166259765625,
+      "minY": 1360.4166259765625,
+      "maxY": 2122.91650390625
+    },
+    "4493": {
+      "folder": "TheObsidianSanctum",
+      "mapId": 615,
+      "areaId": 4493,
+      "image": "zones/TheObsidianSanctum/overview.png",
+      "minX": -29.16666603088379,
+      "maxX": 1133.333251953125,
+      "minY": 2841.66650390625,
+      "maxY": 3616.66650390625
+    },
+    "4603": {
+      "folder": "VaultofArchavon",
+      "mapId": 624,
+      "areaId": 4603,
+      "image": "zones/VaultofArchavon/overview.png",
+      "minX": -1566.6666259765625,
+      "maxX": 1033.333251953125,
+      "minY": -1133.333251953125,
+      "maxY": 600.0
+    },
+    "4277": {
+      "folder": "AzjolNerub",
+      "mapId": 601,
+      "areaId": 4277,
+      "image": "zones/AzjolNerub/overview.png",
+      "minX": -52.08333206176758,
+      "maxX": 1020.8333129882812,
+      "minY": 158.3333282470703,
+      "maxY": 872.9166259765625
+    },
+    "4196": {
+      "folder": "DrakTharonKeep",
+      "mapId": 600,
+      "areaId": 4196,
+      "image": "zones/DrakTharonKeep/overview.png",
+      "minX": -1004.1666259765625,
+      "maxX": -377.08331298828125,
+      "minY": -587.5,
+      "maxY": -168.75
+    },
+    "3456": {
+      "folder": "Naxxramas",
+      "mapId": 533,
+      "areaId": 3456,
+      "image": "zones/Naxxramas/overview.png",
+      "minX": -4377.0830078125,
+      "maxX": -2520.833251953125,
+      "minY": 2360.41650390625,
+      "maxY": 3597.91650390625
+    },
+    "4415": {
+      "folder": "VioletHold",
+      "mapId": 608,
+      "areaId": 4415,
+      "image": "zones/VioletHold/overview.png",
+      "minX": 600.0,
+      "maxX": 983.3333129882812,
+      "minY": 1749.9998779296875,
+      "maxY": 2006.2498779296875
+    },
+    "4710": {
+      "folder": "IsleofConquest",
+      "mapId": 628,
+      "areaId": 4710,
+      "image": "zones/IsleofConquest/overview.png",
+      "minX": -2125.0,
+      "maxX": 525.0,
+      "minY": -58.33333206176758,
+      "maxY": 1708.333251953125
+    },
+    "4742": {
+      "folder": "HrothgarsLanding",
+      "mapId": 571,
+      "areaId": 4742,
+      "image": "zones/HrothgarsLanding/overview.png",
+      "minX": -879.1666259765625,
+      "maxX": 2797.91650390625,
+      "minY": 8329.166015625,
+      "maxY": 10781.25
+    },
+    "4723": {
+      "folder": "TheArgentColiseum",
+      "mapId": 650,
+      "areaId": 4723,
+      "image": "zones/TheArgentColiseum/overview.png",
+      "minX": -499.9999694824219,
+      "maxX": 2100.0,
+      "minY": 466.6666564941406,
+      "maxY": 2200.0
+    },
+    "4722": {
+      "folder": "TheArgentColiseum",
+      "mapId": 649,
+      "areaId": 4722,
+      "image": "zones/TheArgentColiseum/overview.png",
+      "minX": -499.9999694824219,
+      "maxX": 2100.0,
+      "minY": 466.6666564941406,
+      "maxY": 2200.0
+    },
+    "4809": {
+      "folder": "TheForgeofSouls",
+      "mapId": 632,
+      "areaId": 4809,
+      "image": "zones/TheForgeofSouls/overview.png",
+      "minX": -4366.66650390625,
+      "maxX": 7033.3330078125,
+      "minY": -1133.333251953125,
+      "maxY": 6466.66650390625
+    },
+    "4813": {
+      "folder": "PitofSaron",
+      "mapId": 658,
+      "areaId": 4813,
+      "image": "zones/PitofSaron/overview.png",
+      "minX": -693.75,
+      "maxX": 839.5833129882812,
+      "minY": 233.3333282470703,
+      "maxY": 1256.25
+    },
+    "4820": {
+      "folder": "HallsofReflection",
+      "mapId": 668,
+      "areaId": 4820,
+      "image": "zones/HallsofReflection/overview.png",
+      "minX": -5966.66650390625,
+      "maxX": 7033.3330078125,
+      "minY": -2200.0,
+      "maxY": 6466.66650390625
+    },
+    "4812": {
+      "folder": "IcecrownCitadel",
+      "mapId": 631,
+      "areaId": 4812,
+      "image": "zones/IcecrownCitadel/overview.png",
+      "minX": -5833.3330078125,
+      "maxX": 6366.66650390625,
+      "minY": -2200.0,
+      "maxY": 5933.3330078125
+    },
+    "4987": {
+      "folder": "TheRubySanctum",
+      "mapId": 724,
+      "areaId": 4987,
+      "image": "zones/TheRubySanctum/overview.png",
+      "minX": 150.0,
+      "maxX": 902.0833129882812,
+      "minY": 2927.083251953125,
+      "maxY": 3429.16650390625
+    }
+  },
+  "byMapId": {
+    "1": {
+      "folder": "Kalimdor",
+      "mapId": 1,
+      "areaId": 0,
+      "image": "continents/1/overview.png",
+      "minX": -19733.2109375,
+      "maxX": 17066.599609375,
+      "minY": -11733.2998046875,
+      "maxY": 12799.900390625
+    },
+    "0": {
+      "folder": "Azeroth",
+      "mapId": 0,
+      "areaId": 0,
+      "image": "continents/0/overview.png",
+      "minX": -22569.2109375,
+      "maxX": 18171.970703125,
+      "minY": -15973.34375,
+      "maxY": 11176.34375
+    },
+    "530": {
+      "folder": "Expansion01",
+      "mapId": 530,
+      "areaId": 0,
+      "image": "continents/530/overview.png",
+      "minX": -4468.0390625,
+      "maxX": 12996.0390625,
+      "minY": -5821.359375,
+      "maxY": 5821.359375
+    },
+    "571": {
+      "folder": "Northrend",
+      "mapId": 571,
+      "areaId": 0,
+      "image": "continents/571/overview.png",
+      "minX": -8534.24609375,
+      "maxX": 9217.15234375,
+      "minY": -1240.8900146484375,
+      "maxY": 10593.375
+    }
+  }
+}

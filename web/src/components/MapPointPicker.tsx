@@ -40,8 +40,35 @@ type Manifest = {
   }
 }
 
+type WorldMapEntry = {
+  folder: string
+  mapId: number
+  areaId?: number
+  image: string
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+type WorldMapIndex = {
+  byAreaId?: Record<string, WorldMapEntry>
+  byMapId?: Record<string, WorldMapEntry>
+}
+
+type OverviewLayer = {
+  kind: 'zone' | 'continent' | 'manifest'
+  name: string
+  imageUrl: string
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
 type Props = {
   mapId: number
+  zoneId?: number | null
   player?: { x: number; y: number; z: number } | null
   points: MapPoint[]
   onPick: (pick: MapPick) => void
@@ -52,7 +79,6 @@ const DEFAULT_TILE_SCALE = 533.333333333
 const DEFAULT_TILE_SIZE = 256
 
 function worldToTile(x: number, y: number, scale: number) {
-  // 3.3.5 minimap naming: map{i}_{j}.blp
   const i = 32 - Math.ceil(y / scale)
   const j = 32 - Math.ceil(x / scale)
   return { i, j }
@@ -66,7 +92,6 @@ function tilePixelToWorld(
   tileSize: number,
   scale: number,
 ) {
-  // Inverse of worldToTile using pixel offset within the tile.
   const fracJ = localX / tileSize
   const fracI = localY / tileSize
   const x = (32 - j - fracJ) * scale
@@ -86,9 +111,32 @@ async function loadManifest(mapId: number): Promise<Manifest | null> {
   }
 }
 
-export function MapPointPicker({ mapId, player, points, onPick, className }: Props) {
+async function loadWorldMapIndex(): Promise<WorldMapIndex | null> {
+  try {
+    const res = await fetch('/maps/worldmap/index.json', { cache: 'no-cache' })
+    if (!res.ok) return null
+    return (await res.json()) as WorldMapIndex
+  } catch {
+    return null
+  }
+}
+
+function entryToLayer(entry: WorldMapEntry, kind: 'zone' | 'continent'): OverviewLayer {
+  return {
+    kind,
+    name: entry.folder,
+    imageUrl: `/maps/worldmap/${entry.image}`,
+    minX: entry.minX,
+    maxX: entry.maxX,
+    minY: entry.minY,
+    maxY: entry.maxY,
+  }
+}
+
+export function MapPointPicker({ mapId, zoneId, player, points, onPick, className }: Props) {
   const { t } = useTranslation()
   const [manifest, setManifest] = useState<Manifest | null>(null)
+  const [worldLayer, setWorldLayer] = useState<OverviewLayer | null>(null)
   const [checked, setChecked] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -98,19 +146,51 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
     let cancelled = false
     setChecked(false)
     setManifest(null)
-    void loadManifest(mapId).then((m) => {
+    setWorldLayer(null)
+
+    void (async () => {
+      const [wm, man] = await Promise.all([loadWorldMapIndex(), loadManifest(mapId)])
       if (cancelled) return
-      setManifest(m)
+
+      let layer: OverviewLayer | null = null
+      if (wm) {
+        if (zoneId != null && wm.byAreaId?.[String(zoneId)]) {
+          layer = entryToLayer(wm.byAreaId[String(zoneId)], 'zone')
+        } else if (wm.byMapId?.[String(mapId)]) {
+          layer = entryToLayer(wm.byMapId[String(mapId)], 'continent')
+        }
+      }
+      if (!layer && man?.mode === 'overview' && man.overview) {
+        layer = {
+          kind: 'manifest',
+          name: man.name || String(mapId),
+          imageUrl: `/maps/${mapId}/${man.overview.image}`,
+          minX: man.overview.minX,
+          maxX: man.overview.maxX,
+          minY: man.overview.minY,
+          maxY: man.overview.maxY,
+        }
+      }
+
+      setWorldLayer(layer)
+      // Prefer WorldMap; keep minimap manifest only as fallback when no world layer.
+      setManifest(layer ? null : man)
       setChecked(true)
-    })
+    })()
+
     return () => {
       cancelled = true
     }
-  }, [mapId])
+  }, [mapId, zoneId])
 
-  const mode = !checked ? 'loading' : manifest ? manifest.mode : 'scatter'
+  const mode = !checked
+    ? 'loading'
+    : worldLayer
+      ? 'overview'
+      : manifest?.mode === 'minimap'
+        ? 'minimap'
+        : 'scatter'
 
-  // --- Scatter (tele points) fallback ---
   const scatter = useMemo(() => {
     const xs = points.map((p) => p.x)
     const ys = points.map((p) => p.y)
@@ -143,24 +223,18 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
     (x: number, y: number, w: number, h: number) => {
       const { minX, maxX, minY, maxY } = scatter
       const px = ((x - minX) / (maxX - minX)) * w
-      // WoW Y often drawn with north-up; flip so larger Y is higher on screen when it matches map feel
       const py = (1 - (y - minY) / (maxY - minY)) * h
       return { px, py }
     },
     [scatter],
   )
 
-  // --- Overview mode ---
-  const overviewUrl = manifest?.mode === 'overview' && manifest.overview
-    ? `/maps/${mapId}/${manifest.overview.image}`
-    : null
-
   const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!manifest?.overview) return
+    if (!worldLayer) return
     const rect = e.currentTarget.getBoundingClientRect()
     const u = (e.clientX - rect.left) / rect.width
     const v = (e.clientY - rect.top) / rect.height
-    const { minX, maxX, minY, maxY } = manifest.overview
+    const { minX, maxX, minY, maxY } = worldLayer
     const x = minX + u * (maxX - minX)
     const y = maxY - v * (maxY - minY)
     onPick({
@@ -172,12 +246,11 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
     })
   }
 
-  // --- Minimap tiles ---
   const tileScale = manifest?.tileScale ?? DEFAULT_TILE_SCALE
   const tileSize = manifest?.tileSize ?? DEFAULT_TILE_SIZE
   const center = player ?? (points[0] ? { x: points[0].x, y: points[0].y, z: points[0].z } : { x: 0, y: 0, z: 0 })
   const centerTile = worldToTile(center.x, center.y, tileScale)
-  const radius = 2 // 5x5 tiles
+  const radius = 2
 
   const tiles = useMemo(() => {
     if (manifest?.mode !== 'minimap' || !manifest.minimap) return []
@@ -219,14 +292,10 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
     })
   }
 
-  // player marker position in minimap grid
   const playerMarker = useMemo(() => {
     if (!player || mode !== 'minimap') return null
     const originI = centerTile.i - radius
     const originJ = centerTile.j - radius
-    // world -> offset in grid
-    // From tilePixelToWorld inverse:
-    // x = (32 - j - fracJ) * scale => fracJ = 32 - j - x/scale
     const jFloat = 32 - player.x / tileScale
     const iFloat = 32 - player.y / tileScale
     const px = (jFloat - originJ) * tileSize
@@ -234,14 +303,18 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
     return { px, py }
   }, [player, mode, centerTile.i, centerTile.j, tileScale, tileSize])
 
+  const modeLabel = (() => {
+    if (mode === 'loading') return t('mybots.mapLoading')
+    if (mode === 'scatter') return t('mybots.mapModeScatter')
+    if (mode === 'minimap') return t('mybots.mapModeTiles', { name: manifest?.name || mapId })
+    if (worldLayer?.kind === 'zone') return t('mybots.mapModeZone', { name: worldLayer.name })
+    if (worldLayer?.kind === 'continent') return t('mybots.mapModeContinent', { name: worldLayer.name })
+    return t('mybots.mapModeOverview', { name: worldLayer?.name || mapId })
+  })()
+
   return (
     <div className={className}>
-      <div className="text-xs text-base-content/55 mb-2">
-        {mode === 'loading' && t('mybots.mapLoading')}
-        {mode === 'scatter' && t('mybots.mapModeScatter')}
-        {mode === 'minimap' && t('mybots.mapModeTiles', { name: manifest?.name || mapId })}
-        {mode === 'overview' && t('mybots.mapModeOverview', { name: manifest?.name || mapId })}
-      </div>
+      <div className="text-xs text-base-content/55 mb-2">{modeLabel}</div>
 
       {mode === 'scatter' && (
         <div
@@ -292,22 +365,46 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
         </div>
       )}
 
-      {mode === 'overview' && overviewUrl && (
+      {mode === 'overview' && worldLayer && (
         <div
-          className="relative w-full h-[420px] rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
+          className="relative w-full max-w-[720px] mx-auto rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
+          style={{ aspectRatio: '4 / 3' }}
           onClick={handleOverviewClick}
         >
-          <img src={overviewUrl} alt="" className="absolute inset-0 w-full h-full object-contain" draggable={false} />
-          {player && manifest?.overview && (
+          <img
+            src={worldLayer.imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-fill"
+            draggable={false}
+          />
+          {player && (
             <div
-              className="absolute w-3 h-3 rounded-full bg-success border-2 border-base-100 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              className="absolute w-3 h-3 rounded-full bg-success border-2 border-base-100 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
               style={{
-                left: `${((player.x - manifest.overview.minX) / (manifest.overview.maxX - manifest.overview.minX)) * 100}%`,
-                top: `${(1 - (player.y - manifest.overview.minY) / (manifest.overview.maxY - manifest.overview.minY)) * 100}%`,
+                left: `${((player.x - worldLayer.minX) / (worldLayer.maxX - worldLayer.minX)) * 100}%`,
+                top: `${(1 - (player.y - worldLayer.minY) / (worldLayer.maxY - worldLayer.minY)) * 100}%`,
               }}
               title={t('mybots.youAreHere')}
             />
           )}
+          {points.map((p) => {
+            const left = ((p.x - worldLayer.minX) / (worldLayer.maxX - worldLayer.minX)) * 100
+            const top = (1 - (p.y - worldLayer.minY) / (worldLayer.maxY - worldLayer.minY)) * 100
+            if (left < 0 || left > 100 || top < 0 || top > 100) return null
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className="absolute w-2.5 h-2.5 rounded-full bg-primary border border-base-100 -translate-x-1/2 -translate-y-1/2 z-10"
+                style={{ left: `${left}%`, top: `${top}%` }}
+                title={p.label}
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  onPick({ x: p.x, y: p.y, z: p.z, label: p.label, source: 'tele' })
+                }}
+              />
+            )
+          })}
         </div>
       )}
 
@@ -346,14 +443,13 @@ export function MapPointPicker({ mapId, player, points, onPick, className }: Pro
               }}
             />
           )}
-          {/* tele markers on minimap */}
           {points.map((p) => {
             const originI = centerTile.i - radius
             const originJ = centerTile.j - radius
             const jFloat = 32 - p.x / tileScale
             const iFloat = 32 - p.y / tileScale
-            const left = ((jFloat - originJ) * tileSize) / gridSize * 100
-            const top = ((iFloat - originI) * tileSize) / gridSize * 100
+            const left = (((jFloat - originJ) * tileSize) / gridSize) * 100
+            const top = (((iFloat - originI) * tileSize) / gridSize) * 100
             if (left < 0 || left > 100 || top < 0 || top > 100) return null
             return (
               <button

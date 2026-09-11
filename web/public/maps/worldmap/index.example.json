@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "source": "Interface/WorldMap + WorldMapArea.dbc",
+  "note": "Run scripts/extract_worldmaps.py to generate PNGs + full index.json",
+  "byAreaId": {
+    "12": {
+      "folder": "Elwynn",
+      "mapId": 0,
+      "areaId": 12,
+      "image": "zones/Elwynn/overview.png",
+      "minX": -1935.4166259765625,
+      "maxX": 1535.4166259765625,
+      "minY": -10254.166015625,
+      "maxY": -7939.5830078125
+    }
+  },
+  "byMapId": {
+    "0": {
+      "folder": "Azeroth",
+      "mapId": 0,
+      "areaId": 0,
+      "image": "continents/0/overview.png",
+      "minX": -22569.2109375,
+      "maxX": 18171.970703125,
+      "minY": -15973.34375,
+      "maxY": 11176.34375
+    },
+    "1": {
+      "folder": "Kalimdor",
+      "mapId": 1,
+      "areaId": 0,
+      "image": "continents/1/overview.png",
+      "minX": -19733.2109375,
+      "maxX": 17066.599609375,
+      "minY": -11733.2998046875,
+      "maxY": 12799.900390625
+    },
+    "530": {
+      "folder": "Expansion01",
+      "mapId": 530,
+      "areaId": 0,
+      "image": "continents/530/overview.png",
+      "minX": -4468.0390625,
+      "maxX": 12996.0390625,
+      "minY": -5821.359375,
+      "maxY": 5821.359375
+    },
+    "571": {
+      "folder": "Northrend",
+      "mapId": 571,
+      "areaId": 0,
+      "image": "continents/571/overview.png",
+      "minX": -8534.24609375,
+      "maxX": 9217.15234375,
+      "minY": -1240.8900146484375,
+      "maxY": 10593.375
+    }
+  }
+}

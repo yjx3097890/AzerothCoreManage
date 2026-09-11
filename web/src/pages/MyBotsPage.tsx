@@ -555,6 +555,7 @@ export function MyBotsPage() {
                   {snap.map != null && (
                     <MapPointPicker
                       mapId={snap.map}
+                      zoneId={snap.zone}
                       player={
                         snap.x != null && snap.y != null
                           ? { x: snap.x, y: snap.y, z: snap.z ?? 0 }

@@ -2,6 +2,7 @@
   "mapId": 530,
   "name": "Outland",
   "mode": "minimap",
+  "note": "Fallback only when worldmap/index.json is missing. Prefer Interface/WorldMap via scripts/extract_worldmaps.py.",
   "tileSize": 256,
   "tileScale": 533.333333333,
   "minimap": {
