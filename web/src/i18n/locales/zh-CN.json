@@ -574,7 +574,8 @@
     "live": "实时跟踪",
     "stop": "停止",
     "empty": "暂无日志",
-    "wsError": "WebSocket 连接失败",
+    "wsError": "日志实时流连接失败",
+    "streamError": "日志实时流连接失败",
     "worldserver": "世界服务器",
     "authserver": "认证服务器",
     "database": "数据库"

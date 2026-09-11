@@ -574,7 +574,8 @@
     "live": "Live follow",
     "stop": "Stop",
     "empty": "No logs yet",
-    "wsError": "WebSocket failed",
+    "wsError": "Log stream failed",
+    "streamError": "Log stream failed",
     "worldserver": "worldserver",
     "authserver": "authserver",
     "database": "database"

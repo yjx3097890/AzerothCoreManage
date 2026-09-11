@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { api, errorMessage, getToken } from '../api/client'
+import { api, errorMessage, getTargetId, getToken } from '../api/client'
+import { currentLocale } from '../i18n'
 import { DataTable, Modal, Select, Tabs, toast, type Column } from '../ui'
 
 type ServerItem = {
@@ -194,7 +195,7 @@ function ContainerLogsPanel({
   const [lines, setLines] = useState<string[]>([])
   const [live, setLive] = useState(false)
   const [dockerDisabled, setDockerDisabled] = useState(!dockerEnabled)
-  const wsRef = useRef<WebSocket | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const boxRef = useRef<HTMLPreElement | null>(null)
 
   useEffect(() => {
@@ -220,43 +221,96 @@ function ContainerLogsPanel({
   }
 
   const stopLive = () => {
-    wsRef.current?.close()
-    wsRef.current = null
+    abortRef.current?.abort()
+    abortRef.current = null
     setLive(false)
   }
 
   const startLive = () => {
     stopLive()
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-    const params = new URLSearchParams({
-      token: getToken(),
-      tail: '100',
-    })
-    if (level) params.set('level', level)
-    const ws = new WebSocket(
-      `${proto}://${location.host}/api/v1/servers/${encodeURIComponent(container)}/logs/ws?${params}`,
-    )
-    wsRef.current = ws
+    const ac = new AbortController()
+    abortRef.current = ac
     setLive(true)
-    ws.onmessage = (ev) => {
+    setLines([])
+
+    void (async () => {
       try {
-        const msg = JSON.parse(ev.data as string) as { type: string; line?: string; message?: string }
-        if (msg.type === 'line' && msg.line) {
-          setLines((prev) => [...prev.slice(-500), msg.line!])
+        const params = new URLSearchParams({ tail: '100' })
+        if (level) params.set('level', level)
+        const headers = new Headers({
+          Accept: 'text/event-stream',
+        })
+        const token = getToken()
+        if (token) headers.set('Authorization', `Bearer ${token}`)
+        headers.set('X-Locale', currentLocale())
+        headers.set('Accept-Language', currentLocale())
+        const target = getTargetId()
+        if (target) headers.set('X-Target-Id', target)
+
+        const res = await fetch(
+          `/api/v1/servers/${encodeURIComponent(container)}/logs/stream?${params}`,
+          { headers, signal: ac.signal },
+        )
+        if (!res.ok || !res.body) {
+          let msg = res.statusText
+          try {
+            const body = (await res.json()) as { error?: { code?: string; message?: string } }
+            msg = body.error?.message || msg
+            if (body.error?.code === 'docker_disabled') setDockerDisabled(true)
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg || t('logs.streamError'))
         }
-        if (msg.type === 'error') {
-          toast.error(msg.message || t('logs.wsError'))
-          stopLive()
+        setDockerDisabled(false)
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const chunks = buffer.split('\n\n')
+          buffer = chunks.pop() || ''
+          for (const chunk of chunks) {
+            const rawLines = chunk.split('\n')
+            let event = 'message'
+            const dataLines: string[] = []
+            for (const line of rawLines) {
+              if (line.startsWith(':')) continue // SSE comment / ping
+              if (line.startsWith('event:')) event = line.slice(6).trim()
+              else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+            }
+            if (!dataLines.length) continue
+            try {
+              const data = JSON.parse(dataLines.join('\n')) as { line?: string; message?: string }
+              if (event === 'line' && data.line) {
+                setLines((prev) => [...prev.slice(-500), data.line!])
+              } else if (event === 'error') {
+                toast.error(data.message || t('logs.streamError'))
+                stopLive()
+                return
+              } else if (event === 'done') {
+                stopLive()
+                return
+              }
+            } catch {
+              /* ignore malformed chunk */
+            }
+          }
         }
-      } catch {
-        /* ignore */
+      } catch (err) {
+        if (ac.signal.aborted) return
+        toast.error(err instanceof Error ? err.message : t('logs.streamError'))
+      } finally {
+        if (abortRef.current === ac) {
+          abortRef.current = null
+          setLive(false)
+        }
       }
-    }
-    ws.onerror = () => {
-      toast.error(t('logs.wsError'))
-      stopLive()
-    }
-    ws.onclose = () => setLive(false)
+    })()
   }
 
   useEffect(() => () => stopLive(), [])
@@ -305,7 +359,7 @@ function ContainerLogsPanel({
           {t('logs.snapshot')}
         </button>
         {!live ? (
-          <button type="button" className="btn btn-sm btn-primary" onClick={startLive}>
+          <button type="button" className="btn btn-sm btn-primary" onClick={startLive} disabled={!dockerEnabled}>
             {t('logs.live')}
           </button>
         ) : (

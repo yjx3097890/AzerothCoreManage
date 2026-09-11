@@ -84,6 +84,7 @@ func (s *Server) Router() *gin.Engine {
 		authed.POST("/servers/lifecycle", RequireRole(RoleSuperAdmin), s.serverLifecycle)
 		authed.POST("/servers/control", RequireRole(RoleSuperAdmin), s.serverControl)
 		authed.GET("/servers/:name/logs", RequireRole(RoleGM), s.serverLogs)
+		authed.GET("/servers/:name/logs/stream", RequireRole(RoleGM), s.serverLogsStream)
 		authed.GET("/servers/:name/stats", RequireRole(RoleGM), s.serverStats)
 
 		authed.GET("/accounts", s.listAccounts)
@@ -230,9 +231,6 @@ func (s *Server) Router() *gin.Engine {
 		authed.GET("/modules/:id/conf", RequireRole(RoleSuperAdmin), s.getModuleConf)
 		authed.PUT("/modules/:id/conf", RequireRole(RoleSuperAdmin), s.putModuleConf)
 	}
-
-	// WebSocket auth is handled inside the handler (token query / header).
-	r.GET("/api/v1/servers/:name/logs/ws", s.serverLogsWS)
 
 	return r
 }
