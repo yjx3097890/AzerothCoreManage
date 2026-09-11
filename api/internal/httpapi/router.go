@@ -5,6 +5,7 @@ import (
 
 	"acmanage/internal/app"
 	"acmanage/internal/i18n"
+	"acmanage/internal/modules"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +27,7 @@ type Server struct {
 }
 
 func New(application *app.App) *Server {
+	modules.StartCatalogueRefresher(application.Cfg.Modules.CacheDir)
 	return &Server{app: application}
 }
 

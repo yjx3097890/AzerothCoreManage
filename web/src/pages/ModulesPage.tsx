@@ -99,6 +99,7 @@ export function ModulesPage() {
   const [q, setQ] = useState('')
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [catalogWarn, setCatalogWarn] = useState('')
+  const [catalogCachedAt, setCatalogCachedAt] = useState('')
   const [inventory, setInventory] = useState<Inventory | null>(null)
   const [registry, setRegistry] = useState<RegistryEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -127,12 +128,17 @@ export function ModulesPage() {
   const [confPath, setConfPath] = useState('')
   const [pendingConf, setPendingConf] = useState(false)
 
-  const loadCatalog = useCallback(async () => {
-    const data = await api<{ items: CatalogItem[]; catalogue_warning?: string }>(
-      `/api/v1/modules/catalog?q=${encodeURIComponent(q)}`,
-    )
+  const loadCatalog = useCallback(async (opts?: { refreshRemote?: boolean }) => {
+    const qs = new URLSearchParams({ q })
+    if (opts?.refreshRemote) qs.set('refresh', '1')
+    const data = await api<{
+      items: CatalogItem[]
+      catalogue_warning?: string
+      catalogue_cached_at?: string
+    }>(`/api/v1/modules/catalog?${qs}`)
     setCatalog(data.items)
     setCatalogWarn(data.catalogue_warning || '')
+    setCatalogCachedAt(data.catalogue_cached_at || '')
   }, [q])
 
   const loadInstalled = useCallback(async () => {
@@ -438,8 +444,28 @@ export function ModulesPage() {
                   <button type="button" className="btn btn-sm" onClick={() => void loadCatalog()}>
                     {t('common.search')}
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={() =>
+                      void loadCatalog({ refreshRemote: true })
+                        .then(() => toast.success(t('modules.catalogueRefreshQueued')))
+                        .catch((err) => toast.error(errorMessage(err, t)))
+                    }
+                  >
+                    {t('modules.catalogueRefresh')}
+                  </button>
                 </div>
-                {catalogWarn && <p className="text-warning text-sm mb-2">{catalogWarn}</p>}
+                {catalogCachedAt && (
+                  <p className="text-xs text-base-content/50 m-0 mb-2">
+                    {t('modules.catalogueCachedAt', { time: new Date(catalogCachedAt).toLocaleString() })}
+                  </p>
+                )}
+                {catalogWarn && (
+                  <div className="alert alert-warning text-sm mb-2 py-2">
+                    <span>{t('modules.catalogueWarn', { detail: catalogWarn })}</span>
+                  </div>
+                )}
                 <DataTable
                   columns={catalogColumns}
                   dataSource={catalog}

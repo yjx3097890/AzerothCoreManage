@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,16 +15,16 @@ import (
 )
 
 type CuratedModule struct {
-	ID          string `json:"id"`
-	OwnerRepo   string `json:"owner_repo"`
-	URL         string `json:"url"`
-	NameZH      string `json:"name_zh"`
-	NameEN      string `json:"name_en"`
-	SummaryZH   string `json:"summary_zh"`
-	SummaryEN   string `json:"summary_en"`
-	Tags        []string `json:"tags,omitempty"`
-	KnownRisksZH string `json:"known_risks_zh,omitempty"`
-	KnownRisksEN string `json:"known_risks_en,omitempty"`
+	ID           string   `json:"id"`
+	OwnerRepo    string   `json:"owner_repo"`
+	URL          string   `json:"url"`
+	NameZH       string   `json:"name_zh"`
+	NameEN       string   `json:"name_en"`
+	SummaryZH    string   `json:"summary_zh"`
+	SummaryEN    string   `json:"summary_en"`
+	Tags         []string `json:"tags,omitempty"`
+	KnownRisksZH string   `json:"known_risks_zh,omitempty"`
+	KnownRisksEN string   `json:"known_risks_en,omitempty"`
 }
 
 type CatalogEntry struct {
@@ -43,16 +44,33 @@ type CatalogEntry struct {
 	KnownRisksEN string   `json:"known_risks_en,omitempty"`
 }
 
+type catalogueDiskFile struct {
+	FetchedAt string         `json:"fetched_at"`
+	Entries   []CatalogEntry `json:"entries"`
+	LastError string         `json:"last_error,omitempty"`
+}
+
 type catalogueCache struct {
-	mu      sync.Mutex
-	entries []CatalogEntry
-	at      time.Time
-	err     string
+	mu         sync.Mutex
+	dir        string
+	entries    []CatalogEntry
+	at         time.Time
+	err        string
+	loaded     bool
+	refreshing bool
+	stopCh     chan struct{}
+	started    bool
 }
 
 var catCache catalogueCache
 
-const catalogueURL = "https://www.azerothcore.org/data/catalogue.json"
+const (
+	catalogueURL          = "https://www.azerothcore.org/data/catalogue.json"
+	catalogueCacheFile    = "catalogue-modules.json"
+	catalogueTTL          = 12 * time.Hour
+	catalogueRefreshEvery = 6 * time.Hour
+	catalogueHTTPTimeout  = 60 * time.Second
+)
 
 func LoadCurated(path string) ([]CuratedModule, error) {
 	candidates := []string{path}
@@ -96,46 +114,217 @@ func LoadCurated(path string) ([]CuratedModule, error) {
 	return nil, fmt.Errorf("curated.json not found")
 }
 
-func FetchCatalogue(client *http.Client, force bool) ([]CatalogEntry, string, error) {
+// ConfigureCatalogue sets the on-disk cache directory and loads any existing file.
+// Call once at process start before serving HTTP.
+func ConfigureCatalogue(cacheDir string) {
 	catCache.mu.Lock()
 	defer catCache.mu.Unlock()
-	if !force && len(catCache.entries) > 0 && time.Since(catCache.at) < 12*time.Hour {
-		// Rebuild if older cache lacked pushed_at.
-		if catCache.entries[0].PushedAt != "" || time.Since(catCache.at) < time.Minute {
-			return catCache.entries, catCache.err, nil
+	catCache.dir = strings.TrimSpace(cacheDir)
+	catCache.loadLocked()
+}
+
+// StartCatalogueRefresher loads disk cache (if needed) and starts a background
+// updater. Safe to call once; subsequent calls are no-ops.
+func StartCatalogueRefresher(cacheDir string) {
+	ConfigureCatalogue(cacheDir)
+	catCache.mu.Lock()
+	if catCache.started {
+		catCache.mu.Unlock()
+		return
+	}
+	catCache.started = true
+	catCache.stopCh = make(chan struct{})
+	catCache.mu.Unlock()
+
+	// Immediate warm / refresh without blocking callers.
+	go refreshCatalogue(false)
+
+	go func() {
+		ticker := time.NewTicker(catalogueRefreshEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				refreshCatalogue(false)
+			case <-catCache.stopCh:
+				return
+			}
 		}
+	}()
+}
+
+// FetchCatalogue returns the local catalogue snapshot immediately.
+// It never blocks on the remote HTTP fetch: force/stale/empty only schedules a
+// background refresh. The second return value is a soft warning (last fetch error
+// or empty-cache notice), not a hard failure when curated-only data remains usable.
+func FetchCatalogue(client *http.Client, force bool) ([]CatalogEntry, string, error) {
+	_ = client // reserved for tests / future injection via refreshCatalogueClient
+	catCache.mu.Lock()
+	catCache.loadLocked()
+	entries := append([]CatalogEntry(nil), catCache.entries...)
+	at := catCache.at
+	lastErr := catCache.err
+	empty := len(entries) == 0
+	stale := empty || (!at.IsZero() && time.Since(at) > catalogueTTL)
+	catCache.mu.Unlock()
+
+	if force || stale {
+		go refreshCatalogue(force)
 	}
-	if client == nil {
-		client = &http.Client{Timeout: 20 * time.Second}
+
+	warn := ""
+	if empty {
+		if lastErr != "" {
+			warn = lastErr
+		} else {
+			warn = "catalogue cache empty; refreshing in background"
+		}
+		return entries, warn, nil
 	}
-	resp, err := client.Get(catalogueURL)
+	if lastErr != "" && stale {
+		warn = lastErr
+	}
+	return entries, warn, nil
+}
+
+// CatalogueCachedAt returns when the in-memory/disk snapshot was last fetched.
+func CatalogueCachedAt() time.Time {
+	catCache.mu.Lock()
+	defer catCache.mu.Unlock()
+	catCache.loadLocked()
+	return catCache.at
+}
+
+func catalogueCachePathLocked() string {
+	if catCache.dir == "" {
+		return ""
+	}
+	return filepath.Join(catCache.dir, catalogueCacheFile)
+}
+
+func (c *catalogueCache) loadLocked() {
+	if c.loaded {
+		return
+	}
+	c.loaded = true
+	path := catalogueCachePathLocked()
+	if path == "" {
+		return
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var disk catalogueDiskFile
+	if err := json.Unmarshal(raw, &disk); err != nil {
+		log.Printf("catalogue cache: parse %s: %v", path, err)
+		return
+	}
+	c.entries = disk.Entries
+	c.err = disk.LastError
+	if t, err := time.Parse(time.RFC3339, disk.FetchedAt); err == nil {
+		c.at = t
+	}
+}
+
+func refreshCatalogue(force bool) {
+	catCache.mu.Lock()
+	if catCache.refreshing {
+		catCache.mu.Unlock()
+		return
+	}
+	if !force && len(catCache.entries) > 0 && !catCache.at.IsZero() && time.Since(catCache.at) < catalogueTTL {
+		catCache.mu.Unlock()
+		return
+	}
+	catCache.refreshing = true
+	dir := catCache.dir
+	catCache.mu.Unlock()
+
+	defer func() {
+		catCache.mu.Lock()
+		catCache.refreshing = false
+		catCache.mu.Unlock()
+	}()
+
+	entries, err := downloadCatalogue(nil)
+	now := time.Now().UTC()
+
+	catCache.mu.Lock()
+	defer catCache.mu.Unlock()
 	if err != nil {
 		catCache.err = err.Error()
-		if len(catCache.entries) > 0 {
-			return catCache.entries, catCache.err, nil
-		}
-		return nil, catCache.err, err
+		log.Printf("catalogue refresh failed: %v", err)
+		// Persist last error alongside existing entries so restarts keep warning context.
+		_ = saveCatalogueDiskLocked(dir, catCache.entries, catCache.at, catCache.err)
+		return
+	}
+	catCache.entries = entries
+	catCache.at = now
+	catCache.err = ""
+	catCache.loaded = true
+	if err := saveCatalogueDiskLocked(dir, entries, now, ""); err != nil {
+		log.Printf("catalogue cache write: %v", err)
+	} else {
+		log.Printf("catalogue refreshed: %d modules", len(entries))
+	}
+}
+
+func saveCatalogueDiskLocked(dir string, entries []CatalogEntry, at time.Time, lastErr string) error {
+	if dir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	disk := catalogueDiskFile{
+		FetchedAt: "",
+		Entries:   entries,
+		LastError: lastErr,
+	}
+	if !at.IsZero() {
+		disk.FetchedAt = at.UTC().Format(time.RFC3339)
+	}
+	raw, err := json.MarshalIndent(disk, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := filepath.Join(dir, catalogueCacheFile+".tmp")
+	final := filepath.Join(dir, catalogueCacheFile)
+	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, final)
+}
+
+func downloadCatalogue(client *http.Client) ([]CatalogEntry, error) {
+	if client == nil {
+		client = &http.Client{Timeout: catalogueHTTPTimeout}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), catalogueHTTPTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, catalogueURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "AzerothCoreManage/1.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		catCache.err = fmt.Sprintf("catalogue http %d", resp.StatusCode)
-		if len(catCache.entries) > 0 {
-			return catCache.entries, catCache.err, nil
-		}
-		return nil, catCache.err, fmt.Errorf("%s", catCache.err)
+		return nil, fmt.Errorf("catalogue http %d", resp.StatusCode)
 	}
 	var root any
 	if err := json.NewDecoder(resp.Body).Decode(&root); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	entries := extractCatalogueModules(root)
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Stars > entries[j].Stars
 	})
-	catCache.entries = entries
-	catCache.at = time.Now()
-	catCache.err = ""
-	return entries, "", nil
+	return entries, nil
 }
 
 func extractCatalogueModules(node any) []CatalogEntry {
@@ -252,7 +441,7 @@ func EnrichCatalogMeta(ctx context.Context, gh *GitHubClient, items []CatalogEnt
 		return items
 	}
 	type job struct {
-		idx int
+		idx  int
 		repo string
 	}
 	var jobs []job

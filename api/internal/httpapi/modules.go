@@ -39,6 +39,9 @@ func (s *Server) listModulesCatalog(c *gin.Context) {
 	if catErr != "" {
 		out["catalogue_warning"] = catErr
 	}
+	if at := modules.CatalogueCachedAt(); !at.IsZero() {
+		out["catalogue_cached_at"] = at.UTC().Format(time.RFC3339)
+	}
 	JSON(c, out)
 }
 
