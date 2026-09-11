@@ -169,6 +169,7 @@ func (s *Server) playerbotsConfig(c *gin.Context) {
 
 	wantPrefixes := []string{
 		"AiPlayerbot.RandomBotAutologin",
+		"AiPlayerbot.BotAutologin",
 		"AiPlayerbot.MinRandomBots",
 		"AiPlayerbot.MaxRandomBots",
 		"AiPlayerbot.RandomBotMinLevel",
@@ -176,9 +177,9 @@ func (s *Server) playerbotsConfig(c *gin.Context) {
 		"AiPlayerbot.DisableDeathKnightLogin",
 		"AiPlayerbot.RandomBotAccountPrefix",
 		"AiPlayerbot.RandomBotAccountCount",
-		"AiPlayerbot.AutoGearQuality",
-		"AiPlayerbot.RandomBotTimedLogout",
-		"AiPlayerbot.RandomBotTimedOffline",
+		"AiPlayerbot.AutoGearQualityLimit",
+		"AiPlayerbot.EnablePeriodicOnlineOffline",
+		"AiPlayerbot.PeriodicOnlineOfflineRatio",
 	}
 	values := map[string]string{}
 	sc := bufio.NewScanner(f)

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,136 +43,18 @@ func (s *Server) playerbotsPmon(c *gin.Context) {
 	JSON(c, gin.H{"command": cmd, "result": result})
 }
 
-func (s *Server) playerbotsBots(c *gin.Context) {
-	rt, err := s.app.Target(TargetID(c))
-	if err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_target")
-		return
-	}
-	var req struct {
-		Action  string `json:"action"` // add|remove|addaccount|addclass
-		Name    string `json:"name"`
-		Account string `json:"account"`
-		Class   string `json:"class"`
-		Confirm bool   `json:"confirm"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return
-	}
-	if !req.Confirm {
-		Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
-		return
-	}
-	var cmd string
-	switch strings.ToLower(strings.TrimSpace(req.Action)) {
-	case "add":
-		name, err := sanitizeCharName(req.Name)
-		if err != nil {
-			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		cmd = "playerbots bot add " + name
-	case "remove":
-		name, err := sanitizeCharName(req.Name)
-		if err != nil {
-			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		cmd = "playerbots bot remove " + name
-	case "addaccount":
-		acc, err := sanitizeAccountName(req.Account)
-		if err != nil {
-			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		cmd = "playerbots bot addaccount " + acc
-	case "addclass":
-		cls := strings.ToLower(strings.TrimSpace(req.Class))
-		if cls == "" || strings.ContainsAny(cls, " \t\n\"'`") {
-			Fail(c, http.StatusBadRequest, "bad_request", "class required")
-			return
-		}
-		cmd = "playerbots bot addclass " + cls
-	default:
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return
-	}
-	result, err := s.execSOAP(c, rt, cmd)
-	if err != nil {
-		return
-	}
-	JSON(c, gin.H{"command": cmd, "result": result})
+func (*Server) playerbotsBots(c *gin.Context) {
+	// mod-playerbots registers `playerbots bot` with Console::No and requires an
+	// active player session ("You may only add bots from an active session").
+	// SOAP has no session, so these cannot be executed remotely.
+	Fail(c, http.StatusBadRequest, "playerbots_ingame_only",
+		"playerbots bot requires an in-game player session; use .playerbots bot add|remove|addaccount|addclass in chat")
 }
 
-func (s *Server) playerbotsAccount(c *gin.Context) {
-	rt, err := s.app.Target(TargetID(c))
-	if err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_target")
-		return
-	}
-	var req struct {
-		Action  string `json:"action"` // link|unlink|list|setkey
-		Account string `json:"account"`
-		Key     string `json:"key"`
-		Confirm bool   `json:"confirm"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return
-	}
-	action := strings.ToLower(strings.TrimSpace(req.Action))
-	var cmd string
-	switch action {
-	case "list", "linkedaccounts":
-		cmd = "playerbots account linkedAccounts"
-	case "link":
-		if !req.Confirm {
-			Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
-			return
-		}
-		acc, err := sanitizeAccountName(req.Account)
-		if err != nil {
-			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		key := strings.TrimSpace(req.Key)
-		if key == "" || strings.ContainsAny(key, " \t\n\"'`") {
-			Fail(c, http.StatusBadRequest, "bad_request", "key required")
-			return
-		}
-		cmd = fmt.Sprintf("playerbots account link %s %s", acc, key)
-	case "unlink":
-		if !req.Confirm {
-			Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
-			return
-		}
-		acc, err := sanitizeAccountName(req.Account)
-		if err != nil {
-			Fail(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		cmd = "playerbots account unlink " + acc
-	case "setkey":
-		if !req.Confirm {
-			Fail(c, http.StatusBadRequest, "confirm_required", "confirm required")
-			return
-		}
-		key := strings.TrimSpace(req.Key)
-		if key == "" || strings.ContainsAny(key, " \t\n\"'`") {
-			Fail(c, http.StatusBadRequest, "bad_request", "key required")
-			return
-		}
-		cmd = "playerbots account setKey " + key
-	default:
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return
-	}
-	result, err := s.execSOAP(c, rt, cmd)
-	if err != nil {
-		return
-	}
-	JSON(c, gin.H{"command": cmd, "result": result})
+func (*Server) playerbotsAccount(c *gin.Context) {
+	// Same as playerbots bot: Console::No + requires GetSession()->GetPlayer().
+	Fail(c, http.StatusBadRequest, "playerbots_ingame_only",
+		"playerbots account requires an in-game player session; use .playerbots account setKey|link|unlink|linkedAccounts in chat")
 }
 
 func (s *Server) playerbotsGuilds(c *gin.Context) {
@@ -241,11 +122,12 @@ func (s *Server) playerbotsConfigUpdate(c *gin.Context) {
 		return
 	}
 	allowed := map[string]bool{
-		"AiPlayerbot.RandomBotAutologin": true, "AiPlayerbot.MinRandomBots": true, "AiPlayerbot.MaxRandomBots": true,
+		"AiPlayerbot.RandomBotAutologin": true, "AiPlayerbot.BotAutologin": true,
+		"AiPlayerbot.MinRandomBots": true, "AiPlayerbot.MaxRandomBots": true,
 		"AiPlayerbot.RandomBotMinLevel": true, "AiPlayerbot.RandomBotMaxLevel": true,
 		"AiPlayerbot.DisableDeathKnightLogin": true, "AiPlayerbot.RandomBotAccountPrefix": true,
-		"AiPlayerbot.RandomBotAccountCount": true, "AiPlayerbot.AutoGearQuality": true,
-		"AiPlayerbot.RandomBotTimedLogout": true, "AiPlayerbot.RandomBotTimedOffline": true,
+		"AiPlayerbot.RandomBotAccountCount": true, "AiPlayerbot.AutoGearQualityLimit": true,
+		"AiPlayerbot.EnablePeriodicOnlineOffline": true, "AiPlayerbot.PeriodicOnlineOfflineRatio": true,
 	}
 	updates := map[string]string{}
 	for k, v := range req.Values {

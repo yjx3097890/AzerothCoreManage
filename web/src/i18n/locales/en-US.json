@@ -354,7 +354,12 @@
     "tabConfig": "Config",
     "overviewHint": "Random-bot account scale, online count, and account prefix; optionally fetch a SOAP status summary.",
     "rndbotHint": "Manage random-bot lifecycle: reload, refresh, gather, init/reset, batch level, and performance monitor.",
-    "botsTabHint": "Add/remove bots by name, account, or class, and manage main/alt account link keys.",
+    "botsTabHint": "Build and copy in-game commands to add/remove altbots or link accounts. These cannot run over SOAP.",
+    "ingameOnlyAlert": "mod-playerbots .playerbots bot / .playerbots account require a logged-in character (Console::No). The panel can only prepare the command; it cannot execute it via SOAP.",
+    "copyCommand": "Copy command",
+    "commandCopied": "Copied to clipboard",
+    "commandReady": "Command ready (clipboard unavailable — copy manually)",
+    "ingameCommand": "Paste this in game chat",
     "onlineTabHint": "Online characters whose accounts use the bot prefix.",
     "guildsTabHint": "Guilds that include bot members (sorted by bot count).",
     "configTabHint": "Edit common playerbots.conf keys; saving tries a SOAP reload. Superadmin only to edit.",
@@ -408,7 +413,11 @@
     "configKeys": {
       "autologin": {
         "label": "Random bot autologin",
-        "desc": "1 = auto-login random bots after world start; 0 = add them manually."
+        "desc": "When on, random bots log in after world start; when off, add them manually."
+      },
+      "botAutologin": {
+        "label": "Account alts auto-login",
+        "desc": "When on, other characters on the same account log in as altbots when the player logs in."
       },
       "minBots": {
         "label": "Min random bots",
@@ -428,7 +437,7 @@
       },
       "disableDK": {
         "label": "Disable Death Knight login",
-        "desc": "1 = random bots will not log in as Death Knights."
+        "desc": "When on, random bots will not log in as Death Knights."
       },
       "accountPrefix": {
         "label": "Bot account prefix",
@@ -439,17 +448,26 @@
         "desc": "How many random-bot accounts to create/maintain (related to init)."
       },
       "gearQuality": {
-        "label": "Auto gear quality",
-        "desc": "Gear quality tier for auto-equip (see module docs; often 1–5)."
+        "label": "Auto gear quality cap",
+        "desc": "Highest item quality the autogear command may generate (white → orange)."
       },
-      "timedLogout": {
-        "label": "Timed logout",
-        "desc": "1 = random bots periodically log out to simulate natural online churn."
+      "periodicOnlineOffline": {
+        "label": "Periodic online/offline",
+        "desc": "When on, random bots periodically rotate online/offline from a larger pool to mimic real players."
       },
-      "timedOffline": {
-        "label": "Timed offline",
-        "desc": "1 = allow timed offline periods for random bots (works with timed logout)."
+      "periodicOnlineOfflineRatio": {
+        "label": "Online/offline pool ratio",
+        "desc": "Total bot pool / online bots (MaxRandomBots). Must be > 1.0 (e.g. 2.0 = pool is twice the online cap). Only applies when periodic online/offline is on."
       }
+    },
+    "configOn": "On",
+    "configOff": "Off",
+    "gearQualityOptions": {
+      "1": "1 · White (Normal)",
+      "2": "2 · Green (Uncommon)",
+      "3": "3 · Blue (Rare)",
+      "4": "4 · Purple (Epic)",
+      "5": "5 · Orange (Legendary)"
     },
     "actionConfirm": "Run playerbot rndbot {{action}}?",
     "rndbotTitle": "rndbot {{action}}",
@@ -625,7 +643,8 @@
     "image_tag_missing": "Checkpoint image tag missing",
     "checkpoint_not_found": "Checkpoint not found",
     "job_conflict": "Another module job is running for this target",
-    "confirm_phrase_mismatch": "Confirmation phrase does not match"
+    "confirm_phrase_mismatch": "Confirmation phrase does not match",
+    "playerbots_ingame_only": "This playerbots command requires an in-game character session and cannot run over SOAP"
   },
   "modules": {
     "subtitle": "Browse catalog, inspect installed versions, AI-evaluate compatibility (no install yet)",

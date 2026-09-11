@@ -354,7 +354,12 @@
     "tabConfig": "配置",
     "overviewHint": "查看随机机器人账号规模、在线数量与账号前缀；可拉取 SOAP 状态摘要。",
     "rndbotHint": "管理随机机器人生命周期：重载配置、刷新、汇合、初始化/重置，以及批量改等级与性能监控。",
-    "botsTabHint": "按角色名/账号/职业增减机器人，或管理主号与小号的关联密钥。",
+    "botsTabHint": "生成游戏内命令并复制：增减 Altbot / 关联账号。这些命令无法通过 SOAP 远程执行。",
+    "ingameOnlyAlert": "mod-playerbots 的 .playerbots bot / .playerbots account 需要你在游戏里登录角色后执行（Console::No）。面板只能帮你拼好命令，不能通过 SOAP 代跑。",
+    "copyCommand": "复制命令",
+    "commandCopied": "已复制到剪贴板",
+    "commandReady": "命令已生成（剪贴板不可用，请手动复制）",
+    "ingameCommand": "请在游戏聊天框粘贴执行",
     "onlineTabHint": "当前在线、且账号带机器人前缀的角色列表。",
     "guildsTabHint": "成员中含有机器人的公会（按机器人数量排序）。",
     "configTabHint": "编辑 playerbots.conf 中常用项；保存后会尝试 SOAP 重载。仅超管可改。",
@@ -408,7 +413,11 @@
     "configKeys": {
       "autologin": {
         "label": "随机机器人自动登录",
-        "desc": "为 1 时世界服启动后自动让随机机器人上线；0 则需手动添加。"
+        "desc": "开启后世界服启动会自动让随机机器人上线；关闭则需手动添加。"
+      },
+      "botAutologin": {
+        "label": "账号小号伴随登录",
+        "desc": "开启后玩家登录时，同账号下的其它角色会作为 Altbot 自动上线跟随。"
       },
       "minBots": {
         "label": "最少随机机器人数",
@@ -428,7 +437,7 @@
       },
       "disableDK": {
         "label": "禁止死亡骑士登录",
-        "desc": "为 1 时随机机器人不会以死亡骑士职业登录。"
+        "desc": "开启后随机机器人不会以死亡骑士职业登录。"
       },
       "accountPrefix": {
         "label": "机器人账号前缀",
@@ -439,17 +448,26 @@
         "desc": "预创建/维护的随机机器人账号个数（与 init 等相关）。"
       },
       "gearQuality": {
-        "label": "自动装备品质",
-        "desc": "自动配装时的装备品质档位（具体数值含义见模块文档，常见 1–5）。"
+        "label": "自动装备品质上限",
+        "desc": "autogear 命令可生成的最高装备品质（白→橙）。"
       },
-      "timedLogout": {
-        "label": "定时登出",
-        "desc": "为 1 时随机机器人会按策略定时下线，模拟更真实的在线波动。"
+      "periodicOnlineOffline": {
+        "label": "周期性上下线",
+        "desc": "开启后随机机器人会在更大池子里周期性上下线，模拟真实玩家不完全同时在线。"
       },
-      "timedOffline": {
-        "label": "定时离线",
-        "desc": "为 1 时允许随机机器人进入定时离线状态（与 timed logout 配合）。"
+      "periodicOnlineOfflineRatio": {
+        "label": "上下线池比例",
+        "desc": "总机器人池 / 同时在线数（MaxRandomBots）的比值，须大于 1.0；例如 2.0 表示总池是在线上限的两倍。仅在开启「周期性上下线」时生效。"
       }
+    },
+    "configOn": "开启",
+    "configOff": "关闭",
+    "gearQualityOptions": {
+      "1": "1 · 白色（普通）",
+      "2": "2 · 绿色（优秀）",
+      "3": "3 · 蓝色（精良）",
+      "4": "4 · 紫色（史诗）",
+      "5": "5 · 橙色（传奇）"
     },
     "actionConfirm": "确认执行随机机器人操作：{{action}}？",
     "rndbotTitle": "随机机器人 · {{action}}",
@@ -797,7 +815,8 @@
     "image_tag_missing": "检查点镜像 tag 缺失",
     "checkpoint_not_found": "检查点不存在",
     "job_conflict": "该目标已有模块任务进行中",
-    "confirm_phrase_mismatch": "确认短语不匹配"
+    "confirm_phrase_mismatch": "确认短语不匹配",
+    "playerbots_ingame_only": "该 playerbots 命令只能在游戏内由在线角色执行，无法通过 SOAP 远程调用"
   },
   "modules": {
     "subtitle": "浏览目录、查看已装版本，用 AI 评估兼容性（不执行安装）",

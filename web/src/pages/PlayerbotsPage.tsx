@@ -30,19 +30,22 @@ type BotRow = {
 
 type BotGuild = { id: number; name: string; bot_members: number }
 
-const CONFIG_ITEMS = [
-  { key: 'AiPlayerbot.RandomBotAutologin', id: 'autologin' },
-  { key: 'AiPlayerbot.MinRandomBots', id: 'minBots' },
-  { key: 'AiPlayerbot.MaxRandomBots', id: 'maxBots' },
-  { key: 'AiPlayerbot.RandomBotMinLevel', id: 'minLevel' },
-  { key: 'AiPlayerbot.RandomBotMaxLevel', id: 'maxLevel' },
-  { key: 'AiPlayerbot.DisableDeathKnightLogin', id: 'disableDK' },
-  { key: 'AiPlayerbot.RandomBotAccountPrefix', id: 'accountPrefix' },
-  { key: 'AiPlayerbot.RandomBotAccountCount', id: 'accountCount' },
-  { key: 'AiPlayerbot.AutoGearQuality', id: 'gearQuality' },
-  { key: 'AiPlayerbot.RandomBotTimedLogout', id: 'timedLogout' },
-  { key: 'AiPlayerbot.RandomBotTimedOffline', id: 'timedOffline' },
-] as const
+type ConfigControl = 'text' | 'toggle' | 'gearQuality'
+
+const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl }[] = [
+  { key: 'AiPlayerbot.RandomBotAutologin', id: 'autologin', control: 'toggle' },
+  { key: 'AiPlayerbot.BotAutologin', id: 'botAutologin', control: 'toggle' },
+  { key: 'AiPlayerbot.MinRandomBots', id: 'minBots', control: 'text' },
+  { key: 'AiPlayerbot.MaxRandomBots', id: 'maxBots', control: 'text' },
+  { key: 'AiPlayerbot.RandomBotMinLevel', id: 'minLevel', control: 'text' },
+  { key: 'AiPlayerbot.RandomBotMaxLevel', id: 'maxLevel', control: 'text' },
+  { key: 'AiPlayerbot.DisableDeathKnightLogin', id: 'disableDK', control: 'toggle' },
+  { key: 'AiPlayerbot.RandomBotAccountPrefix', id: 'accountPrefix', control: 'text' },
+  { key: 'AiPlayerbot.RandomBotAccountCount', id: 'accountCount', control: 'text' },
+  { key: 'AiPlayerbot.AutoGearQualityLimit', id: 'gearQuality', control: 'gearQuality' },
+  { key: 'AiPlayerbot.EnablePeriodicOnlineOffline', id: 'periodicOnlineOffline', control: 'toggle' },
+  { key: 'AiPlayerbot.PeriodicOnlineOfflineRatio', id: 'periodicOnlineOfflineRatio', control: 'text' },
+]
 
 function StatCard({ title, desc, value }: { title: string; desc: string; value: string | number }) {
   return (
@@ -180,6 +183,24 @@ export function PlayerbotsPage() {
 
   const configLabel = (id: string) => t(`playerbots.configKeys.${id}.label`)
   const configDesc = (id: string) => t(`playerbots.configKeys.${id}.desc`)
+  const gearQualityOptions = (['1', '2', '3', '4', '5'] as const).map((v) => ({
+    value: v,
+    label: t(`playerbots.gearQualityOptions.${v}`),
+  }))
+  const toggleOptions = [
+    { value: '1', label: t('playerbots.configOn') },
+    { value: '0', label: t('playerbots.configOff') },
+  ]
+  const formatConfigValue = (item: (typeof CONFIG_ITEMS)[number], raw?: string) => {
+    if (raw == null || raw === '') return '-'
+    if (item.control === 'toggle') return raw === '1' ? t('playerbots.configOn') : t('playerbots.configOff')
+    if (item.control === 'gearQuality') {
+      const key = `playerbots.gearQualityOptions.${raw}`
+      const label = t(key)
+      return label === key ? raw : label
+    }
+    return raw
+  }
 
   const gm = hasMinRole('gm')
 
@@ -362,156 +383,132 @@ export function PlayerbotsPage() {
             children: (
               <div>
                 <PanelIntro>{t('playerbots.botsTabHint')}</PanelIntro>
-                {!gm ? (
-                  <p className="text-sm text-base-content/50 m-0">{t('playerbots.gmOnly')}</p>
-                ) : (
-                  <div className="space-y-6 max-w-3xl">
-                    <section className="space-y-2">
-                      <h3 className="text-sm font-semibold m-0">{t('playerbots.bots')}</h3>
-                      <p className="text-xs text-base-content/55 m-0">
-                        {botsActions.find((o) => o.value === botsAction)?.hint}
-                      </p>
-                      <form
-                        className="flex flex-wrap items-center gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          const values: { action: string; name?: string; account?: string; class?: string } = {
-                            action: botsAction,
-                          }
-                          if (botsAction === 'add' || botsAction === 'remove') values.name = botsName
-                          else if (botsAction === 'addaccount') values.account = botsAccount
-                          else values.class = botsClass
-                          setPending({
-                            title: t('playerbots.bots'),
-                            description: t('playerbots.botsConfirm', {
-                              action: values.action,
-                              name: values.name ?? values.account ?? values.class ?? '',
-                            }),
-                            run: async () => {
-                              await api('/api/v1/playerbots/bots', {
-                                method: 'POST',
-                                body: JSON.stringify({ ...values, confirm: true }),
-                              })
-                              await load()
-                            },
-                          })
-                        }}
-                      >
-                        <Select
-                          className="w-36"
-                          value={botsAction}
-                          onChange={(v) => setBotsAction(v ?? 'add')}
-                          options={botsActions.map((o) => ({ value: o.value, label: o.label }))}
+                <div className="alert alert-warning mb-4 max-w-3xl">
+                  <span>{t('playerbots.ingameOnlyAlert')}</span>
+                </div>
+                <div className="space-y-6 max-w-3xl">
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-semibold m-0">{t('playerbots.bots')}</h3>
+                    <p className="text-xs text-base-content/55 m-0">
+                      {botsActions.find((o) => o.value === botsAction)?.hint}
+                    </p>
+                    <form
+                      className="flex flex-wrap items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        let cmd = ''
+                        if (botsAction === 'add') cmd = `.playerbots bot add ${botsName.trim()}`
+                        else if (botsAction === 'remove') cmd = `.playerbots bot remove ${botsName.trim()}`
+                        else if (botsAction === 'addaccount') cmd = `.playerbots bot addaccount ${botsAccount.trim()}`
+                        else cmd = `.playerbots bot addclass ${botsClass.trim()}`
+                        setAccountResult(cmd)
+                        void navigator.clipboard?.writeText(cmd).then(
+                          () => toast.success(t('playerbots.commandCopied')),
+                          () => toast.success(t('playerbots.commandReady')),
+                        )
+                      }}
+                    >
+                      <Select
+                        className="w-36"
+                        value={botsAction}
+                        onChange={(v) => setBotsAction(v ?? 'add')}
+                        options={botsActions.map((o) => ({ value: o.value, label: o.label }))}
+                      />
+                      {(botsAction === 'add' || botsAction === 'remove') && (
+                        <input
+                          className="input input-bordered w-48"
+                          required
+                          placeholder={t('characters.name')}
+                          value={botsName}
+                          onChange={(e) => setBotsName(e.target.value)}
                         />
-                        {(botsAction === 'add' || botsAction === 'remove') && (
-                          <input
-                            className="input input-bordered w-48"
-                            required
-                            placeholder={t('characters.name')}
-                            value={botsName}
-                            onChange={(e) => setBotsName(e.target.value)}
-                          />
-                        )}
-                        {botsAction === 'addaccount' && (
-                          <input
-                            className="input input-bordered w-48"
-                            required
-                            placeholder={t('accounts.username')}
-                            value={botsAccount}
-                            onChange={(e) => setBotsAccount(e.target.value)}
-                          />
-                        )}
-                        {botsAction === 'addclass' && (
-                          <input
-                            className="input input-bordered w-48"
-                            required
-                            placeholder={t('common.class')}
-                            value={botsClass}
-                            onChange={(e) => setBotsClass(e.target.value)}
-                          />
-                        )}
-                        <button type="submit" className="btn btn-sm btn-primary">
-                          {t('playerbots.bots')}
-                        </button>
-                      </form>
-                    </section>
-
-                    <section className="space-y-2 pt-4 border-t border-base-300">
-                      <h3 className="text-sm font-semibold m-0">{t('playerbots.account')}</h3>
-                      <p className="text-xs text-base-content/55 m-0">
-                        {accountActions.find((o) => o.value === accountAction)?.hint}
-                      </p>
-                      <form
-                        className="flex flex-wrap items-center gap-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault()
-                          const values: { action: string; account?: string; key?: string } = { action: accountAction }
-                          if (accountAction === 'link' || accountAction === 'unlink') values.account = accountName
-                          if (accountAction === 'link' || accountAction === 'setkey') values.key = accountKey
-                          const needsConfirm = values.action !== 'list' && values.action !== 'linkedaccounts'
-                          const exec = async () => {
-                            const resp = await api<{ result?: string; command?: string }>(
-                              '/api/v1/playerbots/account',
-                              {
-                                method: 'POST',
-                                body: JSON.stringify({ ...values, confirm: true }),
-                              },
-                            )
-                            setAccountResult(typeof resp.result === 'string' ? resp.result : JSON.stringify(resp))
-                          }
-                          if (!needsConfirm) {
-                            try {
-                              await exec()
-                              toast.success(t('common.ok'))
-                            } catch (err) {
-                              toast.error(errorMessage(err, t))
-                            }
-                            return
-                          }
-                          setPending({
-                            title: t('playerbots.account'),
-                            description: t('playerbots.accountConfirm', { action: values.action }),
-                            run: exec,
-                          })
-                        }}
-                      >
-                        <Select
-                          className="w-40"
-                          value={accountAction}
-                          onChange={(v) => setAccountAction(v ?? 'list')}
-                          options={accountActions.map((o) => ({ value: o.value, label: o.label }))}
-                        />
-                        {(accountAction === 'link' || accountAction === 'unlink') && (
-                          <input
-                            className="input input-bordered w-48"
-                            required
-                            placeholder={t('accounts.username')}
-                            value={accountName}
-                            onChange={(e) => setAccountName(e.target.value)}
-                          />
-                        )}
-                        {(accountAction === 'link' || accountAction === 'setkey') && (
-                          <input
-                            className="input input-bordered w-48"
-                            required
-                            placeholder={t('common.key')}
-                            value={accountKey}
-                            onChange={(e) => setAccountKey(e.target.value)}
-                          />
-                        )}
-                        <button type="submit" className="btn btn-sm btn-primary">
-                          {t('playerbots.account')}
-                        </button>
-                      </form>
-                      {accountResult && (
-                        <div className="alert alert-success block">
-                          <div className="font-semibold mb-1">{t('playerbots.account')}</div>
-                          <pre className="m-0 whitespace-pre-wrap text-sm">{accountResult}</pre>
-                        </div>
                       )}
-                    </section>
-                  </div>
-                )}
+                      {botsAction === 'addaccount' && (
+                        <input
+                          className="input input-bordered w-48"
+                          required
+                          placeholder={t('accounts.username')}
+                          value={botsAccount}
+                          onChange={(e) => setBotsAccount(e.target.value)}
+                        />
+                      )}
+                      {botsAction === 'addclass' && (
+                        <input
+                          className="input input-bordered w-48"
+                          required
+                          placeholder={t('common.class')}
+                          value={botsClass}
+                          onChange={(e) => setBotsClass(e.target.value)}
+                        />
+                      )}
+                      <button type="submit" className="btn btn-sm btn-primary">
+                        {t('playerbots.copyCommand')}
+                      </button>
+                    </form>
+                  </section>
+
+                  <section className="space-y-2 pt-4 border-t border-base-300">
+                    <h3 className="text-sm font-semibold m-0">{t('playerbots.account')}</h3>
+                    <p className="text-xs text-base-content/55 m-0">
+                      {accountActions.find((o) => o.value === accountAction)?.hint}
+                    </p>
+                    <form
+                      className="flex flex-wrap items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        let cmd = ''
+                        if (accountAction === 'list' || accountAction === 'linkedaccounts') {
+                          cmd = '.playerbots account linkedAccounts'
+                        } else if (accountAction === 'link') {
+                          cmd = `.playerbots account link ${accountName.trim()} ${accountKey.trim()}`
+                        } else if (accountAction === 'unlink') {
+                          cmd = `.playerbots account unlink ${accountName.trim()}`
+                        } else {
+                          cmd = `.playerbots account setKey ${accountKey.trim()}`
+                        }
+                        setAccountResult(cmd)
+                        void navigator.clipboard?.writeText(cmd).then(
+                          () => toast.success(t('playerbots.commandCopied')),
+                          () => toast.success(t('playerbots.commandReady')),
+                        )
+                      }}
+                    >
+                      <Select
+                        className="w-40"
+                        value={accountAction}
+                        onChange={(v) => setAccountAction(v ?? 'list')}
+                        options={accountActions.map((o) => ({ value: o.value, label: o.label }))}
+                      />
+                      {(accountAction === 'link' || accountAction === 'unlink') && (
+                        <input
+                          className="input input-bordered w-48"
+                          required
+                          placeholder={t('accounts.username')}
+                          value={accountName}
+                          onChange={(e) => setAccountName(e.target.value)}
+                        />
+                      )}
+                      {(accountAction === 'link' || accountAction === 'setkey') && (
+                        <input
+                          className="input input-bordered w-48"
+                          required
+                          placeholder={t('common.key')}
+                          value={accountKey}
+                          onChange={(e) => setAccountKey(e.target.value)}
+                        />
+                      )}
+                      <button type="submit" className="btn btn-sm btn-primary">
+                        {t('playerbots.copyCommand')}
+                      </button>
+                    </form>
+                    {accountResult && (
+                      <div className="alert alert-info block">
+                        <div className="font-semibold mb-1">{t('playerbots.ingameCommand')}</div>
+                        <pre className="m-0 whitespace-pre-wrap text-sm font-mono">{accountResult}</pre>
+                      </div>
+                    )}
+                  </section>
+                </div>
               </div>
             ),
           },
@@ -552,9 +549,18 @@ export function PlayerbotsPage() {
                       e.preventDefault()
                       const updates: Record<string, string> = {}
                       for (const item of CONFIG_ITEMS) {
-                        const v = configValues[item.key]
-                        if (v != null && String(v).trim() !== '') {
-                          updates[item.key] = String(v).trim()
+                        const raw = configValues[item.key]
+                        if (item.control === 'toggle') {
+                          updates[item.key] = raw === '1' ? '1' : '0'
+                          continue
+                        }
+                        if (item.control === 'gearQuality') {
+                          const v = String(raw ?? '').trim()
+                          updates[item.key] = ['1', '2', '3', '4', '5'].includes(v) ? v : '3'
+                          continue
+                        }
+                        if (raw != null && String(raw).trim() !== '') {
+                          updates[item.key] = String(raw).trim()
                         }
                       }
                       setPending({
@@ -577,11 +583,33 @@ export function PlayerbotsPage() {
                           <span className="text-base-content/45 font-normal"> — {configDesc(item.id)}</span>
                         </span>
                         <span className="text-[11px] font-mono text-base-content/40 mb-1">{item.key}</span>
-                        <input
-                          className="input input-bordered w-full"
-                          value={configValues[item.key] ?? ''}
-                          onChange={(e) => setConfigValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                        />
+                        {item.control === 'toggle' ? (
+                          <Select
+                            className="w-full"
+                            value={configValues[item.key] === '1' ? '1' : '0'}
+                            onChange={(v) =>
+                              setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '0' }))
+                            }
+                            options={toggleOptions}
+                          />
+                        ) : item.control === 'gearQuality' ? (
+                          <Select
+                            className="w-full"
+                            value={configValues[item.key] || '3'}
+                            onChange={(v) =>
+                              setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '3' }))
+                            }
+                            options={gearQualityOptions}
+                          />
+                        ) : (
+                          <input
+                            className="input input-bordered w-full"
+                            value={configValues[item.key] ?? ''}
+                            onChange={(e) =>
+                              setConfigValues((prev) => ({ ...prev, [item.key]: e.target.value }))
+                            }
+                          />
+                        )}
                       </label>
                     ))}
                     <div>
@@ -608,7 +636,7 @@ export function PlayerbotsPage() {
                               <div className="text-xs text-base-content/55">{configDesc(item.id)}</div>
                               <div className="text-[11px] font-mono text-base-content/40">{item.key}</div>
                             </td>
-                            <td className="align-top">{config?.values?.[item.key] ?? '-'}</td>
+                            <td className="align-top">{formatConfigValue(item, config?.values?.[item.key])}</td>
                           </tr>
                         ))}
                       </tbody>
