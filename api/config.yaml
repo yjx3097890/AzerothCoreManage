@@ -57,6 +57,11 @@ targets:
       mysqldump_path: "mysqldump"
     bots:
       account_prefix: "${BOT_ACCOUNT_PREFIX}"
+    # mod-mybots：host/token 来自 .env；二者就绪时自动启用（MYBOTS_ENABLED=false 可关闭）
+    mybots:
+      host: "${MYBOTS_HOST}"
+      port: 9100
+      token: "${MYBOTS_TOKEN}"
 
 soap:
   timeout_seconds: 10

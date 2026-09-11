@@ -12,6 +12,7 @@ import { MailPage } from './pages/MailPage'
 import { ModerationPage } from './pages/ModerationPage'
 import { ModulesPage } from './pages/ModulesPage'
 import { PlayerbotsPage } from './pages/PlayerbotsPage'
+import { MyBotsPage } from './pages/MyBotsPage'
 import { ServersPage } from './pages/ServersPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SqlBrowserPage } from './pages/SqlBrowserPage'
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/auctions" element={<AuctionsPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/playerbots" element={<PlayerbotsPage />} />
+          <Route path="/mybots" element={<MyBotsPage />} />
           <Route path="/modules" element={<ModulesPage />} />
           <Route path="/logs" element={<Navigate to="/servers?tab=logs" replace />} />
           <Route path="/config" element={<ConfigPage />} />

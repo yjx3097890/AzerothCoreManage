@@ -38,6 +38,7 @@ var messages = map[Locale]map[string]string{
 		"checkpoint_not_found": "Checkpoint not found",
 		"job_conflict":        "Another module job is running for this target",
 		"confirm_phrase_mismatch": "Confirmation phrase does not match",
+		"mybots_unconfigured": "mod-mybots is not configured (set MYBOTS_HOST / MYBOTS_TOKEN)",
 	},
 	ZH: {
 		"not_implemented":     "骨架占位，见 docs/tasks.md %s",
@@ -62,6 +63,7 @@ var messages = map[Locale]map[string]string{
 		"checkpoint_not_found": "检查点不存在",
 		"job_conflict":        "该目标已有模块任务进行中",
 		"confirm_phrase_mismatch": "确认短语不匹配",
+		"mybots_unconfigured": "未配置 mod-mybots（请设置 MYBOTS_HOST / MYBOTS_TOKEN）",
 	},
 }
 

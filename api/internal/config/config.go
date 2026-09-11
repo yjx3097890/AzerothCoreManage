@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -28,15 +29,16 @@ type Panel struct {
 }
 
 type Target struct {
-	ID      string       `mapstructure:"id"`
-	Name    string       `mapstructure:"name"`
-	Docker  Docker       `mapstructure:"docker"`
-	SOAP    SOAPEndpoint `mapstructure:"soap"`
-	MySQL   MySQL        `mapstructure:"mysql"`
-	Conf    ConfPaths    `mapstructure:"conf"`
-	Bots    Bots         `mapstructure:"bots"`
-	Backup  Backup       `mapstructure:"backup"`
-	Modules Modules      `mapstructure:"modules"`
+	ID      string         `mapstructure:"id"`
+	Name    string         `mapstructure:"name"`
+	Docker  Docker         `mapstructure:"docker"`
+	SOAP    SOAPEndpoint   `mapstructure:"soap"`
+	MySQL   MySQL          `mapstructure:"mysql"`
+	Conf    ConfPaths      `mapstructure:"conf"`
+	Bots    Bots           `mapstructure:"bots"`
+	MyBots  MyBotsEndpoint `mapstructure:"mybots"`
+	Backup  Backup         `mapstructure:"backup"`
+	Modules Modules        `mapstructure:"modules"`
 }
 
 type DeepSeek struct {
@@ -113,6 +115,26 @@ type Backup struct {
 
 type Bots struct {
 	AccountPrefix string `mapstructure:"account_prefix"`
+}
+
+// MyBotsEndpoint is the mod-mybots JSON API on worldserver (Docker intranet only).
+type MyBotsEndpoint struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Host    string `mapstructure:"host"`
+	Port    int    `mapstructure:"port"`
+	Token   string `mapstructure:"token"`
+}
+
+func (m MyBotsEndpoint) Ready() bool {
+	if strings.TrimSpace(m.Host) == "" || m.Port <= 0 {
+		return false
+	}
+	tok := strings.TrimSpace(m.Token)
+	return tok != "" && tok != "change-me"
+}
+
+func (m MyBotsEndpoint) Configured() bool {
+	return m.Enabled && m.Ready()
 }
 
 type SOAPPolicy struct {
@@ -243,6 +265,36 @@ func applyModulesDefaults(cfg *Config) {
 			if root := os.Getenv("AC_ROOT"); root != "" {
 				m.ComposeDir = root
 			}
+		}
+		mb := &cfg.Targets[i].MyBots
+		if mb.Port <= 0 {
+			mb.Port = 9100
+		}
+		if v := strings.TrimSpace(os.Getenv("MYBOTS_PORT")); v != "" {
+			if p, err := strconv.Atoi(v); err == nil && p > 0 {
+				mb.Port = p
+			}
+		}
+		if mb.Host == "" || mb.Host == "${MYBOTS_HOST}" {
+			if v := strings.TrimSpace(os.Getenv("MYBOTS_HOST")); v != "" {
+				mb.Host = v
+			} else {
+				mb.Host = ""
+			}
+		}
+		if mb.Token == "" || mb.Token == "${MYBOTS_TOKEN}" {
+			if v := strings.TrimSpace(os.Getenv("MYBOTS_TOKEN")); v != "" {
+				mb.Token = v
+			} else {
+				mb.Token = ""
+			}
+		}
+		if v := strings.TrimSpace(os.Getenv("MYBOTS_ENABLED")); v == "0" || strings.EqualFold(v, "false") {
+			mb.Enabled = false
+		} else if v == "1" || strings.EqualFold(v, "true") {
+			mb.Enabled = true
+		} else if mb.Ready() {
+			mb.Enabled = true
 		}
 	}
 }

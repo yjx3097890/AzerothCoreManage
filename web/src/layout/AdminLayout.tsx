@@ -44,6 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.groupExt',
     items: [
       { key: '/playerbots', labelKey: 'nav.playerbots' },
+      { key: '/mybots', labelKey: 'nav.mybots' },
       { key: '/modules', labelKey: 'nav.modules', minRole: 'gm' },
     ],
   },
