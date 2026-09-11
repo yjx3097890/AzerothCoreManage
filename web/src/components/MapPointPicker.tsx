@@ -72,6 +72,7 @@ type Props = {
   player?: { x: number; y: number; z: number } | null
   points: MapPoint[]
   onPick: (pick: MapPick) => void
+  disabled?: boolean
   className?: string
 }
 
@@ -133,7 +134,7 @@ function entryToLayer(entry: WorldMapEntry, kind: 'zone' | 'continent'): Overvie
   }
 }
 
-export function MapPointPicker({ mapId, zoneId, player, points, onPick, className }: Props) {
+export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled, className }: Props) {
   const { t } = useTranslation()
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const [worldLayer, setWorldLayer] = useState<OverviewLayer | null>(null)
@@ -230,7 +231,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, classNam
   )
 
   const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!worldLayer) return
+    if (disabled || !worldLayer) return
     const rect = e.currentTarget.getBoundingClientRect()
     const u = (e.clientX - rect.left) / rect.width
     const v = (e.clientY - rect.top) / rect.height
@@ -273,6 +274,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, classNam
   const gridSize = (radius * 2 + 1) * tileSize
 
   const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (disabled) return
     const rect = e.currentTarget.getBoundingClientRect()
     const localX = ((e.clientX - rect.left) / rect.width) * gridSize
     const localY = ((e.clientY - rect.top) / rect.height) * gridSize
@@ -313,9 +315,10 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, classNam
   })()
 
   return (
-    <div className={className}>
+    <div className={`${className ?? ''} ${disabled ? 'opacity-50' : ''}`.trim()} aria-disabled={disabled || undefined}>
       <div className="text-xs text-base-content/55 mb-2">{modeLabel}</div>
 
+      <div className={disabled ? 'pointer-events-none select-none' : undefined}>
       {mode === 'scatter' && (
         <div
           ref={wrapRef}
@@ -468,6 +471,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, classNam
           <canvas ref={canvasRef} className="hidden" />
         </div>
       )}
+      </div>
     </div>
   )
 }

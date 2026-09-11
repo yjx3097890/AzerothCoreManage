@@ -244,7 +244,7 @@ export function MyBotsPage() {
   }, [tab, status?.configured]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submitJob = async (body: Record<string, unknown>) => {
-    if (!activeChar || !gm) return
+    if (!activeChar || !gm || !snap?.selfbot) return
     await api(`/api/v1/mybots/characters/${encodeURIComponent(activeChar)}/jobs`, {
       method: 'POST',
       body: JSON.stringify({ replace: replaceJob, ...body }),
@@ -269,7 +269,7 @@ export function MyBotsPage() {
   }
 
   const confirmMove = (pick: MapPick) => {
-    if (!gm) return
+    if (!gm || !snap?.selfbot) return
     setPending({
       title: t('mybots.moveConfirmTitle'),
       description: t('mybots.moveConfirmDesc', {
@@ -285,7 +285,7 @@ export function MyBotsPage() {
   }
 
   const moveToNpc = async () => {
-    if (!creatureEntry || !gm) return
+    if (!creatureEntry || !gm || !snap?.selfbot) return
     try {
       await submitJob({ type: 'move_to', entry: creatureEntry })
     } catch (err) {
@@ -294,7 +294,7 @@ export function MyBotsPage() {
   }
 
   const runQuest = (q: QuestItem) => {
-    if (!gm) return
+    if (!gm || !snap?.selfbot) return
     setPending({
       title: t('mybots.questConfirmTitle'),
       description: t('mybots.questConfirmDesc', { title: q.title, id: q.questId }),
@@ -370,6 +370,10 @@ export function MyBotsPage() {
   }
 
   const createJob = async () => {
+    if (!snap?.selfbot) {
+      toast.error(t('mybots.needSelfbot'))
+      return
+    }
     const body = buildJobBody()
     if (!body) return
     try {
@@ -381,7 +385,7 @@ export function MyBotsPage() {
   }
 
   const jobAction = (jobId: string, action: 'pause' | 'resume' | 'cancel') => {
-    if (!activeChar || !gm || !jobId) return
+    if (!activeChar || !gm || !jobId || !snap?.selfbot) return
     const run = async () => {
       const base = `/api/v1/mybots/characters/${encodeURIComponent(activeChar)}/jobs/${encodeURIComponent(jobId)}`
       if (action === 'cancel') await api(base, { method: 'DELETE' })
@@ -403,6 +407,8 @@ export function MyBotsPage() {
   }
 
   const healthOk = status?.health && typeof status.health === 'object' && status.health.ok === true
+  const botActive = !!snap?.selfbot
+  const canCommand = gm && botActive
 
   const jobColumns: Column<Job>[] = [
     { key: 'id', title: 'ID', render: (_v, r) => r.id ?? r.jobId ?? '-' },
@@ -432,13 +438,28 @@ export function MyBotsPage() {
             </button>
             {gm && (
               <>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => jobAction(id, 'pause')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  disabled={!botActive}
+                  onClick={() => jobAction(id, 'pause')}
+                >
                   {t('mybots.pause')}
                 </button>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => jobAction(id, 'resume')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  disabled={!botActive}
+                  onClick={() => jobAction(id, 'resume')}
+                >
                   {t('mybots.resume')}
                 </button>
-                <button type="button" className="btn btn-ghost btn-xs text-error" onClick={() => jobAction(id, 'cancel')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs text-error"
+                  disabled={!botActive}
+                  onClick={() => jobAction(id, 'cancel')}
+                >
                   {t('confirm.cancel')}
                 </button>
               </>
@@ -474,7 +495,13 @@ export function MyBotsPage() {
         </div>
       </div>
       {gm && (
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => runQuest(q)}>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          disabled={!botActive}
+          title={!botActive ? t('mybots.needSelfbot') : undefined}
+          onClick={() => runQuest(q)}
+        >
           {t('mybots.doQuest')}
         </button>
       )}
@@ -524,12 +551,23 @@ export function MyBotsPage() {
             {snap.class_name && <span>{snap.class_name}</span>}
             {snap.online === false && <span className="badge badge-warning badge-sm">{t('mybots.offline')}</span>}
             {snap.selfbot && <span className="badge badge-success badge-sm">Selfbot</span>}
+            {!snap.selfbot && <span className="badge badge-ghost badge-sm">{t('mybots.selfbotOff')}</span>}
             {gm && (
               <>
-                <button type="button" className="btn btn-xs" onClick={() => setSelfbot(true)}>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-primary"
+                  disabled={!!snap.selfbot}
+                  onClick={() => setSelfbot(true)}
+                >
                   {t('mybots.enableSelfbot')}
                 </button>
-                <button type="button" className="btn btn-xs" onClick={() => setSelfbot(false)}>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  disabled={!snap.selfbot}
+                  onClick={() => setSelfbot(false)}
+                >
                   {t('mybots.disableSelfbot')}
                 </button>
               </>
@@ -537,6 +575,12 @@ export function MyBotsPage() {
           </div>
         )}
       </div>
+
+      {activeChar && snap && !botActive && (
+        <div className="alert alert-info text-sm mb-4 py-2">
+          {t('mybots.needSelfbotHint')}
+        </div>
+      )}
 
       <Tabs
         activeKey={tab}
@@ -549,7 +593,7 @@ export function MyBotsPage() {
               <p className="text-sm text-base-content/50 m-0">{t('mybots.loadFirst')}</p>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <section className="space-y-3">
+                <section className={`space-y-3 ${!botActive ? 'opacity-60' : ''}`}>
                   <h3 className="text-sm font-semibold m-0">{t('mybots.moveSection')}</h3>
                   <PanelIntro>{t('mybots.moveHint')}</PanelIntro>
                   {snap.map != null && (
@@ -562,6 +606,7 @@ export function MyBotsPage() {
                           : null
                       }
                       points={mapPoints}
+                      disabled={!canCommand}
                       onPick={confirmMove}
                     />
                   )}
@@ -573,9 +618,10 @@ export function MyBotsPage() {
                       <TeleSelect
                         mapFilter={snap.map}
                         value={teleName}
+                        disabled={!canCommand}
                         onChange={(v) => setTeleName(v ?? undefined)}
                         onSelectHit={(hit) => {
-                          if (!hit) return
+                          if (!hit || !canCommand) return
                           confirmMove({
                             x: hit.x,
                             y: hit.y,
@@ -592,12 +638,16 @@ export function MyBotsPage() {
                       <span className="label py-0.5">
                         <span className="label-text text-xs">{t('mybots.moveToNpc')}</span>
                       </span>
-                      <CreatureSelect value={creatureEntry ?? undefined} onChange={setCreatureEntry} />
+                      <CreatureSelect
+                        value={creatureEntry ?? undefined}
+                        onChange={setCreatureEntry}
+                        disabled={!canCommand}
+                      />
                     </div>
                     <button
                       type="button"
                       className="btn btn-sm"
-                      disabled={!gm || !creatureEntry}
+                      disabled={!canCommand || !creatureEntry}
                       onClick={() => void moveToNpc()}
                     >
                       {t('mybots.goNpc')}
@@ -606,7 +656,7 @@ export function MyBotsPage() {
                   <p className="text-xs text-base-content/45 m-0">{t('mybots.mapAssetHint')}</p>
                 </section>
 
-                <section className="space-y-4">
+                <section className={`space-y-4 ${!botActive ? 'opacity-60' : ''}`}>
                   <div>
                     <h3 className="text-sm font-semibold m-0 mb-1">{t('mybots.questLogSection')}</h3>
                     <PanelIntro>{t('mybots.questLogHint')}</PanelIntro>
@@ -805,6 +855,8 @@ export function MyBotsPage() {
                 <PanelIntro>{t('mybots.advancedHint')}</PanelIntro>
                 {!gm || !activeChar ? (
                   <p className="text-sm text-base-content/50 m-0">{t('mybots.loadFirst')}</p>
+                ) : !botActive ? (
+                  <p className="text-sm text-base-content/50 m-0">{t('mybots.needSelfbotHint')}</p>
                 ) : (
                   <>
                     <label className="label cursor-pointer gap-2 justify-start">
