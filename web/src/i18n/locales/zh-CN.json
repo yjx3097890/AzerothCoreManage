@@ -206,6 +206,8 @@
     "changeAccountConfirm": "将 {{name}} 移到账号 {{account}}？在线会被踢下线。",
     "targetAccount": "目标账号",
     "deleted": "已删角色",
+    "tabActive": "角色列表",
+    "tabDeleted": "已删角色",
     "restore": "恢复",
     "restoreHint": "从已删列表恢复角色，使其可再次登录。",
     "purge": "清理过期",

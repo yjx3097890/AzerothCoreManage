@@ -127,6 +127,7 @@ export function CharactersPage() {
   const [teleTarget, setTeleTarget] = useState<Character | null>(null)
   const [changeAccountTarget, setChangeAccountTarget] = useState<Character | null>(null)
   const [setNameTarget, setSetNameTarget] = useState<Character | null>(null)
+  const [tab, setTab] = useState('active')
   const [deletedQ, setDeletedQ] = useState('')
   const [deletedItems, setDeletedItems] = useState<DeletedCharacter[]>([])
   const [deletedLoading, setDeletedLoading] = useState(false)
@@ -175,8 +176,8 @@ export function CharactersPage() {
   }, [deletedQ, t])
 
   useEffect(() => {
-    void loadDeleted()
-  }, [loadDeleted])
+    if (tab === 'deleted') void loadDeleted()
+  }, [loadDeleted, tab])
 
   const loadInventory = async (name: string) => {
     setInvLoading(true)
@@ -623,75 +624,142 @@ export function CharactersPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="mb-4">
         <h2 className="text-xl font-semibold m-0">{t('pages.characters.title')}</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="input input-bordered input-sm w-44"
-            placeholder={t('characters.searchName')}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void load(0)
-            }}
-          />
-          <input
-            className="input input-bordered input-sm w-40"
-            placeholder={t('characters.searchAccount')}
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void load(0)
-            }}
-          />
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <span>{t('characters.onlineOnly')}</span>
-            <input
-              type="checkbox"
-              className="toggle toggle-sm"
-              checked={onlineOnly}
-              onChange={(e) => setOnlineOnly(e.target.checked)}
-            />
-          </label>
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => void load(0)}>
-            {t('common.search')}
-          </button>
-          <button type="button" className="btn btn-sm" onClick={() => void load(data?.offset ?? 0)}>
-            {t('common.refresh')}
-          </button>
-        </div>
       </div>
 
-      <DataTable
-        loading={loading}
-        rowKey="guid"
-        dataSource={data?.items ?? []}
-        pagination={false}
-        columns={columns}
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={[
+          {
+            key: 'active',
+            label: t('characters.tabActive'),
+            children: (
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <input
+                    className="input input-bordered input-sm w-44"
+                    placeholder={t('characters.searchName')}
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void load(0)
+                    }}
+                  />
+                  <input
+                    className="input input-bordered input-sm w-40"
+                    placeholder={t('characters.searchAccount')}
+                    value={account}
+                    onChange={(e) => setAccount(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void load(0)
+                    }}
+                  />
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <span>{t('characters.onlineOnly')}</span>
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-sm"
+                      checked={onlineOnly}
+                      onChange={(e) => setOnlineOnly(e.target.checked)}
+                    />
+                  </label>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => void load(0)}>
+                    {t('common.search')}
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => void load(data?.offset ?? 0)}>
+                    {t('common.refresh')}
+                  </button>
+                </div>
+
+                <DataTable
+                  loading={loading}
+                  rowKey="guid"
+                  dataSource={data?.items ?? []}
+                  pagination={false}
+                  columns={columns}
+                />
+                {total > limit && (
+                  <div className="flex items-center justify-end gap-2 mt-3">
+                    <span className="text-sm text-base-content/60">
+                      {total} · {currentPage}/{totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => void load(Math.max(0, offset - limit))}
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => void load(offset + limit)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'deleted',
+            label: t('characters.tabDeleted'),
+            children: (
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <input
+                    className="input input-bordered input-sm w-44"
+                    placeholder={t('characters.searchName')}
+                    value={deletedQ}
+                    onChange={(e) => setDeletedQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void loadDeleted()
+                    }}
+                  />
+                  <button type="button" className="btn btn-sm" onClick={() => void loadDeleted()}>
+                    {t('common.refresh')}
+                  </button>
+                  {hasMinRole('superadmin') && (
+                    <span className="tooltip tooltip-left" data-tip={t('characters.purgeHint')}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-error"
+                        onClick={() =>
+                          setConfirm({
+                            title: t('characters.purge'),
+                            description: t('characters.purgeConfirm'),
+                            run: async () => {
+                              await api('/api/v1/characters-deleted', {
+                                method: 'POST',
+                                body: JSON.stringify({ action: 'purge', keep_days: 30, confirm: true }),
+                              })
+                              void loadDeleted()
+                            },
+                          })
+                        }
+                      >
+                        {t('characters.purge')}
+                      </button>
+                    </span>
+                  )}
+                </div>
+                <DataTable
+                  loading={deletedLoading}
+                  rowKey="guid"
+                  dataSource={deletedItems}
+                  pagination={{ pageSize: 20 }}
+                  columns={deletedColumns}
+                />
+              </div>
+            ),
+          },
+        ]}
       />
-      {total > limit && (
-        <div className="flex items-center justify-end gap-2 mt-3">
-          <span className="text-sm text-base-content/60">
-            {total} · {currentPage}/{totalPages}
-          </span>
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={currentPage <= 1}
-            onClick={() => void load(Math.max(0, offset - limit))}
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => void load(offset + limit)}
-          >
-            ›
-          </button>
-        </div>
-      )}
 
       <Drawer
         open={!!detail}
@@ -867,56 +935,6 @@ export function CharactersPage() {
           </div>
         )}
       </Drawer>
-
-      <div className="divider" />
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-semibold m-0">{t('characters.deleted')}</h3>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="input input-bordered input-sm w-44"
-            placeholder={t('characters.searchName')}
-            value={deletedQ}
-            onChange={(e) => setDeletedQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void loadDeleted()
-            }}
-          />
-          <button type="button" className="btn btn-sm" onClick={() => void loadDeleted()}>
-            {t('common.refresh')}
-          </button>
-          {hasMinRole('superadmin') && (
-            <span className="tooltip tooltip-left" data-tip={t('characters.purgeHint')}>
-              <button
-                type="button"
-                className="btn btn-sm btn-error"
-                onClick={() =>
-                  setConfirm({
-                    title: t('characters.purge'),
-                    description: t('characters.purgeConfirm'),
-                    run: async () => {
-                      await api('/api/v1/characters-deleted', {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'purge', keep_days: 30, confirm: true }),
-                      })
-                      void loadDeleted()
-                    },
-                  })
-                }
-              >
-                {t('characters.purge')}
-              </button>
-            </span>
-          )}
-        </div>
-      </div>
-      <DataTable
-        loading={deletedLoading}
-        rowKey="guid"
-        dataSource={deletedItems}
-        pagination={{ pageSize: 20 }}
-        columns={deletedColumns}
-      />
-
       <LevelModal
         character={levelTarget}
         onClose={() => setLevelTarget(null)}

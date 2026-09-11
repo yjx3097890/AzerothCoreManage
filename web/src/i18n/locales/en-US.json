@@ -206,6 +206,8 @@
     "changeAccountConfirm": "Move {{name}} to account {{account}}? Online characters will be kicked.",
     "targetAccount": "Target account",
     "deleted": "Deleted characters",
+    "tabActive": "Characters",
+    "tabDeleted": "Deleted",
     "restore": "Restore",
     "restoreHint": "Restore a deleted character so it can log in again.",
     "purge": "Purge old",
