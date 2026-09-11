@@ -108,7 +108,6 @@ export function MyBotsPage() {
   const [telePoints, setTelePoints] = useState<TeleHit[]>([])
   const [questLog, setQuestLog] = useState<QuestItem[]>([])
   const [questAvail, setQuestAvail] = useState<QuestItem[]>([])
-  const [pendingPick, setPendingPick] = useState<MapPick | null>(null)
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(
     null,
   )
@@ -269,7 +268,6 @@ export function MyBotsPage() {
 
   const confirmMove = (pick: MapPick) => {
     if (!gm) return
-    setPendingPick(pick)
     setPending({
       title: t('mybots.moveConfirmTitle'),
       description: t('mybots.moveConfirmDesc', {
@@ -280,7 +278,6 @@ export function MyBotsPage() {
       }),
       run: async () => {
         await submitJob({ type: 'move_to', x: pick.x, y: pick.y, z: pick.z, dist: 2.5 })
-        setPendingPick(null)
       },
     })
   }
@@ -888,7 +885,6 @@ export function MyBotsPage() {
           description={pending.description}
           onCancel={() => {
             setPending(null)
-            setPendingPick(null)
           }}
           onConfirm={() => {
             const run = pending.run
