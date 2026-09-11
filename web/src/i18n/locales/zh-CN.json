@@ -365,7 +365,7 @@
     "ingameCommand": "请在游戏聊天框粘贴执行",
     "onlineTabHint": "当前在线、且账号带机器人前缀的角色列表。",
     "guildsTabHint": "成员中含有机器人的公会（按机器人数量排序）。",
-    "configTabHint": "编辑 playerbots.conf 中常用项；保存后会尝试 SOAP 重载。仅超管可改。",
+    "configTabHint": "编辑 playerbots.conf 常用项（含随机机器人战场 / 竞技场）；保存后会尝试 SOAP 重载。仅超管可改。",
     "gmOnly": "需要 GM 权限才能执行此页操作。",
     "rndbotOps": "生命周期操作",
     "rndbotOpsHint": "对随机机器人系统执行维护命令（部分操作危险，会二次确认）。",
@@ -419,6 +419,28 @@
     "configSaveHint": "把下方键值写入 playerbots.conf，并尝试 SOAP 重载。",
     "configColName": "配置项",
     "configColValue": "当前值",
+    "configSections": {
+      "login": {
+        "title": "登录",
+        "hint": "随机机器人与小号何时自动上线，以及职业限制。"
+      },
+      "population": {
+        "title": "数量与等级",
+        "hint": "在线人数上下限、等级区间，以及周期性上下线池。"
+      },
+      "accounts": {
+        "title": "账号与装备",
+        "hint": "机器人账号前缀/数量，以及自动装等品质上限。"
+      },
+      "battleground": {
+        "title": "战场",
+        "hint": "是否允许进战场、是否自动排队，以及各战场等级段与场次数。「允许进战场/竞技场」与「自动排队」也会影响竞技场。"
+      },
+      "arena": {
+        "title": "竞技场",
+        "hint": "排位括号、自动排位场次数、机器人战队数量与积分。战队一般在 init / 重启时创建；改数量后可能需要清战队再初始化（危险）。"
+      }
+    },
     "configKeys": {
       "autologin": {
         "label": "随机机器人自动登录",
@@ -467,6 +489,98 @@
       "periodicOnlineOfflineRatio": {
         "label": "上下线池比例",
         "desc": "总机器人池 / 同时在线数（MaxRandomBots）的比值，须大于 1.0；例如 2.0 表示总池是在线上限的两倍。仅在开启「周期性上下线」时生效。"
+      },
+      "joinBG": {
+        "label": "允许进战场/竞技场",
+        "desc": "总开关：随机机器人是否可以进入战场与竞技场。"
+      },
+      "autoJoinBG": {
+        "label": "自动排队战场/竞技场",
+        "desc": "开启后机器人会按下方 bracket / Count 自己排队；关闭则不会主动开队列。"
+      },
+      "icBrackets": {
+        "label": "征服之岛等级段",
+        "desc": "自动排队的 IC 等级段，逗号分隔（如 1）。"
+      },
+      "eyBrackets": {
+        "label": "风暴之眼等级段",
+        "desc": "自动排队的 EY 等级段，逗号分隔（如 2）。"
+      },
+      "avBrackets": {
+        "label": "奥特兰克等级段",
+        "desc": "自动排队的 AV 等级段，逗号分隔（如 3）。"
+      },
+      "abBrackets": {
+        "label": "阿拉希盆地等级段",
+        "desc": "自动排队的 AB 等级段，逗号分隔（如 6）。"
+      },
+      "wsBrackets": {
+        "label": "战歌峡谷等级段",
+        "desc": "WS：0=10–19 … 7=80；可逗号多选（如 7）。"
+      },
+      "icCount": {
+        "label": "征服之岛场次数",
+        "desc": "每个等级段要自动填的 IC 场次数；0 表示不自动开。"
+      },
+      "eyCount": {
+        "label": "风暴之眼场次数",
+        "desc": "每个等级段要自动填的 EY 场次数。"
+      },
+      "avCount": {
+        "label": "奥特兰克场次数",
+        "desc": "每个等级段要自动填的 AV 场次数。"
+      },
+      "abCount": {
+        "label": "阿拉希盆地场次数",
+        "desc": "每个等级段要自动填的 AB 场次数。"
+      },
+      "wsCount": {
+        "label": "战歌峡谷场次数",
+        "desc": "每个等级段要自动填的 WS 场次数（1 约等于每边 10 人）。"
+      },
+      "arenaBracket": {
+        "label": "竞技场等级段",
+        "desc": "排位竞技场括号：0=10–14 … 14=80–84（默认 14）。低等级段通常需要额外改核心。"
+      },
+      "arena2v2Count": {
+        "label": "2v2 自动排位场次数",
+        "desc": "同时自动排队的 2v2 排位场次数；0 表示不自动排天梯。"
+      },
+      "arena3v3Count": {
+        "label": "3v3 自动排位场次数",
+        "desc": "同时自动排队的 3v3 排位场次数。"
+      },
+      "arena5v5Count": {
+        "label": "5v5 自动排位场次数",
+        "desc": "同时自动排队的 5v5 排位场次数。"
+      },
+      "arenaTeam2v2": {
+        "label": "2v2 机器人战队数",
+        "desc": "初始化时创建的 2v2 战队数量（约 2 人/队）。一般在 init / 重启时生效。"
+      },
+      "arenaTeam3v3": {
+        "label": "3v3 机器人战队数",
+        "desc": "初始化时创建的 3v3 战队数量（约 3 人/队）。"
+      },
+      "arenaTeam5v5": {
+        "label": "5v5 机器人战队数",
+        "desc": "初始化时创建的 5v5 战队数量（约 5 人/队）。"
+      },
+      "arenaMaxRating": {
+        "label": "战队积分上限",
+        "desc": "创建机器人战队时随机积分的最大值。"
+      },
+      "arenaMinRating": {
+        "label": "战队积分下限",
+        "desc": "创建机器人战队时随机积分的最小值。"
+      },
+      "deleteArenaTeams": {
+        "label": "启动时删除机器人战队",
+        "desc": "开启后会在加载时删掉随机机器人竞技场战队（常配合重建）；慎用。"
+      },
+      "fastReactInBG": {
+        "label": "战场/竞技场快速反应",
+        "desc": "提高机器人在战场与竞技场中的反应速度，可能增加服务器负载。"
       }
     },
     "configOn": "开启",

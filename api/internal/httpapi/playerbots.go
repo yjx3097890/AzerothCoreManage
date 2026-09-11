@@ -224,19 +224,10 @@ func (s *Server) playerbotsConfig(c *gin.Context) {
 	}
 	defer f.Close()
 
-	wantPrefixes := []string{
-		"AiPlayerbot.RandomBotAutologin",
-		"AiPlayerbot.BotAutologin",
-		"AiPlayerbot.MinRandomBots",
-		"AiPlayerbot.MaxRandomBots",
-		"AiPlayerbot.RandomBotMinLevel",
-		"AiPlayerbot.RandomBotMaxLevel",
-		"AiPlayerbot.DisableDeathKnightLogin",
-		"AiPlayerbot.RandomBotAccountPrefix",
-		"AiPlayerbot.RandomBotAccountCount",
-		"AiPlayerbot.AutoGearQualityLimit",
-		"AiPlayerbot.EnablePeriodicOnlineOffline",
-		"AiPlayerbot.PeriodicOnlineOfflineRatio",
+	want := playerbotsEditableConfKeys()
+	wantSet := make(map[string]struct{}, len(want))
+	for _, p := range want {
+		wantSet[strings.ToLower(p)] = struct{}{}
 	}
 	values := map[string]string{}
 	sc := bufio.NewScanner(f)
@@ -247,9 +238,13 @@ func (s *Server) playerbotsConfig(c *gin.Context) {
 			continue
 		}
 		key, val := m[1], strings.Trim(m[2], `"'`)
-		for _, p := range wantPrefixes {
+		if _, ok := wantSet[strings.ToLower(key)]; !ok {
+			continue
+		}
+		for _, p := range want {
 			if strings.EqualFold(key, p) {
 				values[p] = val
+				break
 			}
 		}
 	}

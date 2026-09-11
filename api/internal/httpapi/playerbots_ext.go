@@ -121,13 +121,9 @@ func (s *Server) playerbotsConfigUpdate(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, "conf_error", "playerbots.conf path not configured")
 		return
 	}
-	allowed := map[string]bool{
-		"AiPlayerbot.RandomBotAutologin": true, "AiPlayerbot.BotAutologin": true,
-		"AiPlayerbot.MinRandomBots": true, "AiPlayerbot.MaxRandomBots": true,
-		"AiPlayerbot.RandomBotMinLevel": true, "AiPlayerbot.RandomBotMaxLevel": true,
-		"AiPlayerbot.DisableDeathKnightLogin": true, "AiPlayerbot.RandomBotAccountPrefix": true,
-		"AiPlayerbot.RandomBotAccountCount": true, "AiPlayerbot.AutoGearQualityLimit": true,
-		"AiPlayerbot.EnablePeriodicOnlineOffline": true, "AiPlayerbot.PeriodicOnlineOfflineRatio": true,
+	allowed := make(map[string]bool, len(playerbotsEditableConfKeys()))
+	for _, k := range playerbotsEditableConfKeys() {
+		allowed[k] = true
 	}
 	updates := map[string]string{}
 	for k, v := range req.Values {
@@ -178,4 +174,46 @@ func resolvePlayerbotsConfPath(conf config.ConfPaths) string {
 		return candidates[0]
 	}
 	return ""
+}
+
+// playerbotsEditableConfKeys is the allow-list for GET/PUT /playerbots/config.
+func playerbotsEditableConfKeys() []string {
+	return []string{
+		"AiPlayerbot.RandomBotAutologin",
+		"AiPlayerbot.BotAutologin",
+		"AiPlayerbot.MinRandomBots",
+		"AiPlayerbot.MaxRandomBots",
+		"AiPlayerbot.RandomBotMinLevel",
+		"AiPlayerbot.RandomBotMaxLevel",
+		"AiPlayerbot.DisableDeathKnightLogin",
+		"AiPlayerbot.RandomBotAccountPrefix",
+		"AiPlayerbot.RandomBotAccountCount",
+		"AiPlayerbot.AutoGearQualityLimit",
+		"AiPlayerbot.EnablePeriodicOnlineOffline",
+		"AiPlayerbot.PeriodicOnlineOfflineRatio",
+		// Battlegrounds & arenas
+		"AiPlayerbot.RandomBotJoinBG",
+		"AiPlayerbot.RandomBotAutoJoinBG",
+		"AiPlayerbot.RandomBotAutoJoinICBrackets",
+		"AiPlayerbot.RandomBotAutoJoinEYBrackets",
+		"AiPlayerbot.RandomBotAutoJoinAVBrackets",
+		"AiPlayerbot.RandomBotAutoJoinABBrackets",
+		"AiPlayerbot.RandomBotAutoJoinWSBrackets",
+		"AiPlayerbot.RandomBotAutoJoinBGICCount",
+		"AiPlayerbot.RandomBotAutoJoinBGEYCount",
+		"AiPlayerbot.RandomBotAutoJoinBGAVCount",
+		"AiPlayerbot.RandomBotAutoJoinBGABCount",
+		"AiPlayerbot.RandomBotAutoJoinBGWSCount",
+		"AiPlayerbot.RandomBotAutoJoinArenaBracket",
+		"AiPlayerbot.RandomBotAutoJoinBGRatedArena2v2Count",
+		"AiPlayerbot.RandomBotAutoJoinBGRatedArena3v3Count",
+		"AiPlayerbot.RandomBotAutoJoinBGRatedArena5v5Count",
+		"AiPlayerbot.RandomBotArenaTeam2v2Count",
+		"AiPlayerbot.RandomBotArenaTeam3v3Count",
+		"AiPlayerbot.RandomBotArenaTeam5v5Count",
+		"AiPlayerbot.RandomBotArenaTeamMaxRating",
+		"AiPlayerbot.RandomBotArenaTeamMinRating",
+		"AiPlayerbot.DeleteRandomBotArenaTeams",
+		"AiPlayerbot.FastReactInBG",
+	}
 }

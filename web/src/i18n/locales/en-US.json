@@ -365,7 +365,7 @@
     "ingameCommand": "Paste this in game chat",
     "onlineTabHint": "Online characters whose accounts use the bot prefix.",
     "guildsTabHint": "Guilds that include bot members (sorted by bot count).",
-    "configTabHint": "Edit common playerbots.conf keys; saving tries a SOAP reload. Superadmin only to edit.",
+    "configTabHint": "Edit playerbots.conf by feature group (login, population, battlegrounds, arenas). Saving tries a SOAP reload. Superadmin only to edit.",
     "gmOnly": "GM role required for actions on this tab.",
     "rndbotOps": "Lifecycle actions",
     "rndbotOpsHint": "Maintenance commands for the random-bot system (some are dangerous and need confirmation).",
@@ -419,6 +419,28 @@
     "configSaveHint": "Write the values below to playerbots.conf and try a SOAP reload.",
     "configColName": "Setting",
     "configColValue": "Value",
+    "configSections": {
+      "login": {
+        "title": "Login",
+        "hint": "When random bots and account alts auto-log in, plus class limits."
+      },
+      "population": {
+        "title": "Population & level",
+        "hint": "Online min/max, level range, and periodic online/offline pool."
+      },
+      "accounts": {
+        "title": "Accounts & gear",
+        "hint": "Bot account prefix/count and autogear quality cap."
+      },
+      "battleground": {
+        "title": "Battlegrounds",
+        "hint": "Allow BGs, auto-queue, brackets and counts per BG. Join/AutoJoin also affect arenas."
+      },
+      "arena": {
+        "title": "Arenas",
+        "hint": "Rated bracket, auto-queue counts, bot arena teams and ratings. Teams are usually created on init/restart; changing counts may need delete + re-init (dangerous)."
+      }
+    },
     "configKeys": {
       "autologin": {
         "label": "Random bot autologin",
@@ -467,6 +489,98 @@
       "periodicOnlineOfflineRatio": {
         "label": "Online/offline pool ratio",
         "desc": "Total bot pool / online bots (MaxRandomBots). Must be > 1.0 (e.g. 2.0 = pool is twice the online cap). Only applies when periodic online/offline is on."
+      },
+      "joinBG": {
+        "label": "Allow BG / arena",
+        "desc": "Master switch: whether random bots may enter battlegrounds and arenas."
+      },
+      "autoJoinBG": {
+        "label": "Auto-queue BG / arena",
+        "desc": "When on, bots queue themselves using the brackets/counts below; when off they will not start queues."
+      },
+      "icBrackets": {
+        "label": "Isle of Conquest brackets",
+        "desc": "IC level brackets to auto-join, comma-separated (e.g. 1)."
+      },
+      "eyBrackets": {
+        "label": "Eye of the Storm brackets",
+        "desc": "EY level brackets to auto-join, comma-separated (e.g. 2)."
+      },
+      "avBrackets": {
+        "label": "Alterac Valley brackets",
+        "desc": "AV level brackets to auto-join, comma-separated (e.g. 3)."
+      },
+      "abBrackets": {
+        "label": "Arathi Basin brackets",
+        "desc": "AB level brackets to auto-join, comma-separated (e.g. 6)."
+      },
+      "wsBrackets": {
+        "label": "Warsong Gulch brackets",
+        "desc": "WS: 0=10–19 … 7=80; comma-separated list allowed (e.g. 7)."
+      },
+      "icCount": {
+        "label": "Isle of Conquest count",
+        "desc": "How many IC instances to auto-fill per bracket; 0 disables."
+      },
+      "eyCount": {
+        "label": "Eye of the Storm count",
+        "desc": "How many EY instances to auto-fill per bracket."
+      },
+      "avCount": {
+        "label": "Alterac Valley count",
+        "desc": "How many AV instances to auto-fill per bracket."
+      },
+      "abCount": {
+        "label": "Arathi Basin count",
+        "desc": "How many AB instances to auto-fill per bracket."
+      },
+      "wsCount": {
+        "label": "Warsong Gulch count",
+        "desc": "How many WS instances to auto-fill per bracket (1 ≈ 10 per side)."
+      },
+      "arenaBracket": {
+        "label": "Arena bracket",
+        "desc": "Rated arena bracket: 0=10–14 … 14=80–84 (default 14). Lower brackets often need core changes."
+      },
+      "arena2v2Count": {
+        "label": "2v2 rated auto-queue count",
+        "desc": "How many 2v2 rated matches to auto-queue; 0 disables rated auto-queue."
+      },
+      "arena3v3Count": {
+        "label": "3v3 rated auto-queue count",
+        "desc": "How many 3v3 rated matches to auto-queue."
+      },
+      "arena5v5Count": {
+        "label": "5v5 rated auto-queue count",
+        "desc": "How many 5v5 rated matches to auto-queue."
+      },
+      "arenaTeam2v2": {
+        "label": "2v2 bot arena teams",
+        "desc": "Number of 2v2 teams created on init (~2 bots each). Usually applied on init/restart."
+      },
+      "arenaTeam3v3": {
+        "label": "3v3 bot arena teams",
+        "desc": "Number of 3v3 teams created on init (~3 bots each)."
+      },
+      "arenaTeam5v5": {
+        "label": "5v5 bot arena teams",
+        "desc": "Number of 5v5 teams created on init (~5 bots each)."
+      },
+      "arenaMaxRating": {
+        "label": "Team rating max",
+        "desc": "Maximum random rating when creating bot arena teams."
+      },
+      "arenaMinRating": {
+        "label": "Team rating min",
+        "desc": "Minimum random rating when creating bot arena teams."
+      },
+      "deleteArenaTeams": {
+        "label": "Delete bot arena teams on load",
+        "desc": "When on, deletes random-bot arena teams on load (often before rebuild). Use carefully."
+      },
+      "fastReactInBG": {
+        "label": "Fast react in BG/arena",
+        "desc": "Faster bot reactions in battlegrounds and arenas; may increase server load."
       }
     },
     "configOn": "On",

@@ -36,21 +36,52 @@ type BotRow = {
 type BotGuild = { id: number; name: string; bot_members: number }
 
 type ConfigControl = 'text' | 'toggle' | 'gearQuality'
+type ConfigSection = 'login' | 'population' | 'accounts' | 'battleground' | 'arena'
 
-const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl }[] = [
-  { key: 'AiPlayerbot.RandomBotAutologin', id: 'autologin', control: 'toggle' },
-  { key: 'AiPlayerbot.BotAutologin', id: 'botAutologin', control: 'toggle' },
-  { key: 'AiPlayerbot.MinRandomBots', id: 'minBots', control: 'text' },
-  { key: 'AiPlayerbot.MaxRandomBots', id: 'maxBots', control: 'text' },
-  { key: 'AiPlayerbot.RandomBotMinLevel', id: 'minLevel', control: 'text' },
-  { key: 'AiPlayerbot.RandomBotMaxLevel', id: 'maxLevel', control: 'text' },
-  { key: 'AiPlayerbot.DisableDeathKnightLogin', id: 'disableDK', control: 'toggle' },
-  { key: 'AiPlayerbot.RandomBotAccountPrefix', id: 'accountPrefix', control: 'text' },
-  { key: 'AiPlayerbot.RandomBotAccountCount', id: 'accountCount', control: 'text' },
-  { key: 'AiPlayerbot.AutoGearQualityLimit', id: 'gearQuality', control: 'gearQuality' },
-  { key: 'AiPlayerbot.EnablePeriodicOnlineOffline', id: 'periodicOnlineOffline', control: 'toggle' },
-  { key: 'AiPlayerbot.PeriodicOnlineOfflineRatio', id: 'periodicOnlineOfflineRatio', control: 'text' },
+const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: ConfigSection }[] = [
+  // 登录
+  { key: 'AiPlayerbot.RandomBotAutologin', id: 'autologin', control: 'toggle', section: 'login' },
+  { key: 'AiPlayerbot.BotAutologin', id: 'botAutologin', control: 'toggle', section: 'login' },
+  { key: 'AiPlayerbot.DisableDeathKnightLogin', id: 'disableDK', control: 'toggle', section: 'login' },
+  // 数量与等级
+  { key: 'AiPlayerbot.MinRandomBots', id: 'minBots', control: 'text', section: 'population' },
+  { key: 'AiPlayerbot.MaxRandomBots', id: 'maxBots', control: 'text', section: 'population' },
+  { key: 'AiPlayerbot.RandomBotMinLevel', id: 'minLevel', control: 'text', section: 'population' },
+  { key: 'AiPlayerbot.RandomBotMaxLevel', id: 'maxLevel', control: 'text', section: 'population' },
+  { key: 'AiPlayerbot.EnablePeriodicOnlineOffline', id: 'periodicOnlineOffline', control: 'toggle', section: 'population' },
+  { key: 'AiPlayerbot.PeriodicOnlineOfflineRatio', id: 'periodicOnlineOfflineRatio', control: 'text', section: 'population' },
+  // 账号与装备
+  { key: 'AiPlayerbot.RandomBotAccountPrefix', id: 'accountPrefix', control: 'text', section: 'accounts' },
+  { key: 'AiPlayerbot.RandomBotAccountCount', id: 'accountCount', control: 'text', section: 'accounts' },
+  { key: 'AiPlayerbot.AutoGearQualityLimit', id: 'gearQuality', control: 'gearQuality', section: 'accounts' },
+  // 战场
+  { key: 'AiPlayerbot.RandomBotJoinBG', id: 'joinBG', control: 'toggle', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBG', id: 'autoJoinBG', control: 'toggle', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinICBrackets', id: 'icBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinEYBrackets', id: 'eyBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinAVBrackets', id: 'avBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinABBrackets', id: 'abBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinWSBrackets', id: 'wsBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGICCount', id: 'icCount', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGEYCount', id: 'eyCount', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGAVCount', id: 'avCount', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGABCount', id: 'abCount', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGWSCount', id: 'wsCount', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.FastReactInBG', id: 'fastReactInBG', control: 'toggle', section: 'battleground' },
+  // 竞技场
+  { key: 'AiPlayerbot.RandomBotAutoJoinArenaBracket', id: 'arenaBracket', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena2v2Count', id: 'arena2v2Count', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena3v3Count', id: 'arena3v3Count', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena5v5Count', id: 'arena5v5Count', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotArenaTeam2v2Count', id: 'arenaTeam2v2', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotArenaTeam3v3Count', id: 'arenaTeam3v3', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotArenaTeam5v5Count', id: 'arenaTeam5v5', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotArenaTeamMaxRating', id: 'arenaMaxRating', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotArenaTeamMinRating', id: 'arenaMinRating', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.DeleteRandomBotArenaTeams', id: 'deleteArenaTeams', control: 'toggle', section: 'arena' },
 ]
+
+const CONFIG_SECTIONS: ConfigSection[] = ['login', 'population', 'accounts', 'battleground', 'arena']
 
 function StatCard({ title, desc, value }: { title: string; desc: string; value: string | number }) {
   return (
@@ -559,7 +590,7 @@ export function PlayerbotsPage() {
                   </div>
                 ) : hasMinRole('superadmin') ? (
                   <form
-                    className="flex flex-col gap-4 max-w-[640px]"
+                    className="flex flex-col gap-6 max-w-[640px]"
                     onSubmit={(e) => {
                       e.preventDefault()
                       const updates: Record<string, string> = {}
@@ -591,41 +622,54 @@ export function PlayerbotsPage() {
                       })
                     }}
                   >
-                    {CONFIG_ITEMS.map((item) => (
-                      <label key={item.key} className="form-control w-full">
-                        <span className="label-text font-medium mb-0.5">
-                          {configLabel(item.id)}
-                          <span className="text-base-content/45 font-normal"> — {configDesc(item.id)}</span>
-                        </span>
-                        <span className="text-[11px] font-mono text-base-content/40 mb-1">{item.key}</span>
-                        {item.control === 'toggle' ? (
-                          <Select
-                            className="w-full"
-                            value={configValues[item.key] === '1' ? '1' : '0'}
-                            onChange={(v) =>
-                              setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '0' }))
-                            }
-                            options={toggleOptions}
-                          />
-                        ) : item.control === 'gearQuality' ? (
-                          <Select
-                            className="w-full"
-                            value={configValues[item.key] || '3'}
-                            onChange={(v) =>
-                              setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '3' }))
-                            }
-                            options={gearQualityOptions}
-                          />
-                        ) : (
-                          <input
-                            className="input input-bordered w-full"
-                            value={configValues[item.key] ?? ''}
-                            onChange={(e) =>
-                              setConfigValues((prev) => ({ ...prev, [item.key]: e.target.value }))
-                            }
-                          />
-                        )}
-                      </label>
+                    {CONFIG_SECTIONS.map((section) => (
+                      <section
+                        key={section}
+                        className="flex flex-col gap-4 rounded-lg border border-base-300 bg-base-100 p-4"
+                      >
+                        <div>
+                          <h3 className="text-sm font-semibold m-0">{t(`playerbots.configSections.${section}.title`)}</h3>
+                          <p className="text-xs text-base-content/55 m-0 mt-1 leading-relaxed">
+                            {t(`playerbots.configSections.${section}.hint`)}
+                          </p>
+                        </div>
+                        {CONFIG_ITEMS.filter((item) => item.section === section).map((item) => (
+                          <label key={item.key} className="form-control w-full">
+                            <span className="label-text font-medium mb-0.5">
+                              {configLabel(item.id)}
+                              <span className="text-base-content/45 font-normal"> — {configDesc(item.id)}</span>
+                            </span>
+                            <span className="text-[11px] font-mono text-base-content/40 mb-1">{item.key}</span>
+                            {item.control === 'toggle' ? (
+                              <Select
+                                className="w-full"
+                                value={configValues[item.key] === '1' ? '1' : '0'}
+                                onChange={(v) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '0' }))
+                                }
+                                options={toggleOptions}
+                              />
+                            ) : item.control === 'gearQuality' ? (
+                              <Select
+                                className="w-full"
+                                value={configValues[item.key] || '3'}
+                                onChange={(v) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '3' }))
+                                }
+                                options={gearQualityOptions}
+                              />
+                            ) : (
+                              <input
+                                className="input input-bordered w-full"
+                                value={configValues[item.key] ?? ''}
+                                onChange={(e) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: e.target.value }))
+                                }
+                              />
+                            )}
+                          </label>
+                        ))}
+                      </section>
                     ))}
                     <div>
                       <button type="submit" className="btn btn-primary btn-sm">
@@ -635,27 +679,37 @@ export function PlayerbotsPage() {
                     </div>
                   </form>
                 ) : (
-                  <div className="overflow-x-auto rounded-box border border-base-300 max-w-4xl">
-                    <table className="table table-zebra table-sm">
-                      <thead>
-                        <tr>
-                          <th>{t('playerbots.configColName')}</th>
-                          <th>{t('playerbots.configColValue')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {CONFIG_ITEMS.map((item) => (
-                          <tr key={item.key}>
-                            <td>
-                              <div className="font-medium">{configLabel(item.id)}</div>
-                              <div className="text-xs text-base-content/55">{configDesc(item.id)}</div>
-                              <div className="text-[11px] font-mono text-base-content/40">{item.key}</div>
-                            </td>
-                            <td className="align-top">{formatConfigValue(item, config?.values?.[item.key])}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="flex flex-col gap-6 max-w-4xl">
+                    {CONFIG_SECTIONS.map((section) => (
+                      <section key={section} className="rounded-lg border border-base-300 bg-base-100 p-4">
+                        <h3 className="text-sm font-semibold m-0 mb-1">{t(`playerbots.configSections.${section}.title`)}</h3>
+                        <p className="text-xs text-base-content/55 m-0 mb-3 leading-relaxed">
+                          {t(`playerbots.configSections.${section}.hint`)}
+                        </p>
+                        <div className="overflow-x-auto rounded-box border border-base-300">
+                          <table className="table table-zebra table-sm">
+                            <thead>
+                              <tr>
+                                <th>{t('playerbots.configColName')}</th>
+                                <th>{t('playerbots.configColValue')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {CONFIG_ITEMS.filter((item) => item.section === section).map((item) => (
+                                <tr key={item.key}>
+                                  <td>
+                                    <div className="font-medium">{configLabel(item.id)}</div>
+                                    <div className="text-xs text-base-content/55">{configDesc(item.id)}</div>
+                                    <div className="text-[11px] font-mono text-base-content/40">{item.key}</div>
+                                  </td>
+                                  <td className="align-top">{formatConfigValue(item, config?.values?.[item.key])}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 )}
               </div>
