@@ -94,6 +94,17 @@
     "username": "用户名",
     "password": "密码",
     "gmlevel": "GM 等级",
+    "gmLevels": {
+      "0": "玩家",
+      "1": "助理 GM",
+      "2": "游戏管理员",
+      "3": "管理员"
+    },
+    "expansions": {
+      "0": "经典旧世",
+      "1": "燃烧的远征",
+      "2": "巫妖王之怒"
+    },
     "realm": "服务器 ID（-1 表示全局）",
     "online": "在线",
     "lastIp": "上次 IP",
@@ -101,7 +112,7 @@
     "setPassword": "改密",
     "setPasswordHint": "修改该账号的登录密码。",
     "setGm": "设 GM",
-    "setGmHint": "设置账号在游戏内的 GM 权限等级（0=玩家）。",
+    "setGmHint": "设置账号在游戏内的 GM 权限等级。",
     "gmConfirm": "将 {{user}} 的 GM 设为 {{level}}（服务器 {{realm}}）？",
     "locked": "锁定",
     "lock": "锁定 IP",
@@ -110,7 +121,7 @@
     "unlockHint": "取消 IP 锁定，允许从任意地址登录。",
     "lockConfirm": "将 {{user}} 的 IP 锁设为 {{locked}}？",
     "addon": "扩展包",
-    "addonHint": "设置账号可用的客户端资料片掩码（经典/TBC/WLK）。",
+    "addonHint": "设置账号可用的客户端资料片（经典 / TBC / WLK）。",
     "addonConfirm": "将 {{user}} 扩展包设为 {{addon}}？",
     "flags": "账号标志",
     "flagsHint": "查看或增减账号标志位（如强制改密、禁用等）。",

@@ -94,6 +94,17 @@
     "username": "Username",
     "password": "Password",
     "gmlevel": "GM level",
+    "gmLevels": {
+      "0": "Player",
+      "1": "Moderator",
+      "2": "Gamemaster",
+      "3": "Administrator"
+    },
+    "expansions": {
+      "0": "Classic",
+      "1": "The Burning Crusade",
+      "2": "Wrath of the Lich King"
+    },
     "realm": "Realm ID (-1 global)",
     "online": "Online",
     "lastIp": "Last IP",
@@ -101,7 +112,7 @@
     "setPassword": "Password",
     "setPasswordHint": "Change this account login password.",
     "setGm": "Set GM",
-    "setGmHint": "Set in-game GM level for this account (0 = player).",
+    "setGmHint": "Set in-game GM permission level for this account.",
     "gmConfirm": "Set {{user}} GM level to {{level}} (realm {{realm}})?",
     "locked": "Locked",
     "lock": "Lock IP",
@@ -110,7 +121,7 @@
     "unlockHint": "Remove IP lock so the account can log in from any address.",
     "lockConfirm": "Set IP lock for {{user}} to {{locked}}?",
     "addon": "Expansion",
-    "addonHint": "Set which client expansions this account may use (Classic/TBC/WotLK).",
+    "addonHint": "Set which client expansion this account may use (Classic / TBC / WotLK).",
     "addonConfirm": "Set {{user}} expansion to {{addon}}?",
     "flags": "Account flags",
     "flagsHint": "View or change account flags (force password change, disable, etc.).",

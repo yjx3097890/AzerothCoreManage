@@ -28,6 +28,15 @@ type ListResp = {
 
 type Pending = { title: string; description: string; run: () => Promise<void> }
 
+function useAccountLabels() {
+  const { t } = useTranslation()
+  const gmLevelLabel = (level: number) =>
+    t(`accounts.gmLevels.${level}`, { defaultValue: String(level) })
+  const expansionLabel = (exp: number) =>
+    t(`accounts.expansions.${exp}`, { defaultValue: String(exp) })
+  return { gmLevelLabel, expansionLabel }
+}
+
 function Field({
   label,
   error,
@@ -48,6 +57,7 @@ function Field({
 
 export function AccountsPage() {
   const { t } = useTranslation()
+  const { gmLevelLabel, expansionLabel } = useAccountLabels()
   const [q, setQ] = useState('')
   const [data, setData] = useState<ListResp | null>(null)
   const [loading, setLoading] = useState(false)
@@ -118,8 +128,19 @@ export function AccountsPage() {
       key: 'gmlevel',
       title: t('accounts.gmlevel'),
       dataIndex: 'gmlevel',
-      width: 90,
-      render: (v) => ((v as number) > 0 ? <span className="badge badge-warning">{v as number}</span> : (v as number)),
+      width: 120,
+      render: (v) => {
+        const level = Number(v ?? 0)
+        const label = gmLevelLabel(level)
+        return level > 0 ? <span className="badge badge-warning">{label}</span> : label
+      },
+    },
+    {
+      key: 'expansion',
+      title: t('accounts.addon'),
+      dataIndex: 'expansion',
+      width: 120,
+      render: (v) => expansionLabel(Number(v ?? 0)),
     },
     {
       key: 'locked',
@@ -359,7 +380,10 @@ export function AccountsPage() {
             setAddonTarget(null)
             setPending({
               title: t('accounts.addon'),
-              description: t('accounts.addonConfirm', { user, addon }),
+              description: t('accounts.addonConfirm', {
+                user,
+                addon: expansionLabel(addon),
+              }),
               run: async () => {
                 await api(`/api/v1/accounts/${encodeURIComponent(user)}/addon`, {
                   method: 'POST',
@@ -439,7 +463,7 @@ export function AccountsPage() {
           gmTarget && gmPending
             ? t('accounts.gmConfirm', {
                 user: gmTarget.username,
-                level: gmPending.level,
+                level: gmLevelLabel(gmPending.level),
                 realm: gmPending.realm,
               })
             : undefined
@@ -636,21 +660,19 @@ function GmLevelModal({
   onSubmit: (v: { level: number; realm: number }) => void
 }) {
   const { t } = useTranslation()
-  const [level, setLevel] = useState(String(account.gmlevel ?? 0))
+  const { gmLevelLabel } = useAccountLabels()
+  const [level, setLevel] = useState(account.gmlevel ?? 0)
   const [realm, setRealm] = useState('-1')
   const [errors, setErrors] = useState<{ level?: string; realm?: string }>({})
 
   const submit = () => {
-    const lvl = Number(level)
     const rlm = Number(realm)
     const next: { level?: string; realm?: string } = {}
-    if (level.trim() === '' || Number.isNaN(lvl) || lvl < 0 || lvl > 3) {
-      next.level = t('validation.required')
-    }
+    if (level < 0 || level > 3) next.level = t('validation.required')
     if (realm.trim() === '' || Number.isNaN(rlm)) next.realm = t('validation.required')
     setErrors(next)
     if (next.level || next.realm) return
-    onSubmit({ level: lvl, realm: rlm })
+    onSubmit({ level, realm: rlm })
   }
 
   return (
@@ -666,13 +688,13 @@ function GmLevelModal({
           <input className="input input-bordered w-full" value={account.username} disabled />
         </Field>
         <Field label={t('accounts.gmlevel')} error={errors.level}>
-          <input
-            type="number"
-            min={0}
-            max={3}
-            className="input input-bordered w-full"
+          <Select
             value={level}
-            onChange={(e) => setLevel(e.target.value)}
+            onChange={(v) => setLevel(Number(v ?? 0))}
+            options={[0, 1, 2, 3].map((n) => ({
+              value: n,
+              label: `${n} · ${gmLevelLabel(n)}`,
+            }))}
           />
         </Field>
         <Field label={t('accounts.realm')} error={errors.realm}>
@@ -699,17 +721,17 @@ function AddonModal({
   onSubmit: (addon: number) => void
 }) {
   const { t } = useTranslation()
-  const [addon, setAddon] = useState(String(account.expansion ?? 2))
+  const { expansionLabel } = useAccountLabels()
+  const [addon, setAddon] = useState(account.expansion ?? 2)
   const [error, setError] = useState<string>()
 
   const submit = () => {
-    const value = Number(addon)
-    if (addon.trim() === '' || Number.isNaN(value) || value < 0 || value > 2) {
+    if (addon < 0 || addon > 2) {
       setError(t('validation.required'))
       return
     }
     setError(undefined)
-    onSubmit(value)
+    onSubmit(addon)
   }
 
   return (
@@ -722,13 +744,13 @@ function AddonModal({
         }}
       >
         <Field label={t('accounts.addon')} error={error}>
-          <input
-            type="number"
-            min={0}
-            max={2}
-            className="input input-bordered w-full"
+          <Select
             value={addon}
-            onChange={(e) => setAddon(e.target.value)}
+            onChange={(v) => setAddon(Number(v ?? 2))}
+            options={[0, 1, 2].map((n) => ({
+              value: n,
+              label: `${n} · ${expansionLabel(n)}`,
+            }))}
           />
         </Field>
         <button type="submit" className="hidden" />
