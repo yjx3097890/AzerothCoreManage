@@ -1,0 +1,14 @@
+{
+  "mapId": 530,
+  "name": "Outland",
+  "mode": "minimap",
+  "tileSize": 256,
+  "tileScale": 533.333333333,
+  "minimap": {
+    "tilePath": "tiles/map{i}_{j}.png",
+    "iMin": 12,
+    "iMax": 60,
+    "jMin": 6,
+    "jMax": 44
+  }
+}

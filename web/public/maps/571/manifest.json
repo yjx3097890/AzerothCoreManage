@@ -1,0 +1,14 @@
+{
+  "mapId": 571,
+  "name": "Northrend",
+  "mode": "minimap",
+  "tileSize": 256,
+  "tileScale": 533.333333333,
+  "minimap": {
+    "tilePath": "tiles/map{i}_{j}.png",
+    "iMin": 11,
+    "iMax": 49,
+    "jMin": 9,
+    "jMax": 37
+  }
+}
