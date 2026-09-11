@@ -209,9 +209,10 @@ export function MyBotsPage() {
 
   const loadQuests = async (name: string) => {
     try {
+      const key = encodeURIComponent(name)
       const [log, avail] = await Promise.all([
-        api<{ items: QuestItem[] }>(`/api/v1/characters/${encodeURIComponent(name)}/questlog`),
-        api<{ items: QuestItem[] }>(`/api/v1/characters/${encodeURIComponent(name)}/quests/available?limit=80`),
+        api<{ items: QuestItem[]; source?: string }>(`/api/v1/characters/${key}/questlog`),
+        api<{ items: QuestItem[]; source?: string; note?: string }>(`/api/v1/characters/${key}/quests/available?limit=80`),
       ])
       setQuestLog(log.items ?? [])
       setQuestAvail(avail.items ?? [])
@@ -225,6 +226,7 @@ export function MyBotsPage() {
   const refreshCharRelated = async (id = activeChar) => {
     if (!id) return
     await Promise.all([loadCharacter(id), loadJobs(id), loadEvents(id)])
+    await loadQuests(id)
   }
 
   useEffect(() => {

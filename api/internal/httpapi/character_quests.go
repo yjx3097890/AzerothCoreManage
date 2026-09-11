@@ -3,13 +3,16 @@ package httpapi
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"acmanage/internal/app"
 	"acmanage/internal/i18n"
+	"acmanage/internal/mybots"
 
 	"github.com/gin-gonic/gin"
 )
@@ -107,12 +110,79 @@ SELECT quest, id FROM creature_questender WHERE quest IN (`+in+`) ORDER BY id`, 
 	return starters, enders
 }
 
+func (s *Server) tryLiveMyBotsQuests(c *gin.Context, charID, pathSuffix string) (payload map[string]any, used bool) {
+	rt, err := s.app.Target(TargetID(c))
+	if err != nil {
+		return nil, false
+	}
+	mb := rt.Cfg.MyBots
+	if !mb.Configured() {
+		return nil, false
+	}
+	client := mybots.New(mb.Host, mb.Port, mb.Token, 8*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	path := "/v1/characters/" + mybots.EscapePath(charID) + "/" + pathSuffix
+	res, err := client.Do(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, false
+	}
+	if res.Status < 200 || res.Status >= 300 {
+		return nil, false
+	}
+	var out map[string]any
+	if err := json.Unmarshal(res.Body, &out); err != nil {
+		return nil, false
+	}
+	// Enrich titles from world DB locale when possible.
+	preferZH := i18n.FromRequest(c) != i18n.EN
+	if items, ok := out["items"].([]any); ok && len(items) > 0 {
+		idSet := map[uint32]struct{}{}
+		for _, it := range items {
+			m, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
+			if id, ok := asInt(m["questId"]); ok && id > 0 {
+				idSet[uint32(id)] = struct{}{}
+			}
+		}
+		names := loadQuestNames(c, rt, idSet, preferZH)
+		for _, it := range items {
+			m, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, ok := asInt(m["questId"])
+			if !ok {
+				continue
+			}
+			if title := names[uint32(id)]; title != "" {
+				m["title"] = title
+			}
+		}
+		out["items"] = items
+	}
+	out["character"] = charID
+	if _, ok := out["source"]; !ok {
+		out["source"] = "live"
+	}
+	_ = rt
+	return out, true
+}
+
 func (s *Server) characterQuestLog(c *gin.Context) {
+	name := c.Param("name")
+	if live, ok := s.tryLiveMyBotsQuests(c, name, "quests"); ok {
+		JSON(c, live)
+		return
+	}
+
 	rt, ok := s.requireTargetDB(c)
 	if !ok {
 		return
 	}
-	guid, charName, _, _, _, ok := s.resolveCharacterGuid(c, rt, c.Param("name"))
+	guid, charName, _, _, _, ok := s.resolveCharacterGuid(c, rt, name)
 	if !ok {
 		return
 	}
@@ -160,13 +230,14 @@ ORDER BY quest`, guid)
 			title = m.Title
 		}
 		item := gin.H{
-			"questId":     r.quest,
-			"title":       title,
-			"status":      r.status,
+			"questId":      r.quest,
+			"title":        title,
+			"status":       r.status,
 			"status_label": questStatusLabel(r.status),
-			"questLevel":  m.QuestLevel,
-			"minLevel":    m.MinLevel,
-			"completable": r.status == questStatusComplete,
+			"questLevel":   m.QuestLevel,
+			"minLevel":     m.MinLevel,
+			"completable":  r.status == questStatusComplete,
+			"source":       "db",
 		}
 		if e := starters[r.quest]; e > 0 {
 			item["giverEntry"] = e
@@ -176,7 +247,7 @@ ORDER BY quest`, guid)
 		}
 		items = append(items, item)
 	}
-	JSON(c, gin.H{"character": charName, "guid": guid, "items": items})
+	JSON(c, gin.H{"character": charName, "guid": guid, "source": "db", "note": "offline_or_unconfigured", "items": items})
 }
 
 type questMeta struct {
@@ -230,11 +301,17 @@ func classMask(class uint8) uint32 {
 }
 
 func (s *Server) characterQuestsAvailable(c *gin.Context) {
+	name := c.Param("name")
+	if live, ok := s.tryLiveMyBotsQuests(c, name, "quests/available"); ok {
+		JSON(c, live)
+		return
+	}
+
 	rt, ok := s.requireTargetDB(c)
 	if !ok {
 		return
 	}
-	guid, charName, level, race, class, ok := s.resolveCharacterGuid(c, rt, c.Param("name"))
+	guid, charName, level, race, class, ok := s.resolveCharacterGuid(c, rt, name)
 	if !ok {
 		return
 	}
@@ -370,6 +447,7 @@ LIMIT 500`, level, level, level, int(level))
 		"level":     level,
 		"race":      race,
 		"class":     class,
+		"source":    "db",
 		"note":      "heuristic",
 		"items":     items,
 	})

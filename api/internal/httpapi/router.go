@@ -198,6 +198,9 @@ func (s *Server) Router() *gin.Engine {
 		authed.DELETE("/mybots/characters/:id/jobs/:jobId", RequireRole(RoleGM), s.mybotsCancelJob)
 		authed.DELETE("/mybots/characters/:id/jobs", RequireRole(RoleGM), s.mybotsCancelActiveJobs)
 		authed.GET("/mybots/characters/:id/events", s.mybotsEvents)
+		authed.GET("/mybots/characters/:id/quests/available", s.mybotsQuestsAvailable)
+		authed.GET("/mybots/characters/:id/quests", s.mybotsQuestLog)
+		authed.GET("/mybots/characters/:id/questlog", s.mybotsQuestLog)
 		authed.GET("/mybots/patrols", s.mybotsListPatrols)
 		authed.POST("/mybots/patrols", RequireRole(RoleGM), s.mybotsUpsertPatrol)
 

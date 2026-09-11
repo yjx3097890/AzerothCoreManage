@@ -283,6 +283,24 @@ func (s *Server) mybotsEvents(c *gin.Context) {
 	s.proxyMyBots(c, http.MethodGet, "/v1/characters/"+mybots.EscapePath(id)+"/events", nil, "")
 }
 
+func (s *Server) mybotsQuestLog(c *gin.Context) {
+	id := c.Param("id")
+	if live, ok := s.tryLiveMyBotsQuests(c, id, "quests"); ok {
+		JSON(c, live)
+		return
+	}
+	s.proxyMyBots(c, http.MethodGet, "/v1/characters/"+mybots.EscapePath(id)+"/quests", nil, "")
+}
+
+func (s *Server) mybotsQuestsAvailable(c *gin.Context) {
+	id := c.Param("id")
+	if live, ok := s.tryLiveMyBotsQuests(c, id, "quests/available"); ok {
+		JSON(c, live)
+		return
+	}
+	s.proxyMyBots(c, http.MethodGet, "/v1/characters/"+mybots.EscapePath(id)+"/quests/available", nil, "")
+}
+
 func (s *Server) mybotsListPatrols(c *gin.Context) {
 	s.proxyMyBots(c, http.MethodGet, "/v1/patrols", nil, "")
 }
