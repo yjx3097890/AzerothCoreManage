@@ -588,7 +588,6 @@
     "telePlaceholder": "搜索传送点 / 地图中文名"
   },
   "events": {
-    "hint": "活动中的世界事件（名称优先使用中文客户端译名）。",
     "tabEvents": "世界事件",
     "tabDisables": "禁用项",
     "disablesHint": "对应世界库 disables 表：可禁用法术、任务、地图、战场、VMAP、户外 PvP 等，与世界事件无关。",

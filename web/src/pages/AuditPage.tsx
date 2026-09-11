@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
 import { DataTable, toast, type Column } from '../ui'
@@ -30,12 +31,71 @@ function summarizeAuditError(err: string, failLabel: string, soapUsageLabel: str
   return `${failLabel} · ${short}${s.length > 32 ? '…' : ''}`
 }
 
-function HoverCell({ full, children, className }: { full?: string; children: ReactNode; className?: string }) {
-  // Native title keeps long SOAP/USAGE text readable; DaisyUI data-tip truncates badly.
+/** Portal tooltip — survives DataTable overflow clipping. */
+function HoverTip({ text, children }: { text: string; children: ReactNode }) {
+  const tipId = useId()
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0, place: 'top' as 'top' | 'bottom' })
+
+  const updatePos = () => {
+    const el = anchorRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const place = r.top > 160 ? 'top' : 'bottom'
+    const left = Math.min(Math.max(12, r.left + r.width / 2), window.innerWidth - 12)
+    const top = place === 'top' ? r.top - 8 : r.bottom + 8
+    setPos({ top, left, place })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    updatePos()
+    const onScroll = () => updatePos()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [open])
+
   return (
-    <span className={`cursor-help ${className ?? ''}`} title={full || undefined}>
-      {children}
-    </span>
+    <>
+      <span
+        ref={anchorRef}
+        className="inline-flex max-w-full"
+        aria-describedby={open ? tipId : undefined}
+        onMouseEnter={() => {
+          updatePos()
+          setOpen(true)
+        }}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => {
+          updatePos()
+          setOpen(true)
+        }}
+        onBlur={() => setOpen(false)}
+      >
+        {children}
+      </span>
+      {open &&
+        createPortal(
+          <div
+            id={tipId}
+            role="tooltip"
+            className="fixed z-[200] pointer-events-none max-w-[min(28rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-box border border-base-300 bg-neutral text-neutral-content shadow-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: pos.place === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+            }}
+          >
+            {text}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 
@@ -61,11 +121,9 @@ export function AuditPage() {
         const full = row.detail?.trim() || ''
         const oneLine = full.replace(/\s+/g, ' ')
         const shown = oneLine.length > 48 ? `${oneLine.slice(0, 48)}…` : oneLine || '—'
-        return (
-          <HoverCell full={full || undefined} className="block max-w-[14rem]">
-            <span className="block truncate">{shown}</span>
-          </HoverCell>
-        )
+        const cell = <span className="block truncate max-w-[14rem]">{shown}</span>
+        if (full.length <= 48) return cell
+        return <HoverTip text={full}>{cell}</HoverTip>
       },
     },
     {
@@ -77,13 +135,13 @@ export function AuditPage() {
           return <span className="badge badge-success badge-sm">{t('common.success')}</span>
         }
         const full = (row.error || '').trim()
-        return (
-          <HoverCell full={full || undefined}>
-            <span className="badge badge-error badge-sm max-w-[11rem] truncate align-middle">
-              {summarizeAuditError(full, t('common.fail'), t('audit.errSoapUsage'))}
-            </span>
-          </HoverCell>
+        const badge = (
+          <span className="badge badge-error badge-sm max-w-[11rem] truncate align-middle">
+            {summarizeAuditError(full, t('common.fail'), t('audit.errSoapUsage'))}
+          </span>
         )
+        if (!full) return badge
+        return <HoverTip text={full}>{badge}</HoverTip>
       },
     },
   ]

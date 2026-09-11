@@ -220,10 +220,6 @@ export function EventsPage() {
             label: t('events.tabEvents'),
             children: (
               <div>
-                <div className="alert alert-info mb-4">
-                  <span>{t('events.hint')}</span>
-                </div>
-
                 <div className="mb-4">
                   <DataTable
                     rowKey="id"

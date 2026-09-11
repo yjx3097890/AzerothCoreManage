@@ -773,7 +773,6 @@
     "telePlaceholder": "Search teleport / map name"
   },
   "events": {
-    "hint": "Active world events from SOAP (names localized when available).",
     "tabEvents": "World events",
     "tabDisables": "Disables",
     "disablesHint": "World DB disables table: turn off spells, quests, maps, battlegrounds, VMaps, outdoor PvP, etc. Not the same as world events.",
