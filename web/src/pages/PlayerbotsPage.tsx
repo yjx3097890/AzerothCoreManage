@@ -8,7 +8,12 @@ import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 type Overview = {
   account_prefix: string
   rndbot_accounts: number
+  addclass_accounts?: number
+  altbot_links?: number
   online_bots: number
+  online_rndbot?: number
+  online_addclass?: number
+  account_type_ready?: boolean
   note_key?: string
   note?: string
 }
@@ -223,16 +228,36 @@ export function PlayerbotsPage() {
             children: (
               <div>
                 <PanelIntro>{t('playerbots.overviewHint')}</PanelIntro>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <StatCard
-                    title={t('playerbots.accounts')}
-                    desc={t('playerbots.accountsHint')}
+                    title={t('playerbots.rndbotAccounts')}
+                    desc={t('playerbots.rndbotAccountsHint')}
                     value={overview?.rndbot_accounts ?? '-'}
+                  />
+                  <StatCard
+                    title={t('playerbots.addclassAccounts')}
+                    desc={t('playerbots.addclassAccountsHint')}
+                    value={overview?.addclass_accounts ?? '-'}
+                  />
+                  <StatCard
+                    title={t('playerbots.altbotLinks')}
+                    desc={t('playerbots.altbotLinksHint')}
+                    value={overview?.altbot_links ?? '-'}
                   />
                   <StatCard
                     title={t('playerbots.online')}
                     desc={t('playerbots.onlineHint')}
-                    value={overview?.online_bots ?? '-'}
+                    value={
+                      overview == null
+                        ? '-'
+                        : overview.account_type_ready
+                          ? t('playerbots.onlineBreakdown', {
+                              total: overview.online_bots,
+                              rnd: overview.online_rndbot ?? 0,
+                              addclass: overview.online_addclass ?? 0,
+                            })
+                          : overview.online_bots
+                    }
                   />
                   <StatCard
                     title={t('playerbots.prefix')}
@@ -240,16 +265,6 @@ export function PlayerbotsPage() {
                     value={overview?.account_prefix ?? '-'}
                   />
                 </div>
-
-                {(overview?.note_key === 'prefix_stats_only' || overview?.note) && (
-                  <div className="alert alert-info mb-4">
-                    <span>
-                      {overview?.note_key === 'prefix_stats_only'
-                        ? t('playerbots.notePrefixStats')
-                        : overview?.note}
-                    </span>
-                  </div>
-                )}
 
                 <div className="flex flex-wrap items-center gap-2 mb-3">
                   <button type="button" className="btn btn-sm" onClick={() => void loadStats()}>

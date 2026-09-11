@@ -25,26 +25,83 @@ func (s *Server) playerbotsOverview(c *gin.Context) {
 	if prefix == "" {
 		prefix = "rndbot"
 	}
-	like := prefix + "%"
 	ctx := c.Request.Context()
-
-	var accountTotal int
-	_ = rt.DB.Auth.QueryRowContext(ctx, `SELECT COUNT(*) FROM account WHERE username LIKE ?`, like).Scan(&accountTotal)
-
 	authDB := quoteIdent(rt.Cfg.MySQL.AuthDB)
-	var onlineBots int
-	_ = rt.DB.Characters.QueryRowContext(ctx, `
+	botsDBName := quoteIdent(rt.Cfg.MySQL.PlayerbotsDB)
+
+	out := gin.H{
+		"account_prefix":     prefix,
+		"rndbot_accounts":    0,
+		"addclass_accounts":  0,
+		"altbot_links":       0,
+		"online_bots":        0,
+		"online_rndbot":      0,
+		"online_addclass":    0,
+		"account_type_ready": false,
+	}
+
+	if rt.DB.Playerbots == nil {
+		// Fallback: prefix heuristic when playerbots DB is down.
+		like := prefix + "%"
+		var accountTotal, onlineBots int
+		_ = rt.DB.Auth.QueryRowContext(ctx, `SELECT COUNT(*) FROM account WHERE username LIKE ?`, like).Scan(&accountTotal)
+		_ = rt.DB.Characters.QueryRowContext(ctx, `
 SELECT COUNT(*)
 FROM characters c
 JOIN `+authDB+`.account a ON a.id = c.account
 WHERE c.online = 1 AND a.username LIKE ?`, like).Scan(&onlineBots)
+		out["rndbot_accounts"] = accountTotal
+		out["online_bots"] = onlineBots
+		out["online_rndbot"] = onlineBots
+		JSON(c, out)
+		return
+	}
 
-	JSON(c, gin.H{
-		"account_prefix":  prefix,
-		"rndbot_accounts": accountTotal,
-		"online_bots":     onlineBots,
-		"note_key":        "prefix_stats_only",
-	})
+	rows, err := rt.DB.Playerbots.QueryContext(ctx, `
+SELECT account_type, COUNT(*) FROM playerbots_account_type
+WHERE account_type IN (1, 2)
+GROUP BY account_type`)
+	if err != nil {
+		Fail(c, http.StatusBadGateway, "mysql_error", err.Error())
+		return
+	}
+	defer rows.Close()
+	var rndAccounts, addClassAccounts int
+	for rows.Next() {
+		var typ, n int
+		if err := rows.Scan(&typ, &n); err != nil {
+			Fail(c, http.StatusInternalServerError, "mysql_error", err.Error())
+			return
+		}
+		switch typ {
+		case 1:
+			rndAccounts = n
+		case 2:
+			addClassAccounts = n
+		}
+	}
+
+	var altLinks int
+	_ = rt.DB.Playerbots.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM playerbots_account_links`).Scan(&altLinks)
+
+	var onlineRnd, onlineAdd int
+	_ = rt.DB.Characters.QueryRowContext(ctx, `
+SELECT
+  COALESCE(SUM(CASE WHEN t.account_type = 1 THEN 1 ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN t.account_type = 2 THEN 1 ELSE 0 END), 0)
+FROM characters c
+JOIN `+botsDBName+`.playerbots_account_type t ON t.account_id = c.account
+WHERE c.online = 1 AND t.account_type IN (1, 2)`).Scan(&onlineRnd, &onlineAdd)
+
+	out["rndbot_accounts"] = rndAccounts
+	out["addclass_accounts"] = addClassAccounts
+	out["altbot_links"] = altLinks
+	out["online_rndbot"] = onlineRnd
+	out["online_addclass"] = onlineAdd
+	out["online_bots"] = onlineRnd + onlineAdd
+	out["account_type_ready"] = true
+	JSON(c, out)
 }
 
 func (s *Server) playerbotsStats(c *gin.Context) {
