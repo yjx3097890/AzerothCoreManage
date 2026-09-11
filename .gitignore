@@ -14,3 +14,10 @@ coverage/
 /data/
 logs/
 api/logs/
+# Extracted WoW client map assets (user-copied); keep only examples / manifests in git
+web/public/maps/**/*.png
+web/public/maps/**/*.jpg
+web/public/maps/**/*.jpeg
+web/public/maps/**/*.webp
+web/public/maps/**/*.blp
+web/public/maps/**/tiles/

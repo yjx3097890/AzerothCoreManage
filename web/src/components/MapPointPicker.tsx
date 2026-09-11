@@ -1,0 +1,377 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+export type MapPoint = {
+  id: string
+  label: string
+  x: number
+  y: number
+  z: number
+  map: number
+}
+
+export type MapPick = {
+  x: number
+  y: number
+  z: number
+  label?: string
+  source: 'tile' | 'overview' | 'tele'
+}
+
+type Manifest = {
+  mapId: number
+  name?: string
+  mode: 'minimap' | 'overview'
+  tileSize?: number
+  tileScale?: number
+  overview?: {
+    image: string
+    minX: number
+    maxX: number
+    minY: number
+    maxY: number
+  }
+  minimap?: {
+    tilePath: string
+    iMin?: number
+    iMax?: number
+    jMin?: number
+    jMax?: number
+  }
+}
+
+type Props = {
+  mapId: number
+  player?: { x: number; y: number; z: number } | null
+  points: MapPoint[]
+  onPick: (pick: MapPick) => void
+  className?: string
+}
+
+const DEFAULT_TILE_SCALE = 533.333333333
+const DEFAULT_TILE_SIZE = 256
+
+function worldToTile(x: number, y: number, scale: number) {
+  // 3.3.5 minimap naming: map{i}_{j}.blp
+  const i = 32 - Math.ceil(y / scale)
+  const j = 32 - Math.ceil(x / scale)
+  return { i, j }
+}
+
+function tilePixelToWorld(
+  i: number,
+  j: number,
+  localX: number,
+  localY: number,
+  tileSize: number,
+  scale: number,
+) {
+  // Inverse of worldToTile using pixel offset within the tile.
+  const fracJ = localX / tileSize
+  const fracI = localY / tileSize
+  const x = (32 - j - fracJ) * scale
+  const y = (32 - i - fracI) * scale
+  return { x, y }
+}
+
+async function loadManifest(mapId: number): Promise<Manifest | null> {
+  try {
+    const res = await fetch(`/maps/${mapId}/manifest.json`, { cache: 'no-cache' })
+    if (!res.ok) return null
+    const data = (await res.json()) as Manifest
+    if (!data || (data.mode !== 'minimap' && data.mode !== 'overview')) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+export function MapPointPicker({ mapId, player, points, onPick, className }: Props) {
+  const { t } = useTranslation()
+  const [manifest, setManifest] = useState<Manifest | null>(null)
+  const [checked, setChecked] = useState(false)
+  const [hover, setHover] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setChecked(false)
+    setManifest(null)
+    void loadManifest(mapId).then((m) => {
+      if (cancelled) return
+      setManifest(m)
+      setChecked(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [mapId])
+
+  const mode = !checked ? 'loading' : manifest ? manifest.mode : 'scatter'
+
+  // --- Scatter (tele points) fallback ---
+  const scatter = useMemo(() => {
+    const xs = points.map((p) => p.x)
+    const ys = points.map((p) => p.y)
+    if (player) {
+      xs.push(player.x)
+      ys.push(player.y)
+    }
+    if (!xs.length) {
+      return { minX: -100, maxX: 100, minY: -100, maxY: 100 }
+    }
+    const pad = 80
+    let minX = Math.min(...xs) - pad
+    let maxX = Math.max(...xs) + pad
+    let minY = Math.min(...ys) - pad
+    let maxY = Math.max(...ys) + pad
+    if (maxX - minX < 200) {
+      const mid = (maxX + minX) / 2
+      minX = mid - 100
+      maxX = mid + 100
+    }
+    if (maxY - minY < 200) {
+      const mid = (maxY + minY) / 2
+      minY = mid - 100
+      maxY = mid + 100
+    }
+    return { minX, maxX, minY, maxY }
+  }, [points, player])
+
+  const projectScatter = useCallback(
+    (x: number, y: number, w: number, h: number) => {
+      const { minX, maxX, minY, maxY } = scatter
+      const px = ((x - minX) / (maxX - minX)) * w
+      // WoW Y often drawn with north-up; flip so larger Y is higher on screen when it matches map feel
+      const py = (1 - (y - minY) / (maxY - minY)) * h
+      return { px, py }
+    },
+    [scatter],
+  )
+
+  // --- Overview mode ---
+  const overviewUrl = manifest?.mode === 'overview' && manifest.overview
+    ? `/maps/${mapId}/${manifest.overview.image}`
+    : null
+
+  const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!manifest?.overview) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const u = (e.clientX - rect.left) / rect.width
+    const v = (e.clientY - rect.top) / rect.height
+    const { minX, maxX, minY, maxY } = manifest.overview
+    const x = minX + u * (maxX - minX)
+    const y = maxY - v * (maxY - minY)
+    onPick({
+      x,
+      y,
+      z: player?.z ?? 0,
+      source: 'overview',
+      label: t('mybots.mapPickOverview'),
+    })
+  }
+
+  // --- Minimap tiles ---
+  const tileScale = manifest?.tileScale ?? DEFAULT_TILE_SCALE
+  const tileSize = manifest?.tileSize ?? DEFAULT_TILE_SIZE
+  const center = player ?? (points[0] ? { x: points[0].x, y: points[0].y, z: points[0].z } : { x: 0, y: 0, z: 0 })
+  const centerTile = worldToTile(center.x, center.y, tileScale)
+  const radius = 2 // 5x5 tiles
+
+  const tiles = useMemo(() => {
+    if (manifest?.mode !== 'minimap' || !manifest.minimap) return []
+    const pathTpl = manifest.minimap.tilePath || 'tiles/map{i}_{j}.png'
+    const iMin = manifest.minimap.iMin ?? 0
+    const iMax = manifest.minimap.iMax ?? 63
+    const jMin = manifest.minimap.jMin ?? 0
+    const jMax = manifest.minimap.jMax ?? 63
+    const out: { i: number; j: number; url: string }[] = []
+    for (let i = centerTile.i - radius; i <= centerTile.i + radius; i++) {
+      for (let j = centerTile.j - radius; j <= centerTile.j + radius; j++) {
+        if (i < iMin || i > iMax || j < jMin || j > jMax) continue
+        const url = `/maps/${mapId}/${pathTpl.replace('{i}', String(i)).replace('{j}', String(j))}`
+        out.push({ i, j, url })
+      }
+    }
+    return out
+  }, [manifest, mapId, centerTile.i, centerTile.j])
+
+  const gridSize = (radius * 2 + 1) * tileSize
+
+  const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const localX = ((e.clientX - rect.left) / rect.width) * gridSize
+    const localY = ((e.clientY - rect.top) / rect.height) * gridSize
+    const originI = centerTile.i - radius
+    const originJ = centerTile.j - radius
+    const j = originJ + Math.floor(localX / tileSize)
+    const i = originI + Math.floor(localY / tileSize)
+    const lx = localX - (j - originJ) * tileSize
+    const ly = localY - (i - originI) * tileSize
+    const { x, y } = tilePixelToWorld(i, j, lx, ly, tileSize, tileScale)
+    onPick({
+      x,
+      y,
+      z: player?.z ?? 0,
+      source: 'tile',
+      label: t('mybots.mapPickTile', { i, j }),
+    })
+  }
+
+  // player marker position in minimap grid
+  const playerMarker = useMemo(() => {
+    if (!player || mode !== 'minimap') return null
+    const originI = centerTile.i - radius
+    const originJ = centerTile.j - radius
+    // world -> offset in grid
+    // From tilePixelToWorld inverse:
+    // x = (32 - j - fracJ) * scale => fracJ = 32 - j - x/scale
+    const jFloat = 32 - player.x / tileScale
+    const iFloat = 32 - player.y / tileScale
+    const px = (jFloat - originJ) * tileSize
+    const py = (iFloat - originI) * tileSize
+    return { px, py }
+  }, [player, mode, centerTile.i, centerTile.j, tileScale, tileSize])
+
+  return (
+    <div className={className}>
+      <div className="text-xs text-base-content/55 mb-2">
+        {mode === 'loading' && t('mybots.mapLoading')}
+        {mode === 'scatter' && t('mybots.mapModeScatter')}
+        {mode === 'minimap' && t('mybots.mapModeTiles', { name: manifest?.name || mapId })}
+        {mode === 'overview' && t('mybots.mapModeOverview', { name: manifest?.name || mapId })}
+      </div>
+
+      {mode === 'scatter' && (
+        <div
+          ref={wrapRef}
+          className="relative w-full h-[360px] rounded-lg border border-base-300 bg-base-200 overflow-hidden"
+        >
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 360" preserveAspectRatio="none">
+            {points.map((p) => {
+              const { px, py } = projectScatter(p.x, p.y, 800, 360)
+              return (
+                <g key={p.id}>
+                  <circle
+                    cx={px}
+                    cy={py}
+                    r={hover === p.id ? 8 : 6}
+                    className="fill-primary cursor-pointer"
+                    onMouseEnter={() => setHover(p.id)}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={() =>
+                      onPick({ x: p.x, y: p.y, z: p.z, label: p.label, source: 'tele' })
+                    }
+                  />
+                  {(hover === p.id || points.length <= 24) && (
+                    <text x={px + 10} y={py + 4} className="fill-base-content text-[10px]">
+                      {p.label}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+            {player && (() => {
+              const { px, py } = projectScatter(player.x, player.y, 800, 360)
+              return (
+                <g>
+                  <circle cx={px} cy={py} r={9} className="fill-success stroke-base-100" strokeWidth={2} />
+                  <text x={px + 12} y={py + 4} className="fill-success text-[11px] font-semibold">
+                    {t('mybots.youAreHere')}
+                  </text>
+                </g>
+              )
+            })()}
+          </svg>
+          {!points.length && !player && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-base-content/50">
+              {t('mybots.mapNoPoints')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode === 'overview' && overviewUrl && (
+        <div
+          className="relative w-full h-[420px] rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
+          onClick={handleOverviewClick}
+        >
+          <img src={overviewUrl} alt="" className="absolute inset-0 w-full h-full object-contain" draggable={false} />
+          {player && manifest?.overview && (
+            <div
+              className="absolute w-3 h-3 rounded-full bg-success border-2 border-base-100 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              style={{
+                left: `${((player.x - manifest.overview.minX) / (manifest.overview.maxX - manifest.overview.minX)) * 100}%`,
+                top: `${(1 - (player.y - manifest.overview.minY) / (manifest.overview.maxY - manifest.overview.minY)) * 100}%`,
+              }}
+              title={t('mybots.youAreHere')}
+            />
+          )}
+        </div>
+      )}
+
+      {mode === 'minimap' && (
+        <div
+          className="relative rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair mx-auto"
+          style={{ width: 'min(100%, 520px)', aspectRatio: '1 / 1' }}
+          onClick={handleMinimapClick}
+        >
+          <div
+            className="absolute inset-0 grid"
+            style={{
+              gridTemplateColumns: `repeat(${radius * 2 + 1}, 1fr)`,
+              gridTemplateRows: `repeat(${radius * 2 + 1}, 1fr)`,
+            }}
+          >
+            {tiles.map((tile) => (
+              <img
+                key={`${tile.i}_${tile.j}`}
+                src={tile.url}
+                alt=""
+                className="w-full h-full object-cover bg-neutral-content/10"
+                draggable={false}
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).style.opacity = '0.15'
+                }}
+              />
+            ))}
+          </div>
+          {playerMarker && (
+            <div
+              className="absolute w-3 h-3 rounded-full bg-success border-2 border-base-100 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
+              style={{
+                left: `${(playerMarker.px / gridSize) * 100}%`,
+                top: `${(playerMarker.py / gridSize) * 100}%`,
+              }}
+            />
+          )}
+          {/* tele markers on minimap */}
+          {points.map((p) => {
+            const originI = centerTile.i - radius
+            const originJ = centerTile.j - radius
+            const jFloat = 32 - p.x / tileScale
+            const iFloat = 32 - p.y / tileScale
+            const left = ((jFloat - originJ) * tileSize) / gridSize * 100
+            const top = ((iFloat - originI) * tileSize) / gridSize * 100
+            if (left < 0 || left > 100 || top < 0 || top > 100) return null
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className="absolute w-2.5 h-2.5 rounded-full bg-primary border border-base-100 -translate-x-1/2 -translate-y-1/2 z-10"
+                style={{ left: `${left}%`, top: `${top}%` }}
+                title={p.label}
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  onPick({ x: p.x, y: p.y, z: p.z, label: p.label, source: 'tele' })
+                }}
+              />
+            )
+          })}
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
+    </div>
+  )
+}

@@ -269,13 +269,19 @@ func (s *Server) listTeleLocations(c *gin.Context) {
 		return
 	}
 	q := strings.TrimSpace(c.Query("q"))
+	mapFilter := -1
+	if raw := strings.TrimSpace(c.Query("map")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v >= 0 {
+			mapFilter = v
+		}
+	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
 	fetchLimit := limit
-	if q != "" {
-		fetchLimit = 2000
+	if q != "" || mapFilter >= 0 {
+		fetchLimit = 5000
 	}
 	rows, err := rt.DB.World.QueryContext(c.Request.Context(), `
 SELECT id, name, map, position_x, position_y, position_z, orientation
@@ -298,6 +304,9 @@ LIMIT ?`, fetchLimit)
 		if err := rows.Scan(&id, &name, &mapID, &x, &y, &z, &o); err != nil {
 			Fail(c, http.StatusInternalServerError, "mysql_error", err.Error())
 			return
+		}
+		if mapFilter >= 0 && int(mapID) != mapFilter {
+			continue
 		}
 		mapName := gamelocale.MapName(int(mapID), loc)
 		if q != "" {

@@ -112,6 +112,8 @@ func (s *Server) Router() *gin.Engine {
 		authed.GET("/characters/:name/inventory", s.characterInventory)
 		authed.GET("/characters/:name/extras", s.characterExtras)
 		authed.GET("/characters/:name/titles", s.characterTitles)
+		authed.GET("/characters/:name/questlog", s.characterQuestLog)
+		authed.GET("/characters/:name/quests/available", s.characterQuestsAvailable)
 		authed.DELETE("/characters/:name/pets/:petId", RequireRole(RoleGM), s.characterDeletePet)
 		authed.POST("/characters/:name/money", RequireRole(RoleGM), s.characterMoney)
 		authed.POST("/characters/:name/items", RequireRole(RoleGM), s.characterItems)
@@ -126,6 +128,7 @@ func (s *Server) Router() *gin.Engine {
 		authed.GET("/catalog/maps", s.catalogMaps)
 		authed.GET("/catalog/areas", s.catalogAreas)
 		authed.GET("/catalog/events", s.catalogEvents)
+		authed.GET("/catalog/creatures", s.catalogCreatures)
 
 		authed.GET("/moderation/bans", s.listBans)
 		authed.POST("/moderation/ban", RequireRole(RoleGM), s.moderationBan)

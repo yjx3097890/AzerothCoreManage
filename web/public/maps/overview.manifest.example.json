@@ -1,0 +1,12 @@
+{
+  "mapId": 0,
+  "name": "Eastern Kingdoms (overview example)",
+  "mode": "overview",
+  "overview": {
+    "image": "overview.png",
+    "minX": -17066.666,
+    "maxX": 17066.666,
+    "minY": -17066.666,
+    "maxY": 17066.666
+  }
+}

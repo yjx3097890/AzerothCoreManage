@@ -140,3 +140,82 @@ func (s *Server) catalogEvents(c *gin.Context) {
 	}
 	JSON(c, gin.H{"items": items})
 }
+
+func (s *Server) catalogCreatures(c *gin.Context) {
+	rt, ok := s.requireTargetDB(c)
+	if !ok {
+		return
+	}
+	q := strings.TrimSpace(c.Query("q"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "80"))
+	if limit <= 0 || limit > 300 {
+		limit = 80
+	}
+	if q == "" {
+		JSON(c, gin.H{"items": []gin.H{}, "hint": "search_required"})
+		return
+	}
+	loc := i18n.FromRequest(c)
+	preferZH := loc != i18n.EN
+	ctx := c.Request.Context()
+
+	base := `
+SELECT ct.entry, ct.name,
+       COALESCE(NULLIF(l.Name,''), ct.name) AS name_zh
+FROM creature_template ct
+LEFT JOIN creature_template_locale l ON l.entry = ct.entry AND l.locale = 'zhCN'`
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if id, errAtoi := strconv.Atoi(q); errAtoi == nil {
+		like := "%" + q + "%"
+		prefix := q + "%"
+		rows, err = rt.DB.World.QueryContext(ctx, base+`
+WHERE ct.entry = ? OR CAST(ct.entry AS CHAR) LIKE ? OR ct.name LIKE ? OR l.Name LIKE ?
+ORDER BY
+  (ct.entry = ?) DESC,
+  (CAST(ct.entry AS CHAR) LIKE ?) DESC,
+  (ct.name LIKE ? OR l.Name LIKE ?) DESC,
+  ct.entry
+LIMIT ?`, id, like, like, like, id, prefix, prefix, prefix, limit)
+	} else {
+		like := "%" + q + "%"
+		prefix := q + "%"
+		rows, err = rt.DB.World.QueryContext(ctx, base+`
+WHERE ct.name LIKE ? OR l.Name LIKE ? OR CAST(ct.entry AS CHAR) LIKE ?
+ORDER BY
+  (ct.name LIKE ? OR l.Name LIKE ?) DESC,
+  (ct.name LIKE ? OR l.Name LIKE ?) DESC,
+  ct.entry
+LIMIT ?`, like, like, like, q, q, prefix, prefix, limit)
+	}
+	if err != nil {
+		Fail(c, http.StatusBadGateway, "mysql_error", err.Error())
+		return
+	}
+	defer rows.Close()
+
+	items := []gin.H{}
+	for rows.Next() {
+		var entry uint32
+		var nameEN, nameZH string
+		if err := rows.Scan(&entry, &nameEN, &nameZH); err != nil {
+			Fail(c, http.StatusInternalServerError, "mysql_error", err.Error())
+			return
+		}
+		display := nameEN
+		if preferZH && nameZH != "" {
+			display = nameZH
+		}
+		items = append(items, gin.H{
+			"id":      entry,
+			"entry":   entry,
+			"name":    display,
+			"name_en": nameEN,
+			"name_zh": nameZH,
+		})
+	}
+	JSON(c, gin.H{"items": items})
+}

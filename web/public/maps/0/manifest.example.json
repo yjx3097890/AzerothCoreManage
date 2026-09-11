@@ -1,0 +1,14 @@
+{
+  "mapId": 0,
+  "name": "Eastern Kingdoms",
+  "mode": "minimap",
+  "tileSize": 256,
+  "tileScale": 533.333333333,
+  "minimap": {
+    "tilePath": "tiles/map{i}_{j}.png",
+    "iMin": 0,
+    "iMax": 63,
+    "jMin": 0,
+    "jMax": 63
+  }
+}

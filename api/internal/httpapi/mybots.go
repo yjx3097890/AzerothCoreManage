@@ -10,6 +10,8 @@ import (
 
 	"acmanage/internal/app"
 	"acmanage/internal/audit"
+	"acmanage/internal/gamelocale"
+	"acmanage/internal/i18n"
 	"acmanage/internal/mybots"
 
 	"github.com/gin-gonic/gin"
@@ -166,8 +168,57 @@ func (s *Server) mybotsHealth(c *gin.Context) {
 }
 
 func (s *Server) mybotsGetCharacter(c *gin.Context) {
+	rt, client, ok := s.mybotsClient(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
-	s.proxyMyBots(c, http.MethodGet, "/v1/characters/"+mybots.EscapePath(id), nil, "")
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	res, err := client.Do(ctx, http.MethodGet, "/v1/characters/"+mybots.EscapePath(id), nil)
+	if err != nil {
+		Fail(c, http.StatusBadGateway, "mybots_unreachable", err.Error())
+		return
+	}
+	if res.Status < 200 || res.Status >= 300 {
+		s.finishMyBotsProxy(c, rt, res, "", "/v1/characters/"+id)
+		return
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(res.Body, &payload); err != nil {
+		s.finishMyBotsProxy(c, rt, res, "", "/v1/characters/"+id)
+		return
+	}
+	loc := i18n.FromRequest(c)
+	if v, ok := asInt(payload["map"]); ok {
+		payload["map_name"] = gamelocale.MapName(v, loc)
+	}
+	if v, ok := asInt(payload["zone"]); ok {
+		payload["zone_name"] = gamelocale.AreaName(v, loc)
+	}
+	if v, ok := asInt(payload["class"]); ok {
+		payload["class_name"] = gamelocale.ClassName(v, loc)
+	}
+	_ = rt
+	JSON(c, payload)
+}
+
+func asInt(v any) (int, bool) {
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case json.Number:
+		i, err := n.Int64()
+		return int(i), err == nil
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case uint32:
+		return int(n), true
+	default:
+		return 0, false
+	}
 }
 
 func (s *Server) mybotsSelfbot(c *gin.Context) {
