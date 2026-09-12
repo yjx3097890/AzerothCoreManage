@@ -432,6 +432,10 @@
         "title": "账号与装备",
         "hint": "机器人账号前缀/数量，以及自动装等品质上限。"
       },
+      "loot": {
+        "title": "拾取与交易",
+        "hint": "队伍掷骰、拾取距离、掉落自动装载，以及随机机器人与玩家交易。细粒度「只捡有用」没有独立 conf，需游戏内对机器人说 ll normal / ll quest / ll skill；卖垃圾用 s * 或装 Mod Junk To Gold。"
+      },
       "battleground": {
         "title": "战场",
         "hint": "是否允许进战场、是否自动排队，以及各战场等级段与场次数。「允许进战场/竞技场」与「自动排队」也会影响竞技场。"
@@ -489,6 +493,54 @@
       "periodicOnlineOfflineRatio": {
         "label": "上下线池比例",
         "desc": "总机器人池 / 同时在线数（MaxRandomBots）的比值，须大于 1.0；例如 2.0 表示总池是在线上限的两倍。仅在开启「周期性上下线」时生效。"
+      },
+      "freeMethodLoot": {
+        "label": "自由拾取继续捡",
+        "desc": "队伍设为自由拾取时，机器人是否继续自动捡尸体。"
+      },
+      "lootNeedRoll": {
+        "label": "需求物品掷骰",
+        "desc": "机器人对「需要」物品的掷骰：放弃 / 贪婪 / 需求。"
+      },
+      "lootGreedRoll": {
+        "label": "允许贪婪掷骰",
+        "desc": "关闭后机器人对非需求物品一律放弃，不会点贪婪。"
+      },
+      "lootRollRecipe": {
+        "label": "配方参与掷骰",
+        "desc": "可学专业配方会点需求；学不会的 BoE 配方在开启贪婪时点贪婪。"
+      },
+      "lootRollDisenchant": {
+        "label": "分解掷骰",
+        "desc": "附魔专业机器人可对能分解的装备点分解，而不是贪婪。"
+      },
+      "lootDistance": {
+        "label": "拾取距离（码）",
+        "desc": "机器人会去捡尸体/掉落的最大距离。"
+      },
+      "lootDelay": {
+        "label": "拾取延迟（毫秒）",
+        "desc": "两次拾取动作之间的间隔，过小可能增加服务器负担。"
+      },
+      "autoEquipUpgradeLoot": {
+        "label": "掉落自动换装",
+        "desc": "小号机器人背包里有足够好的升级装时自动装备。"
+      },
+      "equipUpgradeThreshold": {
+        "label": "换装分阈值",
+        "desc": "新装备评分需达到当前装备的多少倍才自动换（默认 1.1）。"
+      },
+      "randomBotTrading": {
+        "label": "随机机器人交易",
+        "desc": "与玩家交易窗口：关闭 / 买卖都开 / 只买 / 只卖。不是自动把灰色垃圾卖给 NPC。"
+      },
+      "rndNonCombatStrategies": {
+        "label": "随机机器人非战斗策略",
+        "desc": "追加/去掉全局非战斗策略，例如 +loot 开启拾取、-loot 关闭。改完通常需机器人重登或刷新策略。"
+      },
+      "altNonCombatStrategies": {
+        "label": "小号非战斗策略",
+        "desc": "同上，作用于跟随玩家的 Altbot。"
       },
       "joinBG": {
         "label": "允许进战场/竞技场",
@@ -591,6 +643,17 @@
       "3": "3 · 蓝色（精良）",
       "4": "4 · 紫色（史诗）",
       "5": "5 · 橙色（传奇）"
+    },
+    "tradeModeOptions": {
+      "0": "0 · 关闭",
+      "1": "1 · 买卖都开",
+      "2": "2 · 只买",
+      "3": "3 · 只卖"
+    },
+    "rollLevelOptions": {
+      "0": "0 · 放弃",
+      "1": "1 · 贪婪",
+      "2": "2 · 需求"
     },
     "actionConfirm": "确认执行随机机器人操作：{{action}}？",
     "rndbotTitle": "随机机器人 · {{action}}",

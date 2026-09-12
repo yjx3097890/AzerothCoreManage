@@ -35,8 +35,8 @@ type BotRow = {
 
 type BotGuild = { id: number; name: string; bot_members: number }
 
-type ConfigControl = 'text' | 'toggle' | 'gearQuality'
-type ConfigSection = 'login' | 'population' | 'accounts' | 'battleground' | 'arena'
+type ConfigControl = 'text' | 'toggle' | 'gearQuality' | 'tradeMode' | 'rollLevel'
+type ConfigSection = 'login' | 'population' | 'accounts' | 'loot' | 'battleground' | 'arena'
 
 const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: ConfigSection }[] = [
   // 登录
@@ -54,6 +54,19 @@ const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: 
   { key: 'AiPlayerbot.RandomBotAccountPrefix', id: 'accountPrefix', control: 'text', section: 'accounts' },
   { key: 'AiPlayerbot.RandomBotAccountCount', id: 'accountCount', control: 'text', section: 'accounts' },
   { key: 'AiPlayerbot.AutoGearQualityLimit', id: 'gearQuality', control: 'gearQuality', section: 'accounts' },
+  // 拾取与交易
+  { key: 'AiPlayerbot.FreeMethodLoot', id: 'freeMethodLoot', control: 'toggle', section: 'loot' },
+  { key: 'AiPlayerbot.LootNeedRollLevel', id: 'lootNeedRoll', control: 'rollLevel', section: 'loot' },
+  { key: 'AiPlayerbot.LootGreedRollLevel', id: 'lootGreedRoll', control: 'toggle', section: 'loot' },
+  { key: 'AiPlayerbot.LootRollRecipe', id: 'lootRollRecipe', control: 'toggle', section: 'loot' },
+  { key: 'AiPlayerbot.LootRollDisenchant', id: 'lootRollDisenchant', control: 'toggle', section: 'loot' },
+  { key: 'AiPlayerbot.LootDistance', id: 'lootDistance', control: 'text', section: 'loot' },
+  { key: 'AiPlayerbot.LootDelay', id: 'lootDelay', control: 'text', section: 'loot' },
+  { key: 'AiPlayerbot.AutoEquipUpgradeLoot', id: 'autoEquipUpgradeLoot', control: 'toggle', section: 'loot' },
+  { key: 'AiPlayerbot.EquipUpgradeThreshold', id: 'equipUpgradeThreshold', control: 'text', section: 'loot' },
+  { key: 'AiPlayerbot.EnableRandomBotTrading', id: 'randomBotTrading', control: 'tradeMode', section: 'loot' },
+  { key: 'AiPlayerbot.RandomBotNonCombatStrategies', id: 'rndNonCombatStrategies', control: 'text', section: 'loot' },
+  { key: 'AiPlayerbot.NonCombatStrategies', id: 'altNonCombatStrategies', control: 'text', section: 'loot' },
   // 战场
   { key: 'AiPlayerbot.RandomBotJoinBG', id: 'joinBG', control: 'toggle', section: 'battleground' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBG', id: 'autoJoinBG', control: 'toggle', section: 'battleground' },
@@ -81,7 +94,7 @@ const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: 
   { key: 'AiPlayerbot.DeleteRandomBotArenaTeams', id: 'deleteArenaTeams', control: 'toggle', section: 'arena' },
 ]
 
-const CONFIG_SECTIONS: ConfigSection[] = ['login', 'population', 'accounts', 'battleground', 'arena']
+const CONFIG_SECTIONS: ConfigSection[] = ['login', 'population', 'accounts', 'loot', 'battleground', 'arena']
 
 function StatCard({ title, desc, value }: { title: string; desc: string; value: string | number }) {
   return (
@@ -223,6 +236,14 @@ export function PlayerbotsPage() {
     value: v,
     label: t(`playerbots.gearQualityOptions.${v}`),
   }))
+  const tradeModeOptions = (['0', '1', '2', '3'] as const).map((v) => ({
+    value: v,
+    label: t(`playerbots.tradeModeOptions.${v}`),
+  }))
+  const rollLevelOptions = (['0', '1', '2'] as const).map((v) => ({
+    value: v,
+    label: t(`playerbots.rollLevelOptions.${v}`),
+  }))
   const toggleOptions = [
     { value: '1', label: t('playerbots.configOn') },
     { value: '0', label: t('playerbots.configOff') },
@@ -230,8 +251,14 @@ export function PlayerbotsPage() {
   const formatConfigValue = (item: (typeof CONFIG_ITEMS)[number], raw?: string) => {
     if (raw == null || raw === '') return '-'
     if (item.control === 'toggle') return raw === '1' ? t('playerbots.configOn') : t('playerbots.configOff')
-    if (item.control === 'gearQuality') {
-      const key = `playerbots.gearQualityOptions.${raw}`
+    if (item.control === 'gearQuality' || item.control === 'tradeMode' || item.control === 'rollLevel') {
+      const ns =
+        item.control === 'gearQuality'
+          ? 'gearQualityOptions'
+          : item.control === 'tradeMode'
+            ? 'tradeModeOptions'
+            : 'rollLevelOptions'
+      const key = `playerbots.${ns}.${raw}`
       const label = t(key)
       return label === key ? raw : label
     }
@@ -605,6 +632,21 @@ export function PlayerbotsPage() {
                           updates[item.key] = ['1', '2', '3', '4', '5'].includes(v) ? v : '3'
                           continue
                         }
+                        if (item.control === 'tradeMode') {
+                          const v = String(raw ?? '').trim()
+                          updates[item.key] = ['0', '1', '2', '3'].includes(v) ? v : '1'
+                          continue
+                        }
+                        if (item.control === 'rollLevel') {
+                          const v = String(raw ?? '').trim()
+                          updates[item.key] = ['0', '1', '2'].includes(v) ? v : '1'
+                          continue
+                        }
+                        // Allow empty string for strategy overrides (means "no extra strategies").
+                        if (item.control === 'text' && (item.id === 'rndNonCombatStrategies' || item.id === 'altNonCombatStrategies')) {
+                          updates[item.key] = String(raw ?? '').trim()
+                          continue
+                        }
                         if (raw != null && String(raw).trim() !== '') {
                           updates[item.key] = String(raw).trim()
                         }
@@ -657,6 +699,24 @@ export function PlayerbotsPage() {
                                   setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '3' }))
                                 }
                                 options={gearQualityOptions}
+                              />
+                            ) : item.control === 'tradeMode' ? (
+                              <Select
+                                className="w-full"
+                                value={configValues[item.key] || '1'}
+                                onChange={(v) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '1' }))
+                                }
+                                options={tradeModeOptions}
+                              />
+                            ) : item.control === 'rollLevel' ? (
+                              <Select
+                                className="w-full"
+                                value={configValues[item.key] || '1'}
+                                onChange={(v) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '1' }))
+                                }
+                                options={rollLevelOptions}
                               />
                             ) : (
                               <input

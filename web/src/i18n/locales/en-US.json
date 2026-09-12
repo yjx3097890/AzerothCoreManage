@@ -432,6 +432,10 @@
         "title": "Accounts & gear",
         "hint": "Bot account prefix/count and autogear quality cap."
       },
+      "loot": {
+        "title": "Loot & trading",
+        "hint": "Group rolls, loot range, auto-equip from drops, and bot↔player trading. Fine-grained “loot only useful” has no conf key—tell bots ll normal / ll quest / ll skill in-game; sell junk with s * or Mod Junk To Gold."
+      },
       "battleground": {
         "title": "Battlegrounds",
         "hint": "Allow BGs, auto-queue, brackets and counts per BG. Join/AutoJoin also affect arenas."
@@ -489,6 +493,54 @@
       "periodicOnlineOfflineRatio": {
         "label": "Online/offline pool ratio",
         "desc": "Total bot pool / online bots (MaxRandomBots). Must be > 1.0 (e.g. 2.0 = pool is twice the online cap). Only applies when periodic online/offline is on."
+      },
+      "freeMethodLoot": {
+        "label": "Keep looting on FFA",
+        "desc": "When loot is free-for-all, whether bots keep auto-looting corpses."
+      },
+      "lootNeedRoll": {
+        "label": "Need-item roll mode",
+        "desc": "How bots roll on items they Need: pass / greed / need."
+      },
+      "lootGreedRoll": {
+        "label": "Allow greed rolls",
+        "desc": "When off, bots pass instead of greeding on non-need items."
+      },
+      "lootRollRecipe": {
+        "label": "Roll on recipes",
+        "desc": "Need on learnable profession recipes; greed on unlearnable BoE if greed is enabled."
+      },
+      "lootRollDisenchant": {
+        "label": "Disenchant rolls",
+        "desc": "Enchanters can roll disenchant on disenchantable gear instead of greed."
+      },
+      "lootDistance": {
+        "label": "Loot distance (yards)",
+        "desc": "How far bots will go to loot corpses/drops."
+      },
+      "lootDelay": {
+        "label": "Loot delay (ms)",
+        "desc": "Delay between loot actions; very low values may increase server load."
+      },
+      "autoEquipUpgradeLoot": {
+        "label": "Auto-equip loot upgrades",
+        "desc": "Altbots automatically equip sufficient upgrades from inventory/loot."
+      },
+      "equipUpgradeThreshold": {
+        "label": "Equip upgrade threshold",
+        "desc": "New item score must be this multiple of the equipped item (default 1.1)."
+      },
+      "randomBotTrading": {
+        "label": "Random bot trading",
+        "desc": "Trade window with players: off / buy+sell / buy only / sell only. Not NPC vendor junk autosell."
+      },
+      "rndNonCombatStrategies": {
+        "label": "Random bot non-combat strategies",
+        "desc": "Add/remove global NC strategies, e.g. +loot / -loot. Usually needs bot re-login or strategy refresh."
+      },
+      "altNonCombatStrategies": {
+        "label": "Altbot non-combat strategies",
+        "desc": "Same as above for player-following altbots."
       },
       "joinBG": {
         "label": "Allow BG / arena",
@@ -591,6 +643,17 @@
       "3": "3 · Blue (Rare)",
       "4": "4 · Purple (Epic)",
       "5": "5 · Orange (Legendary)"
+    },
+    "tradeModeOptions": {
+      "0": "0 · Off",
+      "1": "1 · Buy & sell",
+      "2": "2 · Buy only",
+      "3": "3 · Sell only"
+    },
+    "rollLevelOptions": {
+      "0": "0 · Pass",
+      "1": "1 · Greed",
+      "2": "2 · Need"
     },
     "actionConfirm": "Run playerbot rndbot {{action}}?",
     "rndbotTitle": "rndbot {{action}}",
