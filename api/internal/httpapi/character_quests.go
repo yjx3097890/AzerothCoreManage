@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -16,6 +17,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type charQuestCtx struct {
+	GUID            uint32
+	Name            string
+	Level           uint8
+	Race            uint8
+	Class           uint8
+	MapID           uint16
+	X, Y, Z         float64
+	HasPosition     bool
+}
 
 // character_queststatus.status (QuestStatus)
 const (
@@ -38,34 +50,50 @@ func questStatusLabel(st uint8) string {
 }
 
 func (s *Server) resolveCharacterGuid(c *gin.Context, rt *app.TargetRuntime, nameOrGUID string) (guid uint32, name string, level, race, class uint8, ok bool) {
+	ch, ok := s.resolveCharacterQuestCtx(c, rt, nameOrGUID, true)
+	if !ok {
+		return 0, "", 0, 0, 0, false
+	}
+	return ch.GUID, ch.Name, ch.Level, ch.Race, ch.Class, true
+}
+
+func (s *Server) resolveCharacterQuestCtx(c *gin.Context, rt *app.TargetRuntime, nameOrGUID string, failHTTP bool) (ch charQuestCtx, ok bool) {
 	ctx := c.Request.Context()
 	nameOrGUID = strings.TrimSpace(nameOrGUID)
 	if nameOrGUID == "" {
-		FailCode(c, http.StatusBadRequest, "bad_request")
-		return 0, "", 0, 0, 0, false
+		if failHTTP {
+			FailCode(c, http.StatusBadRequest, "bad_request")
+		}
+		return ch, false
 	}
 	q := `
-SELECT guid, name, level, race, class
+SELECT guid, name, level, race, class, map, position_x, position_y, position_z
 FROM characters
 WHERE name = ?`
 	args := []any{nameOrGUID}
 	if id, err := strconv.ParseUint(nameOrGUID, 10, 32); err == nil {
 		q = `
-SELECT guid, name, level, race, class
+SELECT guid, name, level, race, class, map, position_x, position_y, position_z
 FROM characters
 WHERE guid = ? OR name = ?`
 		args = []any{uint32(id), nameOrGUID}
 	}
-	err := rt.DB.Characters.QueryRowContext(ctx, q, args...).Scan(&guid, &name, &level, &race, &class)
+	err := rt.DB.Characters.QueryRowContext(ctx, q, args...).Scan(
+		&ch.GUID, &ch.Name, &ch.Level, &ch.Race, &ch.Class, &ch.MapID, &ch.X, &ch.Y, &ch.Z)
 	if err == sql.ErrNoRows {
-		FailCode(c, http.StatusNotFound, "not_found")
-		return 0, "", 0, 0, 0, false
+		if failHTTP {
+			FailCode(c, http.StatusNotFound, "not_found")
+		}
+		return ch, false
 	}
 	if err != nil {
-		Fail(c, http.StatusBadGateway, "mysql_error", err.Error())
-		return 0, "", 0, 0, 0, false
+		if failHTTP {
+			Fail(c, http.StatusBadGateway, "mysql_error", err.Error())
+		}
+		return ch, false
 	}
-	return guid, name, level, race, class, true
+	ch.HasPosition = true
+	return ch, true
 }
 
 func loadQuestNPCEntries(ctx context.Context, world *sql.DB, questIDs []uint32) (starters, enders map[uint32]uint32) {
@@ -167,8 +195,64 @@ func (s *Server) tryLiveMyBotsQuests(c *gin.Context, charID, pathSuffix string) 
 	if _, ok := out["source"]; !ok {
 		out["source"] = "live"
 	}
-	_ = rt
+
+	// Online + empty/nearby lists hide map quests: fall back to DB by character map.
+	if pathSuffix == "quests/available" {
+		items, _ := out["items"].([]any)
+		src, _ := out["source"].(string)
+		needFill := len(items) == 0 || src == "nearby"
+		if !needFill && len(items) > 0 {
+			if m, ok := items[0].(map[string]any); ok {
+				if is, _ := m["source"].(string); is == "nearby" {
+					needFill = true
+				}
+			}
+		}
+		if needFill {
+			if filled := s.fillMapAvailableFromDB(c, rt, charID, out, preferZH); filled {
+				return out, true
+			}
+		}
+	}
+
 	return out, true
+}
+
+// fillMapAvailableFromDB replaces empty/nearby live available quests with map-scoped DB results.
+func (s *Server) fillMapAvailableFromDB(c *gin.Context, rt *app.TargetRuntime, charID string, out map[string]any, preferZH bool) bool {
+	ch, ok := s.resolveCharacterQuestCtx(c, rt, charID, false)
+	if !ok || !ch.HasPosition {
+		return false
+	}
+	// Prefer live map/xyz when present (more up to date than characters table).
+	if v, ok := asInt(out["map"]); ok && v >= 0 {
+		ch.MapID = uint16(v)
+	}
+	if x, ok := asFloat(out["x"]); ok {
+		ch.X = x
+		ch.HasPosition = true
+	}
+	if y, ok := asFloat(out["y"]); ok {
+		ch.Y = y
+	}
+	limit := 80
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 200 {
+			limit = n
+		}
+	}
+	items, note := listMapAvailableQuests(c.Request.Context(), rt, ch, limit, preferZH)
+	if len(items) == 0 {
+		return false
+	}
+	out["items"] = items
+	out["source"] = "db"
+	out["note"] = note
+	out["map"] = ch.MapID
+	out["level"] = ch.Level
+	out["guid"] = ch.GUID
+	out["name"] = ch.Name
+	return true
 }
 
 func (s *Server) characterQuestLog(c *gin.Context) {
@@ -311,7 +395,7 @@ func (s *Server) characterQuestsAvailable(c *gin.Context) {
 	if !ok {
 		return
 	}
-	guid, charName, level, race, class, ok := s.resolveCharacterGuid(c, rt, name)
+	ch, ok := s.resolveCharacterQuestCtx(c, rt, name, true)
 	if !ok {
 		return
 	}
@@ -319,11 +403,29 @@ func (s *Server) characterQuestsAvailable(c *gin.Context) {
 	if limit <= 0 || limit > 200 {
 		limit = 80
 	}
-	ctx := c.Request.Context()
 	preferZH := i18n.FromRequest(c) != i18n.EN
+	items, note := listMapAvailableQuests(c.Request.Context(), rt, ch, limit, preferZH)
+	JSON(c, gin.H{
+		"character": ch.Name,
+		"guid":      ch.GUID,
+		"level":     ch.Level,
+		"race":      ch.Race,
+		"class":     ch.Class,
+		"map":       ch.MapID,
+		"source":    "db",
+		"note":      note,
+		"items":     items,
+	})
+}
 
+// listMapAvailableQuests returns takeable-looking quests whose starter NPC spawns on the character's map,
+// sorted by 2D distance to the character.
+func listMapAvailableQuests(ctx context.Context, rt *app.TargetRuntime, ch charQuestCtx, limit int, preferZH bool) ([]gin.H, string) {
+	if limit <= 0 || limit > 200 {
+		limit = 80
+	}
 	inLog := map[uint32]struct{}{}
-	rows, err := rt.DB.Characters.QueryContext(ctx, `SELECT quest FROM character_queststatus WHERE guid = ?`, guid)
+	rows, err := rt.DB.Characters.QueryContext(ctx, `SELECT quest FROM character_queststatus WHERE guid = ?`, ch.GUID)
 	if err == nil {
 		for rows.Next() {
 			var qid uint32
@@ -334,7 +436,7 @@ func (s *Server) characterQuestsAvailable(c *gin.Context) {
 		rows.Close()
 	}
 	rewarded := map[uint32]struct{}{}
-	rowsR, err := rt.DB.Characters.QueryContext(ctx, `SELECT quest FROM character_queststatus_rewarded WHERE guid = ?`, guid)
+	rowsR, err := rt.DB.Characters.QueryContext(ctx, `SELECT quest FROM character_queststatus_rewarded WHERE guid = ?`, ch.GUID)
 	if err == nil {
 		for rowsR.Next() {
 			var qid uint32
@@ -345,8 +447,82 @@ func (s *Server) characterQuestsAvailable(c *gin.Context) {
 		rowsR.Close()
 	}
 
-	// Heuristic pool: level-banded quests that have a creature starter.
-	qRows, err := rt.DB.World.QueryContext(ctx, `
+	level := int(ch.Level)
+	rm := raceMask(ch.Race)
+	cm := classMask(ch.Class)
+
+	type cand struct {
+		id, giver                        uint32
+		title                            string
+		questLevel, minLevel             int
+		allowRaces, allowClasses         uint32
+		dist2                            float64
+	}
+
+	note := "map_questgivers"
+	var cands []cand
+
+	if ch.HasPosition {
+		qRows, qErr := rt.DB.World.QueryContext(ctx, `
+SELECT qt.ID, qt.LogTitle, qt.QuestLevel, qt.MinLevel, qt.AllowableRaces,
+       COALESCE(qa.MaxLevel, 0), COALESCE(qa.AllowableClasses, 0),
+       COALESCE(NULLIF(ql.Title,''), '') AS title_zh,
+       cqs.id AS giver_entry,
+       MIN(POW(c.position_x - ?, 2) + POW(c.position_y - ?, 2)) AS dist2
+FROM quest_template qt
+INNER JOIN creature_queststarter cqs ON cqs.quest = qt.ID
+INNER JOIN creature c ON c.id = cqs.id AND c.map = ?
+LEFT JOIN quest_template_addon qa ON qa.ID = qt.ID
+LEFT JOIN quest_template_locale ql ON ql.ID = qt.ID AND ql.locale = 'zhCN'
+WHERE qt.MinLevel <= ?
+  AND qt.QuestLevel >= 0
+  AND (qt.QuestLevel = 0 OR qt.QuestLevel <= ? + 8)
+  AND (qa.MaxLevel IS NULL OR qa.MaxLevel = 0 OR qa.MaxLevel >= ?)
+GROUP BY qt.ID, qt.LogTitle, qt.QuestLevel, qt.MinLevel, qt.AllowableRaces, qa.MaxLevel, qa.AllowableClasses, title_zh, cqs.id
+ORDER BY dist2 ASC, ABS(qt.QuestLevel - ?) ASC, qt.ID
+LIMIT 800`,
+			ch.X, ch.Y, ch.MapID, level, level, level, level)
+		if qErr == nil {
+			defer qRows.Close()
+			seen := map[uint32]struct{}{}
+			for qRows.Next() {
+				var row cand
+				var titleEN, titleZH string
+				var maxLevel uint32
+				if err := qRows.Scan(&row.id, &titleEN, &row.questLevel, &row.minLevel, &row.allowRaces, &maxLevel, &row.allowClasses, &titleZH, &row.giver, &row.dist2); err != nil {
+					continue
+				}
+				if _, ok := seen[row.id]; ok {
+					continue
+				}
+				if _, ok := inLog[row.id]; ok {
+					continue
+				}
+				if _, ok := rewarded[row.id]; ok {
+					continue
+				}
+				if row.allowRaces != 0 && (row.allowRaces&rm) == 0 {
+					continue
+				}
+				if row.allowClasses != 0 && (row.allowClasses&cm) == 0 {
+					continue
+				}
+				row.title = titleEN
+				if preferZH && titleZH != "" {
+					row.title = titleZH
+				}
+				seen[row.id] = struct{}{}
+				cands = append(cands, row)
+			}
+		} else {
+			note = "heuristic"
+		}
+	}
+
+	// Fallback: level-banded starters without map filter.
+	if len(cands) == 0 {
+		note = "heuristic"
+		qRows, qErr := rt.DB.World.QueryContext(ctx, `
 SELECT qt.ID, qt.LogTitle, qt.QuestLevel, qt.MinLevel, qt.AllowableRaces,
        COALESCE(qa.MaxLevel, 0), COALESCE(qa.AllowableClasses, 0),
        COALESCE(NULLIF(ql.Title,''), '') AS title_zh,
@@ -361,94 +537,82 @@ WHERE qt.MinLevel <= ?
   AND (qa.MaxLevel IS NULL OR qa.MaxLevel = 0 OR qa.MaxLevel >= ?)
 GROUP BY qt.ID, qt.LogTitle, qt.QuestLevel, qt.MinLevel, qt.AllowableRaces, qa.MaxLevel, qa.AllowableClasses, title_zh
 ORDER BY ABS(qt.QuestLevel - ?) ASC, qt.MinLevel DESC, qt.ID
-LIMIT 500`, level, level, level, int(level))
-	if err != nil {
-		Fail(c, http.StatusBadGateway, "mysql_error", err.Error())
-		return
-	}
-	defer qRows.Close()
-
-	rm := raceMask(race)
-	cm := classMask(class)
-	type cand struct {
-		id, giver                                           uint32
-		title                                               string
-		questLevel, minLevel                                int
-		allowRaces, allowClasses, maxLevel                  uint32
-		score                                               int
-	}
-	cands := make([]cand, 0, 128)
-	questIDs := make([]uint32, 0, 128)
-	for qRows.Next() {
-		var row cand
-		var titleEN, titleZH string
-		if err := qRows.Scan(&row.id, &titleEN, &row.questLevel, &row.minLevel, &row.allowRaces, &row.maxLevel, &row.allowClasses, &titleZH, &row.giver); err != nil {
-			Fail(c, http.StatusInternalServerError, "mysql_error", err.Error())
-			return
-		}
-		if _, ok := inLog[row.id]; ok {
-			continue
-		}
-		if _, ok := rewarded[row.id]; ok {
-			continue
-		}
-		if row.allowRaces != 0 && (row.allowRaces&rm) == 0 {
-			continue
-		}
-		if row.allowClasses != 0 && (row.allowClasses&cm) == 0 {
-			continue
-		}
-		row.title = titleEN
-		if preferZH && titleZH != "" {
-			row.title = titleZH
-		}
-		if row.questLevel > 0 {
-			diff := row.questLevel - int(level)
-			if diff < 0 {
-				diff = -diff
+LIMIT 500`, level, level, level, level)
+		if qErr == nil {
+			defer qRows.Close()
+			for qRows.Next() {
+				var row cand
+				var titleEN, titleZH string
+				var maxLevel uint32
+				if err := qRows.Scan(&row.id, &titleEN, &row.questLevel, &row.minLevel, &row.allowRaces, &maxLevel, &row.allowClasses, &titleZH, &row.giver); err != nil {
+					continue
+				}
+				if _, ok := inLog[row.id]; ok {
+					continue
+				}
+				if _, ok := rewarded[row.id]; ok {
+					continue
+				}
+				if row.allowRaces != 0 && (row.allowRaces&rm) == 0 {
+					continue
+				}
+				if row.allowClasses != 0 && (row.allowClasses&cm) == 0 {
+					continue
+				}
+				row.title = titleEN
+				if preferZH && titleZH != "" {
+					row.title = titleZH
+				}
+				row.dist2 = math.MaxFloat64
+				cands = append(cands, row)
 			}
-			row.score = diff
-		} else {
-			row.score = 50
 		}
-		cands = append(cands, row)
-		questIDs = append(questIDs, row.id)
 	}
+
 	sort.SliceStable(cands, func(i, j int) bool {
-		if cands[i].score != cands[j].score {
-			return cands[i].score < cands[j].score
+		if cands[i].dist2 != cands[j].dist2 {
+			return cands[i].dist2 < cands[j].dist2
+		}
+		di := cands[i].questLevel - level
+		if di < 0 {
+			di = -di
+		}
+		dj := cands[j].questLevel - level
+		if dj < 0 {
+			dj = -dj
+		}
+		if di != dj {
+			return di < dj
 		}
 		return cands[i].id < cands[j].id
 	})
 	if len(cands) > limit {
 		cands = cands[:limit]
-		questIDs = questIDs[:limit]
+	}
+	questIDs := make([]uint32, len(cands))
+	for i, row := range cands {
+		questIDs[i] = row.id
 	}
 	_, enders := loadQuestNPCEntries(ctx, rt.DB.World, questIDs)
 
 	items := make([]gin.H, 0, len(cands))
-	for _, c := range cands {
+	for _, row := range cands {
 		item := gin.H{
-			"questId":    c.id,
-			"title":      c.title,
-			"questLevel": c.questLevel,
-			"minLevel":   c.minLevel,
-			"giverEntry": c.giver,
-			"heuristic":  true,
+			"questId":    row.id,
+			"title":      row.title,
+			"questLevel": row.questLevel,
+			"minLevel":   row.minLevel,
+			"giverEntry": row.giver,
+			"heuristic":  note == "heuristic",
+			"source":     "db",
 		}
-		if e := enders[c.id]; e > 0 {
+		if row.dist2 < math.MaxFloat64/2 {
+			item["distance"] = math.Sqrt(row.dist2)
+		}
+		if e := enders[row.id]; e > 0 {
 			item["turninEntry"] = e
 		}
 		items = append(items, item)
 	}
-	JSON(c, gin.H{
-		"character": charName,
-		"guid":      guid,
-		"level":     level,
-		"race":      race,
-		"class":     class,
-		"source":    "db",
-		"note":      "heuristic",
-		"items":     items,
-	})
+	return items, note
 }

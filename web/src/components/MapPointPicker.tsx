@@ -66,6 +66,8 @@ type OverviewLayer = {
   maxY: number
 }
 
+type MapViewKind = 'zone' | 'continent'
+
 type Props = {
   mapId: number
   zoneId?: number | null
@@ -213,7 +215,10 @@ function entryToLayer(entry: WorldMapEntry, kind: 'zone' | 'continent'): Overvie
 export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled, className }: Props) {
   const { t } = useTranslation()
   const [manifest, setManifest] = useState<Manifest | null>(null)
-  const [worldLayer, setWorldLayer] = useState<OverviewLayer | null>(null)
+  const [zoneLayer, setZoneLayer] = useState<OverviewLayer | null>(null)
+  const [continentLayer, setContinentLayer] = useState<OverviewLayer | null>(null)
+  const [manifestLayer, setManifestLayer] = useState<OverviewLayer | null>(null)
+  const [mapView, setMapView] = useState<MapViewKind>('zone')
   const [checked, setChecked] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
   const [cursorXY, setCursorXY] = useState<{ x: number; y: number } | null>(null)
@@ -225,24 +230,30 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     let cancelled = false
     setChecked(false)
     setManifest(null)
-    setWorldLayer(null)
+    setZoneLayer(null)
+    setContinentLayer(null)
+    setManifestLayer(null)
     setImgSize(null)
     setCursorXY(null)
+    setMapView('zone')
 
     void (async () => {
       const [wm, man] = await Promise.all([loadWorldMapIndex(), loadManifest(mapId)])
       if (cancelled) return
 
-      let layer: OverviewLayer | null = null
+      let zone: OverviewLayer | null = null
+      let continent: OverviewLayer | null = null
       if (wm) {
         if (zoneId != null && wm.byAreaId?.[String(zoneId)]) {
-          layer = entryToLayer(wm.byAreaId[String(zoneId)], 'zone')
-        } else if (wm.byMapId?.[String(mapId)]) {
-          layer = entryToLayer(wm.byMapId[String(mapId)], 'continent')
+          zone = entryToLayer(wm.byAreaId[String(zoneId)], 'zone')
+        }
+        if (wm.byMapId?.[String(mapId)]) {
+          continent = entryToLayer(wm.byMapId[String(mapId)], 'continent')
         }
       }
-      if (!layer && man?.mode === 'overview' && man.overview) {
-        layer = {
+      let manLayer: OverviewLayer | null = null
+      if (!zone && !continent && man?.mode === 'overview' && man.overview) {
+        manLayer = {
           kind: 'manifest',
           name: man.name || String(mapId),
           imageUrl: `/maps/${mapId}/${man.overview.image}`,
@@ -253,9 +264,12 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         }
       }
 
-      setWorldLayer(layer)
+      setZoneLayer(zone)
+      setContinentLayer(continent)
+      setManifestLayer(manLayer)
+      setMapView(zone ? 'zone' : 'continent')
       // Prefer WorldMap; keep minimap manifest only as fallback when no world layer.
-      setManifest(layer ? null : man)
+      setManifest(zone || continent || manLayer ? null : man)
       setChecked(true)
     })()
 
@@ -263,6 +277,19 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       cancelled = true
     }
   }, [mapId, zoneId])
+
+  const worldLayer = useMemo(() => {
+    if (mapView === 'zone' && zoneLayer) return zoneLayer
+    if (mapView === 'continent' && continentLayer) return continentLayer
+    return zoneLayer || continentLayer || manifestLayer
+  }, [mapView, zoneLayer, continentLayer, manifestLayer])
+
+  useEffect(() => {
+    setImgSize(null)
+    setCursorXY(null)
+  }, [worldLayer?.imageUrl])
+
+  const canSwitchMap = !!(zoneLayer && continentLayer)
 
   const mode = !checked
     ? 'loading'
@@ -452,7 +479,29 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
 
   return (
     <div className={`${className ?? ''} ${disabled ? 'opacity-50' : ''}`.trim()} aria-disabled={disabled || undefined}>
-      <div className="text-xs text-base-content/55 mb-2">{modeLabel}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="text-xs text-base-content/55">{modeLabel}</div>
+        {canSwitchMap && (
+          <div className="join">
+            <button
+              type="button"
+              className={`btn btn-xs join-item ${mapView === 'zone' ? 'btn-primary' : 'btn-ghost'}`}
+              disabled={!zoneLayer}
+              onClick={() => setMapView('zone')}
+            >
+              {t('mybots.mapViewZone')}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs join-item ${mapView === 'continent' ? 'btn-primary' : 'btn-ghost'}`}
+              disabled={!continentLayer}
+              onClick={() => setMapView('continent')}
+            >
+              {t('mybots.mapViewContinent')}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className={disabled ? 'pointer-events-none select-none' : undefined}>
       {mode === 'scatter' && (

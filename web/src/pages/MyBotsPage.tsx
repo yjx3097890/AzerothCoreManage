@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { api, errorMessage, getTargetId, getToken, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { MapPointPicker, type MapPick, type MapPoint } from '../components/MapPointPicker'
-import { CreatureSelect, TeleSelect } from '../components/PlaceSelect'
+import { CreatureSelect } from '../components/PlaceSelect'
 import { currentLocale } from '../i18n'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
@@ -127,7 +127,6 @@ export function MyBotsPage() {
     null,
   )
   const [creatureEntry, setCreatureEntry] = useState<number | null>(null)
-  const [teleName, setTeleName] = useState<string | undefined>()
 
   const [jobType, setJobType] = useState<JobType>('move_to')
   const [moveMode, setMoveMode] = useState<'xyz' | 'entry'>('xyz')
@@ -772,29 +771,6 @@ export function MyBotsPage() {
                       onPick={confirmMove}
                     />
                   )}
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div className="form-control">
-                      <span className="label py-0.5">
-                        <span className="label-text text-xs">{t('mybots.searchTele')}</span>
-                      </span>
-                      <TeleSelect
-                        mapFilter={snap.map}
-                        value={teleName}
-                        disabled={!canCommand}
-                        onChange={(v) => setTeleName(v ?? undefined)}
-                        onSelectHit={(hit) => {
-                          if (!hit || !canCommand) return
-                          confirmMove({
-                            x: hit.x,
-                            y: hit.y,
-                            z: hit.z,
-                            label: hit.name,
-                            source: 'tele',
-                          })
-                        }}
-                      />
-                    </div>
-                  </div>
                   <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-base-300">
                     <div className="form-control">
                       <span className="label py-0.5">

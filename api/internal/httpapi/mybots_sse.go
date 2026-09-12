@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"acmanage/internal/app"
 	"acmanage/internal/gamelocale"
 	"acmanage/internal/i18n"
 	"acmanage/internal/mybots"
@@ -97,9 +99,13 @@ func (s *Server) mybotsCharacterLive(c *gin.Context) {
 		questPayload, questHash, err := fetchLiveQuests(ctx, client, id)
 		if err != nil {
 			_ = writeSSE("error", gin.H{"message": err.Error(), "kind": "quests"})
-		} else if questHash != lastQuestHash {
-			lastQuestHash = questHash
-			_ = writeSSE("quests", questPayload)
+		} else {
+			s.enrichLiveAvailableFromDB(ctx, rt, id, questPayload, loc)
+			questHash = hashJSON(questPayload)
+			if questHash != lastQuestHash {
+				lastQuestHash = questHash
+				_ = writeSSE("quests", questPayload)
+			}
 		}
 	}
 
@@ -183,6 +189,68 @@ func fetchLiveQuests(ctx context.Context, client *mybots.Client, id string) (map
 	}
 	hash := hashJSON(out)
 	return out, hash, nil
+}
+
+func (s *Server) enrichLiveAvailableFromDB(ctx context.Context, rt *app.TargetRuntime, charID string, out map[string]any, loc i18n.Locale) {
+	if out == nil || rt == nil || rt.DB.Characters == nil || rt.DB.World == nil {
+		return
+	}
+	avail, _ := out["available"].([]any)
+	needFill := len(avail) == 0
+	if !needFill {
+		if m, ok := avail[0].(map[string]any); ok {
+			if src, _ := m["source"].(string); src == "nearby" {
+				needFill = true // old 80yd list → prefer current-map DB
+			}
+		}
+	}
+	if !needFill {
+		return
+	}
+
+	ch, ok := s.resolveCharacterQuestCtxQuiet(ctx, rt, charID)
+	if !ok {
+		return
+	}
+	preferZH := loc != i18n.EN
+	items, note := listMapAvailableQuests(ctx, rt, ch, 80, preferZH)
+	if len(items) == 0 {
+		return
+	}
+	anyItems := make([]any, len(items))
+	for i, it := range items {
+		anyItems[i] = it
+	}
+	out["available"] = anyItems
+	out["available_source"] = "db"
+	out["available_note"] = note
+	out["source"] = "mybots+db"
+}
+
+func (s *Server) resolveCharacterQuestCtxQuiet(ctx context.Context, rt *app.TargetRuntime, nameOrGUID string) (ch charQuestCtx, ok bool) {
+	nameOrGUID = strings.TrimSpace(nameOrGUID)
+	if nameOrGUID == "" || rt == nil || rt.DB.Characters == nil {
+		return ch, false
+	}
+	q := `
+SELECT guid, name, level, race, class, map, position_x, position_y, position_z
+FROM characters
+WHERE name = ?`
+	args := []any{nameOrGUID}
+	if id, err := strconv.ParseUint(nameOrGUID, 10, 32); err == nil {
+		q = `
+SELECT guid, name, level, race, class, map, position_x, position_y, position_z
+FROM characters
+WHERE guid = ? OR name = ?`
+		args = []any{uint32(id), nameOrGUID}
+	}
+	err := rt.DB.Characters.QueryRowContext(ctx, q, args...).Scan(
+		&ch.GUID, &ch.Name, &ch.Level, &ch.Race, &ch.Class, &ch.MapID, &ch.X, &ch.Y, &ch.Z)
+	if err != nil {
+		return ch, false
+	}
+	ch.HasPosition = true
+	return ch, true
 }
 
 func enrichMyBotsCharacter(payload map[string]any, loc i18n.Locale) {

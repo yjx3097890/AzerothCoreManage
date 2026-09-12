@@ -212,6 +212,24 @@ func asInt(v any) (int, bool) {
 	}
 }
 
+func asFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case json.Number:
+		f, err := n.Float64()
+		return f, err == nil
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	default:
+		return 0, false
+	}
+}
+
 func (s *Server) mybotsSelfbot(c *gin.Context) {
 	id := c.Param("id")
 	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
