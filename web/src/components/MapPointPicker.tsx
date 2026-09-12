@@ -120,24 +120,21 @@ function worldToOverviewPercent(
   const dx = layer.maxX - layer.minX
   const dy = layer.maxY - layer.minY
   if (!dx || !dy) return { left: 50, top: 50, onMap: false }
-  // WorldMapArea LocLeft/Right → horizontal (world Y); LocTop/Bottom → vertical (world X).
-  // index.json stores those as minX/maxX and minY/maxY respectively.
-  const u = (worldY - layer.minX) / dx
-  const v = (layer.maxY - worldX) / dy // 0 = north/top of parchment
+  // WorldMapArea: LocLeft/Right = world Y (map left→right); LocTop/Bottom = world X (map top→bottom).
+  // index.json: minX=LocRight, maxX=LocLeft, minY=LocBottom, maxY=LocTop.
+  // Trinity/Aowow zone %: areaX=(y-LocLeft)/(LocRight-LocLeft), areaY=(x-LocTop)/(LocBottom-LocTop).
+  const u = (layer.maxX - worldY) / dx
+  const v = (layer.maxY - worldX) / dy
   let left = u * 100
   let top = v * 100
   // Seam-cropped exports keep width 1024 but shrink height; remap parchment Y through native UV.
   if (imgW > 0 && imgH > 0 && imgH < WORLD_MAP_NATIVE_H - 8 && Math.abs(imgW - WORLD_MAP_NATIVE_W) < 8) {
     const nativeY = clamp01(v) * WORLD_MAP_NATIVE_H
     top = (nativeYToCropped(nativeY, imgH) / imgH) * 100
-    left = u * 100
   }
-  const onMap = left >= -2 && left <= 102 && top >= -2 && top <= 102
-  return {
-    left: Math.min(98, Math.max(2, left)),
-    top: Math.min(98, Math.max(2, top)),
-    onMap,
-  }
+  // Strict bounds — do not clamp onto edges (that piled tele dots on the rim).
+  const onMap = left >= 0 && left <= 100 && top >= 0 && top <= 100
+  return { left, top, onMap }
 }
 
 function overviewClickToWorld(
@@ -154,7 +151,7 @@ function overviewClickToWorld(
   }
   return {
     x: layer.maxY - clamp01(vv) * (layer.maxY - layer.minY),
-    y: layer.minX + clamp01(u) * (layer.maxX - layer.minX),
+    y: layer.maxX - clamp01(u) * (layer.maxX - layer.minX),
   }
 }
 
@@ -475,7 +472,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
               }
             }}
           />
-          {player && playerOverviewPos && (
+          {player && playerOverviewPos?.onMap && (
             <div
               className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-0.5"
               style={{ left: `${playerOverviewPos.left}%`, top: `${playerOverviewPos.top}%` }}
@@ -490,23 +487,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
               </span>
             </div>
           )}
-          {points.map((p) => {
-            const pos = worldToOverviewPercent(p.x, p.y, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
-            if (!pos.onMap) return null
-            return (
-              <button
-                key={p.id}
-                type="button"
-                className="absolute w-2.5 h-2.5 rounded-full bg-primary border border-base-100 -translate-x-1/2 -translate-y-1/2 z-10"
-                style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
-                title={p.label}
-                onClick={(ev) => {
-                  ev.stopPropagation()
-                  onPick({ x: p.x, y: p.y, z: p.z, label: p.label, source: 'tele' })
-                }}
-              />
-            )
-          })}
+          {/* Tele dots stay on scatter/minimap only — on WorldMap they clutter and rim-clamp looked like edge noise. */}
         </div>
       )}
 
