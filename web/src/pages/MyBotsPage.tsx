@@ -147,15 +147,17 @@ export function MyBotsPage() {
 
   const loadCharacter = async (id: string) => {
     const key = id.trim()
-    if (!key) return
+    if (!key) return null
     try {
       const data = await api<CharacterSnap>(`/api/v1/mybots/characters/${encodeURIComponent(key)}`)
       setSnap(data)
       setActiveChar(key)
       setCharId(key)
+      return data
     } catch (err) {
       setSnap(null)
       toast.error(errorMessage(err, t))
+      return null
     }
   }
 
@@ -224,9 +226,16 @@ export function MyBotsPage() {
   }
 
   const refreshCharRelated = async (id = activeChar) => {
-    if (!id) return
-    await Promise.all([loadCharacter(id), loadJobs(id), loadEvents(id)])
-    await loadQuests(id)
+    const key = id.trim()
+    if (!key) return
+    const [fresh] = await Promise.all([loadCharacter(key), loadJobs(key), loadEvents(key)])
+    await loadQuests(fresh?.name || key)
+  }
+
+  const refreshPage = async () => {
+    await loadStatus()
+    const id = (activeChar || charId).trim()
+    if (id) await refreshCharRelated(id)
   }
 
   useEffect(() => {
@@ -512,7 +521,7 @@ export function MyBotsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-2xl font-semibold m-0">{t('pages.mybots.title')}</h1>
-        <button type="button" className="btn btn-sm" onClick={() => void loadStatus()}>
+        <button type="button" className="btn btn-sm" onClick={() => void refreshPage()}>
           {t('common.refresh')}
         </button>
       </div>
@@ -528,7 +537,7 @@ export function MyBotsPage() {
             value={charId}
             onChange={(e) => setCharId(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void loadCharacter(charId).then(() => refreshCharRelated(charId.trim()))
+              if (e.key === 'Enter') void refreshCharRelated(charId.trim())
             }}
           />
         </label>
@@ -536,7 +545,7 @@ export function MyBotsPage() {
           type="button"
           className="btn btn-sm btn-primary"
           disabled={!status?.configured}
-          onClick={() => void loadCharacter(charId).then(() => refreshCharRelated(charId.trim()))}
+          onClick={() => void refreshCharRelated(charId.trim())}
         >
           {t('mybots.loadCharacter')}
         </button>
@@ -598,6 +607,7 @@ export function MyBotsPage() {
                   <PanelIntro>{t('mybots.moveHint')}</PanelIntro>
                   {snap.map != null && (
                     <MapPointPicker
+                      key={`${snap.map}-${snap.zone ?? 'z'}`}
                       mapId={snap.map}
                       zoneId={snap.zone}
                       player={

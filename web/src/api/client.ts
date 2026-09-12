@@ -93,7 +93,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const target = getTargetId()
   if (target) headers.set('X-Target-Id', target)
 
-  const res = await fetch(path, { ...init, headers })
+  const res = await fetch(path, { cache: 'no-store', ...init, headers })
   const body = (await res.json()) as Envelope<T>
   if (!res.ok || !body.ok) {
     const err = new Error(body.error?.message || res.statusText) as ApiError
