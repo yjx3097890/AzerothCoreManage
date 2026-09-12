@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { api } from '../api/client'
+import { Select } from '../ui'
 
 export type MapPoint = {
   id: string
@@ -66,7 +68,21 @@ type OverviewLayer = {
   maxY: number
 }
 
-type MapViewKind = 'zone' | 'continent'
+type ZoneOpt = {
+  key: string
+  label: string
+  layer: OverviewLayer
+}
+
+type ContinentOpt = {
+  mapId: number
+  label: string
+  layer: OverviewLayer
+  zones: ZoneOpt[]
+}
+
+/** Sentinel: second select = show the continent overview (大地图本身). */
+const ZONE_OVERVIEW_KEY = '__overview__'
 
 type Props = {
   mapId: number
@@ -85,6 +101,14 @@ const WORLD_MAP_NATIVE_W = 1024
 const WORLD_MAP_NATIVE_H = 768
 const WORLD_MAP_TILE = 256
 const WORLD_MAP_TOP_BLACK = 8
+
+function humanizeFolder(folder: string) {
+  return folder
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n))
@@ -212,13 +236,28 @@ function entryToLayer(entry: WorldMapEntry, kind: 'zone' | 'continent'): Overvie
   }
 }
 
+async function loadNameMaps(): Promise<{ maps: Map<number, string>; areas: Map<number, string> }> {
+  const maps = new Map<number, string>()
+  const areas = new Map<number, string>()
+  try {
+    const [mapData, areaData] = await Promise.all([
+      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/maps?limit=80`),
+      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/areas?limit=500`),
+    ])
+    for (const row of mapData.items || []) maps.set(row.id, row.name)
+    for (const row of areaData.items || []) areas.set(row.id, row.name)
+  } catch {
+    /* labels fall back to folder names */
+  }
+  return { maps, areas }
+}
+
 export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled, className }: Props) {
   const { t } = useTranslation()
   const [manifest, setManifest] = useState<Manifest | null>(null)
-  const [zoneLayer, setZoneLayer] = useState<OverviewLayer | null>(null)
-  const [continentLayer, setContinentLayer] = useState<OverviewLayer | null>(null)
-  const [manifestLayer, setManifestLayer] = useState<OverviewLayer | null>(null)
-  const [mapView, setMapView] = useState<MapViewKind>('zone')
+  const [continents, setContinents] = useState<ContinentOpt[]>([])
+  const [selectedContinentId, setSelectedContinentId] = useState<number | null>(null)
+  const [selectedZoneKey, setSelectedZoneKey] = useState<string>(ZONE_OVERVIEW_KEY)
   const [checked, setChecked] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
   const [cursorXY, setCursorXY] = useState<{ x: number; y: number } | null>(null)
@@ -230,30 +269,51 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     let cancelled = false
     setChecked(false)
     setManifest(null)
-    setZoneLayer(null)
-    setContinentLayer(null)
-    setManifestLayer(null)
+    setContinents([])
+    setSelectedContinentId(null)
+    setSelectedZoneKey(ZONE_OVERVIEW_KEY)
     setImgSize(null)
     setCursorXY(null)
-    setMapView('zone')
 
     void (async () => {
-      const [wm, man] = await Promise.all([loadWorldMapIndex(), loadManifest(mapId)])
+      const [wm, man, names] = await Promise.all([
+        loadWorldMapIndex(),
+        loadManifest(mapId),
+        loadNameMaps(),
+      ])
       if (cancelled) return
 
-      let zone: OverviewLayer | null = null
-      let continent: OverviewLayer | null = null
-      if (wm) {
-        if (zoneId != null && wm.byAreaId?.[String(zoneId)]) {
-          zone = entryToLayer(wm.byAreaId[String(zoneId)], 'zone')
-        }
-        if (wm.byMapId?.[String(mapId)]) {
-          continent = entryToLayer(wm.byMapId[String(mapId)], 'continent')
+      const list: ContinentOpt[] = []
+
+      if (wm?.byMapId) {
+        const continentEntries = Object.values(wm.byMapId).sort((a, b) => a.mapId - b.mapId)
+        for (const continent of continentEntries) {
+          const display = names.maps.get(continent.mapId) || humanizeFolder(continent.folder)
+          const layer = entryToLayer(continent, 'continent')
+          const zones: ZoneOpt[] = Object.values(wm.byAreaId || {})
+            .filter((e) => e.mapId === continent.mapId)
+            .map((entry) => {
+              const areaId = entry.areaId ?? 0
+              const zoneLabel = (areaId && names.areas.get(areaId)) || humanizeFolder(entry.folder)
+              return {
+                key: `zone:${areaId || entry.folder}`,
+                label: zoneLabel,
+                layer: { ...entryToLayer(entry, 'zone'), name: zoneLabel },
+              }
+            })
+            .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+
+          list.push({
+            mapId: continent.mapId,
+            label: display,
+            layer: { ...layer, name: display },
+            zones,
+          })
         }
       }
-      let manLayer: OverviewLayer | null = null
-      if (!zone && !continent && man?.mode === 'overview' && man.overview) {
-        manLayer = {
+
+      if (!list.length && man?.mode === 'overview' && man.overview) {
+        const manLayer: OverviewLayer = {
           kind: 'manifest',
           name: man.name || String(mapId),
           imageUrl: `/maps/${mapId}/${man.overview.image}`,
@@ -262,14 +322,26 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           minY: man.overview.minY,
           maxY: man.overview.maxY,
         }
+        list.push({
+          mapId,
+          label: manLayer.name,
+          layer: manLayer,
+          zones: [],
+        })
       }
 
-      setZoneLayer(zone)
-      setContinentLayer(continent)
-      setManifestLayer(manLayer)
-      setMapView(zone ? 'zone' : 'continent')
-      // Prefer WorldMap; keep minimap manifest only as fallback when no world layer.
-      setManifest(zone || continent || manLayer ? null : man)
+      const defaultContinent =
+        list.find((c) => c.mapId === mapId) || list[0] || null
+      let defaultZone = ZONE_OVERVIEW_KEY
+      if (defaultContinent && zoneId != null) {
+        const zk = `zone:${zoneId}`
+        if (defaultContinent.zones.some((z) => z.key === zk)) defaultZone = zk
+      }
+
+      setContinents(list)
+      setSelectedContinentId(defaultContinent?.mapId ?? null)
+      setSelectedZoneKey(defaultZone)
+      setManifest(list.length ? null : man)
       setChecked(true)
     })()
 
@@ -278,18 +350,37 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     }
   }, [mapId, zoneId])
 
+  const activeContinent = useMemo(
+    () => continents.find((c) => c.mapId === selectedContinentId) ?? null,
+    [continents, selectedContinentId],
+  )
+
   const worldLayer = useMemo(() => {
-    if (mapView === 'zone' && zoneLayer) return zoneLayer
-    if (mapView === 'continent' && continentLayer) return continentLayer
-    return zoneLayer || continentLayer || manifestLayer
-  }, [mapView, zoneLayer, continentLayer, manifestLayer])
+    if (!activeContinent) return null
+    if (selectedZoneKey === ZONE_OVERVIEW_KEY) return activeContinent.layer
+    return activeContinent.zones.find((z) => z.key === selectedZoneKey)?.layer ?? activeContinent.layer
+  }, [activeContinent, selectedZoneKey])
 
   useEffect(() => {
     setImgSize(null)
     setCursorXY(null)
   }, [worldLayer?.imageUrl])
 
-  const canSwitchMap = !!(zoneLayer && continentLayer)
+  const sameMapAsPlayer = selectedContinentId == null || selectedContinentId === mapId
+  const pickBlocked = disabled || !sameMapAsPlayer
+
+  const continentOptions = useMemo(
+    () => continents.map((c) => ({ value: c.mapId, label: c.label })),
+    [continents],
+  )
+
+  const zoneOptions = useMemo(() => {
+    if (!activeContinent) return []
+    return [
+      { value: ZONE_OVERVIEW_KEY, label: t('mybots.mapChoiceOverview') },
+      ...activeContinent.zones.map((z) => ({ value: z.key, label: z.label })),
+    ]
+  }, [activeContinent, t])
 
   const mode = !checked
     ? 'loading'
@@ -350,7 +441,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   }
 
   const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (disabled || !worldLayer) return
+    if (pickBlocked || !worldLayer) return
     const rect = e.currentTarget.getBoundingClientRect()
     const u = (e.clientX - rect.left) / rect.width
     const v = (e.clientY - rect.top) / rect.height
@@ -479,29 +570,47 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
 
   return (
     <div className={`${className ?? ''} ${disabled ? 'opacity-50' : ''}`.trim()} aria-disabled={disabled || undefined}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div className="text-xs text-base-content/55">{modeLabel}</div>
-        {canSwitchMap && (
-          <div className="join">
-            <button
-              type="button"
-              className={`btn btn-xs join-item ${mapView === 'zone' ? 'btn-primary' : 'btn-ghost'}`}
-              disabled={!zoneLayer}
-              onClick={() => setMapView('zone')}
-            >
-              {t('mybots.mapViewZone')}
-            </button>
-            <button
-              type="button"
-              className={`btn btn-xs join-item ${mapView === 'continent' ? 'btn-primary' : 'btn-ghost'}`}
-              disabled={!continentLayer}
-              onClick={() => setMapView('continent')}
-            >
-              {t('mybots.mapViewContinent')}
-            </button>
+      <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
+        <div className="text-xs text-base-content/55 self-center">{modeLabel}</div>
+        {continentOptions.length > 0 && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="form-control">
+              <span className="label py-0">
+                <span className="label-text text-[11px] text-base-content/55">{t('mybots.mapSelectContinent')}</span>
+              </span>
+              <Select
+                className="select-sm min-w-[140px] max-w-[200px]"
+                value={selectedContinentId ?? undefined}
+                options={continentOptions}
+                placeholder={t('mybots.mapSelectContinent')}
+                onChange={(v) => {
+                  if (v == null) return
+                  setSelectedContinentId(v)
+                  setSelectedZoneKey(ZONE_OVERVIEW_KEY)
+                }}
+              />
+            </label>
+            <label className="form-control">
+              <span className="label py-0">
+                <span className="label-text text-[11px] text-base-content/55">{t('mybots.mapSelectZone')}</span>
+              </span>
+              <Select
+                className="select-sm min-w-[160px] max-w-[220px]"
+                value={selectedZoneKey || undefined}
+                options={zoneOptions}
+                placeholder={t('mybots.mapSelectZone')}
+                disabled={!activeContinent}
+                onChange={(v) => {
+                  if (v) setSelectedZoneKey(v)
+                }}
+              />
+            </label>
           </div>
         )}
       </div>
+      {!sameMapAsPlayer && mode === 'overview' && (
+        <p className="text-xs text-warning mb-2 m-0">{t('mybots.mapOtherContinentHint')}</p>
+      )}
 
       <div className={disabled ? 'pointer-events-none select-none' : undefined}>
       {mode === 'scatter' && (
