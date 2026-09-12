@@ -75,6 +75,16 @@ type QuestItem = {
 
 type TeleHit = { id: number; name: string; map: number; map_name?: string; x: number; y: number; z: number }
 
+type OnlineChar = {
+  guid: number
+  name: string
+  level: number
+  class_name?: string
+  map_name?: string
+  zone_name?: string
+  account?: string
+}
+
 type JobType = 'move_to' | 'complete_quest' | 'patrol' | 'script'
 
 function PanelIntro({ children }: { children: ReactNode }) {
@@ -100,6 +110,8 @@ export function MyBotsPage() {
   const [status, setStatus] = useState<Status | null>(null)
   const [charId, setCharId] = useState('')
   const [activeChar, setActiveChar] = useState('')
+  const [onlineChars, setOnlineChars] = useState<OnlineChar[]>([])
+  const [onlineLoading, setOnlineLoading] = useState(false)
   const [snap, setSnap] = useState<CharacterSnap | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobDetail, setJobDetail] = useState<Job | null>(null)
@@ -141,9 +153,37 @@ export function MyBotsPage() {
     }
   }, [t])
 
+  const loadOnlineCharacters = useCallback(async () => {
+    setOnlineLoading(true)
+    try {
+      const data = await api<{ items: OnlineChar[] }>('/api/v1/characters?online=1&limit=200')
+      setOnlineChars(data.items ?? [])
+    } catch (err) {
+      setOnlineChars([])
+      toast.error(errorMessage(err, t))
+    } finally {
+      setOnlineLoading(false)
+    }
+  }, [t])
+
   useEffect(() => {
     void loadStatus()
   }, [loadStatus])
+
+  useEffect(() => {
+    if (status?.configured) void loadOnlineCharacters()
+  }, [status?.configured, loadOnlineCharacters])
+
+  const charOptions = useMemo(() => {
+    const opts = onlineChars.map((c) => ({
+      value: c.name,
+      label: [c.name, `Lv${c.level}`, c.class_name, c.zone_name || c.map_name].filter(Boolean).join(' · '),
+    }))
+    if (charId && !opts.some((o) => o.value === charId)) {
+      opts.unshift({ value: charId, label: charId })
+    }
+    return opts
+  }, [onlineChars, charId])
 
   const loadCharacter = async (id: string) => {
     const key = id.trim()
@@ -232,8 +272,23 @@ export function MyBotsPage() {
     await loadQuests(fresh?.name || key)
   }
 
+  const selectCharacter = (name: string | undefined) => {
+    const key = (name ?? '').trim()
+    setCharId(key)
+    if (!key) {
+      setActiveChar('')
+      setSnap(null)
+      setJobs([])
+      setEvents([])
+      setQuestLog([])
+      setQuestAvail([])
+      return
+    }
+    void refreshCharRelated(key)
+  }
+
   const refreshPage = async () => {
-    await loadStatus()
+    await Promise.all([loadStatus(), loadOnlineCharacters()])
     const id = (activeChar || charId).trim()
     if (id) await refreshCharRelated(id)
   }
@@ -527,24 +582,33 @@ export function MyBotsPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-2 mb-4 p-3 rounded-lg bg-base-100 border border-base-300">
-        <label className="form-control w-full max-w-xs">
+        <label className="form-control w-full max-w-md">
           <span className="label py-0.5">
             <span className="label-text text-xs">{t('mybots.characterId')}</span>
           </span>
-          <input
-            className="input input-bordered input-sm"
-            placeholder={t('mybots.characterPlaceholder')}
-            value={charId}
-            onChange={(e) => setCharId(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void refreshCharRelated(charId.trim())
-            }}
+          <Select
+            className="select-sm"
+            value={charId || undefined}
+            onChange={selectCharacter}
+            options={charOptions}
+            placeholder={onlineLoading ? t('common.loading') : t('mybots.characterPlaceholder')}
+            allowClear
+            disabled={!status?.configured || onlineLoading}
           />
         </label>
         <button
           type="button"
+          className="btn btn-sm"
+          disabled={!status?.configured || onlineLoading}
+          onClick={() => void loadOnlineCharacters()}
+          title={t('mybots.refreshOnline')}
+        >
+          {t('mybots.refreshOnline')}
+        </button>
+        <button
+          type="button"
           className="btn btn-sm btn-primary"
-          disabled={!status?.configured}
+          disabled={!status?.configured || !charId}
           onClick={() => void refreshCharRelated(charId.trim())}
         >
           {t('mybots.loadCharacter')}
