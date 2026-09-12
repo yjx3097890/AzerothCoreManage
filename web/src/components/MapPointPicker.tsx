@@ -78,6 +78,83 @@ type Props = {
 
 const DEFAULT_TILE_SCALE = 533.333333333
 const DEFAULT_TILE_SIZE = 256
+/** Client WorldMap detail frame before our extract seam/bottom crop. */
+const WORLD_MAP_NATIVE_W = 1024
+const WORLD_MAP_NATIVE_H = 768
+const WORLD_MAP_TILE = 256
+const WORLD_MAP_TOP_BLACK = 8
+
+function clamp01(n: number) {
+  return Math.min(1, Math.max(0, n))
+}
+
+/** Native 768px Y → Y in seam-cropped export (top-black strips removed per tile row). */
+function nativeYToCropped(nativeY: number, croppedH: number): number {
+  const tb = WORLD_MAP_TOP_BLACK
+  const th = WORLD_MAP_TILE
+  const y = Math.min(Math.max(nativeY, 0), WORLD_MAP_NATIVE_H - 1)
+  let cy: number
+  if (y < th) cy = Math.max(0, y - tb)
+  else if (y < th * 2) cy = th - tb + Math.max(0, y - th - tb)
+  else cy = 2 * (th - tb) + Math.max(0, y - th * 2 - tb)
+  return Math.min(Math.max(cy, 0), Math.max(croppedH - 1, 0))
+}
+
+/** Inverse of nativeYToCropped for click → world. */
+function croppedYToNative(croppedY: number, croppedH: number): number {
+  const tb = WORLD_MAP_TOP_BLACK
+  const contentRow = WORLD_MAP_TILE - tb
+  const y = Math.min(Math.max(croppedY, 0), Math.max(croppedH - 1, 0))
+  if (y < contentRow) return y + tb
+  if (y < contentRow * 2) return WORLD_MAP_TILE + tb + (y - contentRow)
+  return WORLD_MAP_TILE * 2 + tb + (y - contentRow * 2)
+}
+
+function worldToOverviewPercent(
+  x: number,
+  y: number,
+  layer: OverviewLayer,
+  imgW: number,
+  imgH: number,
+): { left: number; top: number; onMap: boolean } {
+  const dx = layer.maxX - layer.minX
+  const dy = layer.maxY - layer.minY
+  if (!dx || !dy) return { left: 50, top: 50, onMap: false }
+  const u = (x - layer.minX) / dx
+  const v = (layer.maxY - y) / dy // 0 = north/top
+  let left = u * 100
+  let top = v * 100
+  // Seam-cropped exports keep width 1024 but shrink height; remap Y through native UV.
+  if (imgW > 0 && imgH > 0 && imgH < WORLD_MAP_NATIVE_H - 8 && Math.abs(imgW - WORLD_MAP_NATIVE_W) < 8) {
+    const nativeY = clamp01(v) * WORLD_MAP_NATIVE_H
+    top = (nativeYToCropped(nativeY, imgH) / imgH) * 100
+    left = clamp01(u) * 100
+  }
+  const onMap = left >= 0 && left <= 100 && top >= 0 && top <= 100
+  return {
+    left: Math.min(98, Math.max(2, left)),
+    top: Math.min(98, Math.max(2, top)),
+    onMap,
+  }
+}
+
+function overviewClickToWorld(
+  u: number,
+  v: number,
+  layer: OverviewLayer,
+  imgW: number,
+  imgH: number,
+): { x: number; y: number } {
+  let vv = v
+  if (imgW > 0 && imgH > 0 && imgH < WORLD_MAP_NATIVE_H - 8 && Math.abs(imgW - WORLD_MAP_NATIVE_W) < 8) {
+    const croppedY = clamp01(v) * imgH
+    vv = croppedYToNative(croppedY, imgH) / WORLD_MAP_NATIVE_H
+  }
+  return {
+    x: layer.minX + clamp01(u) * (layer.maxX - layer.minX),
+    y: layer.maxY - clamp01(vv) * (layer.maxY - layer.minY),
+  }
+}
 
 function worldToTile(x: number, y: number, scale: number) {
   const i = 32 - Math.ceil(y / scale)
@@ -140,6 +217,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   const [worldLayer, setWorldLayer] = useState<OverviewLayer | null>(null)
   const [checked, setChecked] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
@@ -148,6 +226,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     setChecked(false)
     setManifest(null)
     setWorldLayer(null)
+    setImgSize(null)
 
     void (async () => {
       const [wm, man] = await Promise.all([loadWorldMapIndex(), loadManifest(mapId)])
@@ -235,9 +314,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     const rect = e.currentTarget.getBoundingClientRect()
     const u = (e.clientX - rect.left) / rect.width
     const v = (e.clientY - rect.top) / rect.height
-    const { minX, maxX, minY, maxY } = worldLayer
-    const x = minX + u * (maxX - minX)
-    const y = maxY - v * (maxY - minY)
+    const { x, y } = overviewClickToWorld(u, v, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
     onPick({
       x,
       y,
@@ -246,6 +323,16 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       label: t('mybots.mapPickOverview'),
     })
   }
+
+  const playerOverviewPos = useMemo(() => {
+    if (!player || !worldLayer) return null
+    return worldToOverviewPercent(player.x, player.y, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
+  }, [player, worldLayer, imgSize])
+
+  const overviewAspect =
+    imgSize && imgSize.w > 0 && imgSize.h > 0
+      ? `${imgSize.w} / ${imgSize.h}`
+      : `${WORLD_MAP_NATIVE_W} / ${WORLD_MAP_NATIVE_H}`
 
   const tileScale = manifest?.tileScale ?? DEFAULT_TILE_SCALE
   const tileSize = manifest?.tileSize ?? DEFAULT_TILE_SIZE
@@ -371,7 +458,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       {mode === 'overview' && worldLayer && (
         <div
           className="relative w-full max-w-[720px] mx-auto rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
-          style={{ aspectRatio: '4 / 3' }}
+          style={{ aspectRatio: overviewAspect }}
           onClick={handleOverviewClick}
         >
           <img
@@ -379,27 +466,37 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
             alt=""
             className="absolute inset-0 w-full h-full object-fill"
             draggable={false}
+            onLoad={(e) => {
+              const el = e.currentTarget
+              if (el.naturalWidth > 0 && el.naturalHeight > 0) {
+                setImgSize({ w: el.naturalWidth, h: el.naturalHeight })
+              }
+            }}
           />
-          {player && (
+          {player && playerOverviewPos && (
             <div
-              className="absolute w-3 h-3 rounded-full bg-success border-2 border-base-100 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-              style={{
-                left: `${((player.x - worldLayer.minX) / (worldLayer.maxX - worldLayer.minX)) * 100}%`,
-                top: `${(1 - (player.y - worldLayer.minY) / (worldLayer.maxY - worldLayer.minY)) * 100}%`,
-              }}
+              className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-0.5"
+              style={{ left: `${playerOverviewPos.left}%`, top: `${playerOverviewPos.top}%` }}
               title={t('mybots.youAreHere')}
-            />
+            >
+              <span className="relative flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-success border-2 border-base-100 shadow" />
+              </span>
+              <span className="text-[10px] font-semibold text-success bg-base-100/90 px-1 rounded whitespace-nowrap">
+                {t('mybots.youAreHere')}
+              </span>
+            </div>
           )}
           {points.map((p) => {
-            const left = ((p.x - worldLayer.minX) / (worldLayer.maxX - worldLayer.minX)) * 100
-            const top = (1 - (p.y - worldLayer.minY) / (worldLayer.maxY - worldLayer.minY)) * 100
-            if (left < 0 || left > 100 || top < 0 || top > 100) return null
+            const pos = worldToOverviewPercent(p.x, p.y, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
+            if (!pos.onMap) return null
             return (
               <button
                 key={p.id}
                 type="button"
                 className="absolute w-2.5 h-2.5 rounded-full bg-primary border border-base-100 -translate-x-1/2 -translate-y-1/2 z-10"
-                style={{ left: `${left}%`, top: `${top}%` }}
+                style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
                 title={p.label}
                 onClick={(ev) => {
                   ev.stopPropagation()
