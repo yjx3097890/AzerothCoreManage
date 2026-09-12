@@ -5,7 +5,18 @@ import { SearchSelect, toast } from '../ui'
 
 type MapHit = { id: number; name: string; name_zh: string }
 type AreaHit = { id: number; name: string; name_zh: string }
-type TeleHit = { id: number; name: string; map: number; map_name?: string; x: number; y: number; z: number; orientation?: number }
+type TeleHit = {
+  id: number
+  name: string
+  name_zh?: string
+  display_name?: string
+  map: number
+  map_name?: string
+  x: number
+  y: number
+  z: number
+  orientation?: number
+}
 
 type NumProps = {
   value?: number
@@ -119,11 +130,12 @@ type TeleProps = {
   className?: string
 }
 
-/** Teleport destination picker (game_tele.name), labels include Chinese map name. */
+/** Teleport destination picker (game_tele.name); ZH UI shows/search Chinese labels. */
 export function TeleSelect({ value, onChange, onSelectHit, mapFilter, disabled, className }: TeleProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [hits, setHits] = useState<TeleHit[]>([])
   const [loading, setLoading] = useState(false)
+  const zhUI = i18n.language.toLowerCase().startsWith('zh')
 
   const search = useCallback(
     async (q: string) => {
@@ -145,14 +157,19 @@ export function TeleSelect({ value, onChange, onSelectHit, mapFilter, disabled, 
 
   useEffect(() => {
     void search('')
-  }, [search])
+  }, [search, i18n.language])
 
-  const options = hits.map((i) => ({
-    value: i.name,
-    label: i.map_name
-      ? `${i.name} · ${i.map_name} (#${i.map})`
-      : t('characters.teleMapLabel', { name: i.name, map: i.map }),
-  }))
+  const options = hits.map((i) => {
+    const labelName = zhUI ? i.display_name || i.name_zh || i.name : i.name
+    const mapPart = i.map_name ? `${i.map_name} (#${i.map})` : `#${i.map}`
+    const label =
+      zhUI && i.name_zh && i.name_zh !== i.name
+        ? `${labelName} · ${mapPart}`
+        : i.map_name
+          ? `${labelName} · ${mapPart}`
+          : t('characters.teleMapLabel', { name: labelName, map: i.map })
+    return { value: i.name, label }
+  })
 
   return (
     <SearchSelect

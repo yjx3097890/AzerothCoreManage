@@ -216,6 +216,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   const [worldLayer, setWorldLayer] = useState<OverviewLayer | null>(null)
   const [checked, setChecked] = useState(false)
   const [hover, setHover] = useState<string | null>(null)
+  const [cursorXY, setCursorXY] = useState<{ x: number; y: number } | null>(null)
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -226,6 +227,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     setManifest(null)
     setWorldLayer(null)
     setImgSize(null)
+    setCursorXY(null)
 
     void (async () => {
       const [wm, man] = await Promise.all([loadWorldMapIndex(), loadManifest(mapId)])
@@ -308,6 +310,18 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     [scatter],
   )
 
+  const clearCursorXY = useCallback(() => setCursorXY(null), [])
+
+  const handleOverviewPointer = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!worldLayer) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    const u = (e.clientX - rect.left) / rect.width
+    const v = (e.clientY - rect.top) / rect.height
+    const { x, y } = overviewClickToWorld(u, v, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
+    setCursorXY({ x, y })
+  }
+
   const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled || !worldLayer) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -320,6 +334,18 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       z: player?.z ?? 0,
       source: 'overview',
       label: t('mybots.mapPickOverview'),
+    })
+  }
+
+  const handleScatterPointer = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    const u = (e.clientX - rect.left) / rect.width
+    const v = (e.clientY - rect.top) / rect.height
+    const { minX, maxX, minY, maxY } = scatter
+    setCursorXY({
+      x: minX + u * (maxX - minX),
+      y: minY + (1 - v) * (maxY - minY),
     })
   }
 
@@ -359,6 +385,20 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
 
   const gridSize = (radius * 2 + 1) * tileSize
 
+  const handleMinimapPointer = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    const localX = ((e.clientX - rect.left) / rect.width) * gridSize
+    const localY = ((e.clientY - rect.top) / rect.height) * gridSize
+    const originI = centerTile.i - radius
+    const originJ = centerTile.j - radius
+    const j = originJ + Math.floor(localX / tileSize)
+    const i = originI + Math.floor(localY / tileSize)
+    const lx = localX - (j - originJ) * tileSize
+    const ly = localY - (i - originI) * tileSize
+    setCursorXY(tilePixelToWorld(i, j, lx, ly, tileSize, tileScale))
+  }
+
   const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -379,6 +419,16 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       label: t('mybots.mapPickTile', { i, j }),
     })
   }
+
+  const cursorHud =
+    cursorXY != null ? (
+      <div className="absolute bottom-2 right-2 z-30 pointer-events-none rounded bg-base-100/90 px-2 py-1 font-mono text-[11px] leading-none text-base-content shadow border border-base-300/60 tabular-nums">
+        {t('mybots.mapCursorXY', {
+          x: cursorXY.x.toFixed(1),
+          y: cursorXY.y.toFixed(1),
+        })}
+      </div>
+    ) : null
 
   const playerMarker = useMemo(() => {
     if (!player || mode !== 'minimap') return null
@@ -409,6 +459,8 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         <div
           ref={wrapRef}
           className="relative w-full h-[360px] rounded-lg border border-base-300 bg-base-200 overflow-hidden"
+          onMouseMove={handleScatterPointer}
+          onMouseLeave={clearCursorXY}
         >
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 360" preserveAspectRatio="none">
             {points.map((p) => {
@@ -451,6 +503,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
               {t('mybots.mapNoPoints')}
             </div>
           )}
+          {cursorHud}
         </div>
       )}
 
@@ -459,6 +512,8 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           className="relative w-full max-w-[720px] mx-auto rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
           style={{ aspectRatio: overviewAspect }}
           onClick={handleOverviewClick}
+          onMouseMove={handleOverviewPointer}
+          onMouseLeave={clearCursorXY}
         >
           <img
             src={worldLayer.imageUrl}
@@ -488,6 +543,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
             </div>
           )}
           {/* Tele dots stay on scatter/minimap only — on WorldMap they clutter and rim-clamp looked like edge noise. */}
+          {cursorHud}
         </div>
       )}
 
@@ -496,6 +552,8 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           className="relative rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair mx-auto"
           style={{ width: 'min(100%, 520px)', aspectRatio: '1 / 1' }}
           onClick={handleMinimapClick}
+          onMouseMove={handleMinimapPointer}
+          onMouseLeave={clearCursorXY}
         >
           <div
             className="absolute inset-0 grid"
@@ -549,6 +607,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
             )
           })}
           <canvas ref={canvasRef} className="hidden" />
+          {cursorHud}
         </div>
       )}
       </div>

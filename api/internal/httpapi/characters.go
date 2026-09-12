@@ -293,7 +293,6 @@ LIMIT ?`, fetchLimit)
 		return
 	}
 	defer rows.Close()
-	ql := strings.ToLower(q)
 	loc := i18n.FromRequest(c)
 	items := []gin.H{}
 	for rows.Next() {
@@ -309,8 +308,10 @@ LIMIT ?`, fetchLimit)
 			continue
 		}
 		mapName := gamelocale.MapName(int(mapID), loc)
+		nameZH := gamelocale.TeleNameZH(name)
+		display := gamelocale.TeleDisplayName(name, loc)
 		if q != "" {
-			hit := strings.Contains(strings.ToLower(name), ql) ||
+			hit := gamelocale.TeleNameMatches(name, q) ||
 				strings.Contains(strconv.Itoa(int(id)), q) ||
 				strings.Contains(strconv.Itoa(int(mapID)), q) ||
 				gamelocale.MapNameMatches(int(mapID), q)
@@ -319,7 +320,8 @@ LIMIT ?`, fetchLimit)
 			}
 		}
 		items = append(items, gin.H{
-			"id": id, "name": name, "map": mapID, "map_name": mapName,
+			"id": id, "name": name, "name_zh": nameZH, "display_name": display,
+			"map": mapID, "map_name": mapName,
 			"x": x, "y": y, "z": z, "orientation": o,
 		})
 		if len(items) >= limit {
