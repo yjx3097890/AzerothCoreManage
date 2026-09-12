@@ -39,6 +39,11 @@ except ImportError:
     print("pip install texture2ddecoder Pillow", file=sys.stderr)
     raise
 
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
 CONTINENT_FOLDERS = {
     "Azeroth": 0,
     "Kalimdor": 1,
@@ -264,14 +269,80 @@ def pick_tile_set(files: dict[str, bytes], folder: str) -> list[tuple[int, bytes
     return sorted(tiles.items(), key=lambda x: x[0])
 
 
-def stitch_tiles(tile_list: list[tuple[int, bytes]]) -> Image.Image:
+def read_merged_overlays(mpq_paths: list[Path]) -> dict[int, list[dict]]:
+    """WorldMapAreaID -> list of overlay descriptors (fully explored art)."""
+    by_area: dict[int, list[dict]] = {}
+    for path in mpq_paths:
+        if not path.exists():
+            continue
+        try:
+            arc = MPQArchive(str(path))
+        except Exception as e:
+            print(f"skip {path.name}: {e}", file=sys.stderr)
+            continue
+        data = arc.read_file("DBFilesClient\\WorldMapOverlay.dbc")
+        if not data:
+            continue
+        _magic, rc, fc, rs, _ss = struct.unpack_from("<4sIIII", data, 0)
+        if fc < 13 or rs < 52:
+            print(f"  unexpected WorldMapOverlay layout in {path.name}", file=sys.stderr)
+            continue
+        string_block = data[20 + rc * rs :]
+
+        def get_str(off: int) -> str:
+            if off <= 0 or off >= len(string_block):
+                return ""
+            end = string_block.find(b"\0", off)
+            return string_block[off:end].decode("utf-8", "replace")
+
+        n = 0
+        for i in range(rc):
+            vals = struct.unpack_from("<" + "I" * fc, data, 20 + i * rs)
+            area_id = int(vals[1])
+            tex = get_str(int(vals[8]))
+            if not tex:
+                continue
+            ov = {
+                "id": int(vals[0]),
+                "texture": tex,
+                "width": int(vals[9]),
+                "height": int(vals[10]),
+                "offsetX": int(vals[11]),
+                "offsetY": int(vals[12]),
+            }
+            by_area.setdefault(area_id, [])
+            # later MPQs override same overlay id
+            existing = by_area[area_id]
+            replaced = False
+            for j, old in enumerate(existing):
+                if old["id"] == ov["id"]:
+                    existing[j] = ov
+                    replaced = True
+                    break
+            if not replaced:
+                existing.append(ov)
+            n += 1
+        print(f"  WorldMapOverlay from {path.name}: {n} rows")
+    return by_area
+
+
+def stitch_tiles(tile_list: list[tuple[int, bytes]], *, crop_black: bool = True) -> Image.Image:
+    """Stitch 4×3 WorldMap detail tiles. crop_black drops per-tile top black strips."""
     images: dict[int, Image.Image] = {}
     for idx, data in tile_list:
         images[idx] = load_blp2_rgba(data)
-    # assume equal size from tile 1 or first
     sample = images[min(images)]
     tw, th = sample.size
-    out = Image.new("RGBA", (COLS * tw, ROWS * th), (0, 0, 0, 255))
+    top_crop = 0
+    if crop_black:
+        borders = [detect_top_black_border(img) for img in list(images.values())[:4]]
+        top_crop = max(borders) if borders else 0
+    content_h = th - top_crop
+    if content_h <= 0:
+        content_h = th
+        top_crop = 0
+
+    out = Image.new("RGBA", (COLS * tw, ROWS * content_h), (0, 0, 0, 255))
     for idx, img in images.items():
         i = idx - 1
         col, row = i % COLS, i // COLS
@@ -279,8 +350,190 @@ def stitch_tiles(tile_list: list[tuple[int, bytes]]) -> Image.Image:
             continue
         if img.size != (tw, th):
             img = img.resize((tw, th), Image.Resampling.BILINEAR)
-        out.paste(img, (col * tw, row * th))
+        if top_crop > 0:
+            img = img.crop((0, top_crop, tw, th))
+        out.paste(img, (col * tw, row * content_h))
+    if crop_black:
+        return _crop_bottom_black(_blend_horizontal_seams(out, content_h, ROWS))
     return out
+
+
+def apply_exploration_overlays(
+    base: Image.Image,
+    folder_files: dict[str, bytes],
+    overlays: list[dict],
+) -> Image.Image:
+    """Composite WorldMapOverlay textures (explored regions) onto the blank parchment base."""
+    if not overlays:
+        return base
+    canvas = base.convert("RGBA")
+    applied = 0
+    for ov in overlays:
+        tex = ov["texture"]
+        width, height = ov["width"], ov["height"]
+        ox, oy = ov["offsetX"], ov["offsetY"]
+        wide = max(1, (width + 255) // 256)
+        tall = max(1, (height + 255) // 256)
+        idx = 1
+        for row in range(tall):
+            for col in range(wide):
+                key = f"{tex.lower()}{idx}.blp"
+                data = folder_files.get(key)
+                idx += 1
+                if not data:
+                    continue
+                try:
+                    tile = load_blp2_rgba(data)
+                except Exception:
+                    continue
+                pw = min(256, width - col * 256)
+                ph = min(256, height - row * 256)
+                if pw <= 0 or ph <= 0:
+                    continue
+                if tile.size[0] < pw or tile.size[1] < ph:
+                    tile = tile.resize((max(pw, tile.size[0]), max(ph, tile.size[1])), Image.Resampling.BILINEAR)
+                tile = tile.crop((0, 0, pw, ph))
+                px = ox + col * 256
+                py = oy + row * 256
+                layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+                layer.paste(tile, (px, py), tile)
+                canvas = Image.alpha_composite(canvas, layer)
+                applied += 1
+    if applied:
+        print(f"    overlays: {applied} pieces from {len(overlays)} regions")
+    return canvas
+
+
+def detect_top_black_border(img: Image.Image, max_check: int = 32, thr: int = 8) -> int:
+    """How many fully-black rows at the top of a WorldMap tile (often 8)."""
+    if np is None:
+        rgba = img.convert("RGBA")
+        w, h = rgba.size
+        px = rgba.load()
+        border = 0
+        for y in range(min(max_check, h)):
+            black = sum(1 for x in range(w) if px[x, y][3] < 8 or max(px[x, y][:3]) < thr)
+            if black / w >= 0.98:
+                border += 1
+            else:
+                break
+        return border
+    arr = np.asarray(img.convert("RGBA"))
+    limit = min(max_check, arr.shape[0])
+    border = 0
+    for y in range(limit):
+        row = arr[y]
+        black = ((row[:, 3] < 8) | (row[:, :3].max(axis=1) < thr)).mean()
+        if black >= 0.98:
+            border += 1
+        else:
+            break
+    return border
+
+
+def _blend_horizontal_seams(img: Image.Image, row_h: int, rows: int) -> Image.Image:
+    """Soften residual 1px discontinuities where tile rows meet."""
+    if np is None or rows < 2 or row_h < 4:
+        return img
+    arr = np.asarray(img.convert("RGBA")).astype(np.float32)
+    for r in range(1, rows):
+        y = r * row_h
+        if y <= 0 or y >= arr.shape[0]:
+            continue
+        above = arr[y - 1]
+        below = arr[min(y, arr.shape[0] - 1)]
+        # replace seam row and neighbors with short vertical blend
+        for dy, w_above in ((-1, 0.75), (0, 0.5), (1, 0.25)):
+            yy = y + dy
+            if 0 <= yy < arr.shape[0]:
+                arr[yy] = above * w_above + below * (1.0 - w_above)
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
+def _crop_bottom_black(img: Image.Image, thr: int = 8) -> Image.Image:
+    """Trim trailing full-width black rows (empty tile padding at map bottom)."""
+    if np is None:
+        return img
+    arr = np.asarray(img.convert("RGBA"))
+    row_black = ((arr[:, :, 3] < 8) | (arr[:, :, :3].max(axis=2) < thr)).mean(axis=1) >= 0.98
+    y1 = arr.shape[0]
+    while y1 > 0 and row_black[y1 - 1]:
+        y1 -= 1
+    if y1 <= 0 or y1 == arr.shape[0]:
+        return img
+    if y1 < arr.shape[0] * 0.5:
+        return img
+    return Image.fromarray(arr[:y1])
+
+
+def fix_stitched_overview(img: Image.Image, cols: int = COLS, rows: int = ROWS) -> Image.Image:
+    """Remove horizontal black seam bands from an already-stitched overview PNG."""
+    rgba = img.convert("RGBA")
+    w, h = rgba.size
+    if w % cols != 0 or rows < 2:
+        return rgba
+    tw, th = w // cols, h // rows
+    if th * rows != h:
+        return _fix_by_black_runs(rgba)
+
+    if np is None:
+        tiles = [
+            rgba.crop((col * tw, row * th, (col + 1) * tw, (row + 1) * th))
+            for row in range(rows)
+            for col in range(cols)
+        ]
+        top_crop = max(detect_top_black_border(t) for t in tiles[:4])
+        if top_crop <= 0:
+            return rgba
+        content_h = th - top_crop
+        out = Image.new("RGBA", (w, rows * content_h), (0, 0, 0, 255))
+        i = 0
+        for row in range(rows):
+            for col in range(cols):
+                tile = tiles[i].crop((0, top_crop, tw, th))
+                out.paste(tile, (col * tw, row * content_h))
+                i += 1
+        return _crop_bottom_black(_blend_horizontal_seams(out, content_h, rows))
+
+    arr = np.asarray(rgba)
+    borders = [
+        detect_top_black_border(Image.fromarray(arr[0:th, col * tw : (col + 1) * tw]))
+        for col in range(min(4, cols))
+    ]
+    top_crop = max(borders) if borders else 0
+    if top_crop <= 0:
+        return _crop_bottom_black(rgba)
+    content_h = th - top_crop
+    out = np.empty((rows * content_h, w, 4), dtype=arr.dtype)
+    for row in range(rows):
+        src_y0 = row * th + top_crop
+        src_y1 = (row + 1) * th
+        dst_y0 = row * content_h
+        out[dst_y0 : dst_y0 + content_h] = arr[src_y0:src_y1]
+    return _crop_bottom_black(_blend_horizontal_seams(Image.fromarray(out), content_h, rows))
+
+
+def _fix_by_black_runs(rgba: Image.Image, thr: int = 8) -> Image.Image:
+    """Fallback: delete near-full-width black row runs in the middle of the image."""
+    if np is None:
+        return rgba
+    arr = np.asarray(rgba.convert("RGBA"))
+    h = arr.shape[0]
+    black_rows = ((arr[:, :, 3] < 8) | (arr[:, :, :3].max(axis=2) < thr)).mean(axis=1) >= 0.98
+    keep = np.ones(h, dtype=bool)
+    y = 0
+    while y < h:
+        if not black_rows[y]:
+            y += 1
+            continue
+        y0 = y
+        while y < h and black_rows[y]:
+            y += 1
+        if y0 > 16 and y < h - 16 and (y - y0) <= 16:
+            keep[y0:y] = False
+    if keep.all():
+        return rgba
+    return Image.fromarray(arr[keep])
 
 
 def bounds_from_row(row: dict) -> dict:
@@ -305,10 +558,33 @@ def main() -> int:
         default=None,
         help="Output dir (default: <repo>/web/public/maps/worldmap)",
     )
+    ap.add_argument(
+        "--fix-seams",
+        action="store_true",
+        help="Only fix horizontal black seams on existing overview.png files (no MPQ extract)",
+    )
     args = ap.parse_args()
-    client = Path(args.client)
     repo = Path(__file__).resolve().parents[1]
     out = Path(args.out) if args.out else repo / "web" / "public" / "maps" / "worldmap"
+
+    if args.fix_seams:
+        if not out.is_dir():
+            print(f"missing {out}", file=sys.stderr)
+            return 1
+        n = 0
+        for png in sorted(out.rglob("overview.png")):
+            before = Image.open(png)
+            after = fix_stitched_overview(before)
+            if after.size == before.size:
+                after = _fix_by_black_runs(before.convert("RGBA"))
+            if after.size != before.size:
+                after.save(png, "PNG", optimize=True)
+                print(f"  fixed {png.relative_to(out)} {before.size[0]}x{before.size[1]} -> {after.size[0]}x{after.size[1]}")
+                n += 1
+        print(f"fixed {n} maps under {out}")
+        return 0
+
+    client = Path(args.client)
     zh = client / "Data" / "zhCN"
     mpqs = [
         zh / "locale-zhCN.MPQ",
@@ -324,6 +600,9 @@ def main() -> int:
         print("No WorldMapArea.dbc found", file=sys.stderr)
         return 1
 
+    print("Reading WorldMapOverlay.dbc…")
+    overlays_by_area = read_merged_overlays(mpqs)
+
     print("Collecting WorldMap BLPs…")
     folders = collect_worldmap_blps(mpqs)
     # case-insensitive folder lookup
@@ -336,6 +615,7 @@ def main() -> int:
     by_area: dict[str, dict] = {}
     by_map: dict[str, dict] = {}
     name_to_row = {r["name"].lower(): r for r in rows if r["name"]}
+    name_to_wma_id = {r["name"].lower(): r["id"] for r in rows if r["name"]}
 
     def export_folder(folder_key: str, rel_image: str) -> bool:
         actual = folder_by_lower.get(folder_key.lower())
@@ -347,7 +627,13 @@ def main() -> int:
             print(f"  no tiles: {actual}")
             return False
         try:
-            img = stitch_tiles(tile_list)
+            # Keep original 4×3 UV space so overlay Offset_X/Y match the client.
+            img = stitch_tiles(tile_list, crop_black=False)
+            wma_id = name_to_wma_id.get(folder_key.lower()) or name_to_wma_id.get(actual.lower())
+            if wma_id is not None:
+                img = apply_exploration_overlays(img, folders[actual], overlays_by_area.get(wma_id, []))
+            img = fix_stitched_overview(img)
+            img = _crop_bottom_black(img)
         except Exception as e:
             print(f"  stitch fail {actual}: {e}")
             return False
@@ -416,8 +702,8 @@ def main() -> int:
         }
 
     index = {
-        "version": 1,
-        "source": "Interface/WorldMap + WorldMapArea.dbc",
+        "version": 2,
+        "source": "Interface/WorldMap detail tiles + WorldMapOverlay (fully explored)",
         "byAreaId": by_area,
         "byMapId": by_map,
     }

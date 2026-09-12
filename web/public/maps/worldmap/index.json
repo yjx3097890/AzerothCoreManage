@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "source": "Interface/WorldMap + WorldMapArea.dbc",
+  "version": 2,
+  "source": "Interface/WorldMap detail tiles + WorldMapOverlay (fully explored)",
   "byAreaId": {
     "14": {
       "folder": "Durotar",
