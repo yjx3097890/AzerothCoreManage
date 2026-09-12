@@ -10,7 +10,6 @@ import (
 
 	"acmanage/internal/app"
 	"acmanage/internal/audit"
-	"acmanage/internal/gamelocale"
 	"acmanage/internal/i18n"
 	"acmanage/internal/mybots"
 
@@ -190,15 +189,7 @@ func (s *Server) mybotsGetCharacter(c *gin.Context) {
 		return
 	}
 	loc := i18n.FromRequest(c)
-	if v, ok := asInt(payload["map"]); ok {
-		payload["map_name"] = gamelocale.MapName(v, loc)
-	}
-	if v, ok := asInt(payload["zone"]); ok {
-		payload["zone_name"] = gamelocale.AreaName(v, loc)
-	}
-	if v, ok := asInt(payload["class"]); ok {
-		payload["class_name"] = gamelocale.ClassName(v, loc)
-	}
+	enrichMyBotsCharacter(payload, loc)
 	_ = rt
 	JSON(c, payload)
 }

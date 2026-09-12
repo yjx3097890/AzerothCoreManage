@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, errorMessage, hasMinRole } from '../api/client'
+import { api, errorMessage, getTargetId, getToken, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
 import { MapPointPicker, type MapPick, type MapPoint } from '../components/MapPointPicker'
 import { CreatureSelect, TeleSelect } from '../components/PlaceSelect'
+import { currentLocale } from '../i18n'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type Status = {
@@ -112,6 +113,8 @@ export function MyBotsPage() {
   const [activeChar, setActiveChar] = useState('')
   const [onlineChars, setOnlineChars] = useState<OnlineChar[]>([])
   const [onlineLoading, setOnlineLoading] = useState(false)
+  const [liveOk, setLiveOk] = useState(false)
+  const liveAbortRef = useRef<AbortController | null>(null)
   const [snap, setSnap] = useState<CharacterSnap | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobDetail, setJobDetail] = useState<Job | null>(null)
@@ -298,10 +301,98 @@ export function MyBotsPage() {
     void loadTelePoints(snap.map)
   }, [snap?.map]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // SSE: keep map position + quest lists in sync while a character is selected.
   useEffect(() => {
-    if (!activeChar || !snap?.name) return
-    void loadQuests(snap.name || activeChar)
-  }, [activeChar, snap?.name]) // eslint-disable-line react-hooks/exhaustive-deps
+    liveAbortRef.current?.abort()
+    liveAbortRef.current = null
+    setLiveOk(false)
+    if (!activeChar || !status?.configured) return
+
+    const ac = new AbortController()
+    liveAbortRef.current = ac
+
+    void (async () => {
+      try {
+        const headers = new Headers({ Accept: 'text/event-stream' })
+        const token = getToken()
+        if (token) headers.set('Authorization', `Bearer ${token}`)
+        headers.set('X-Locale', currentLocale())
+        headers.set('Accept-Language', currentLocale())
+        const target = getTargetId()
+        if (target) headers.set('X-Target-Id', target)
+
+        const res = await fetch(
+          `/api/v1/mybots/characters/${encodeURIComponent(activeChar)}/live?interval=2`,
+          { headers, signal: ac.signal, cache: 'no-store' },
+        )
+        if (!res.ok || !res.body) {
+          let msg = res.statusText
+          try {
+            const body = (await res.json()) as { error?: { message?: string } }
+            msg = body.error?.message || msg
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg || t('mybots.liveError'))
+        }
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const chunks = buffer.split('\n\n')
+          buffer = chunks.pop() || ''
+          for (const chunk of chunks) {
+            const rawLines = chunk.split('\n')
+            let event = 'message'
+            const dataLines: string[] = []
+            for (const line of rawLines) {
+              if (line.startsWith(':')) continue
+              if (line.startsWith('event:')) event = line.slice(6).trim()
+              else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+            }
+            if (!dataLines.length) continue
+            try {
+              const data = JSON.parse(dataLines.join('\n')) as Record<string, unknown>
+              if (event === 'ready') {
+                setLiveOk(true)
+              } else if (event === 'snapshot') {
+                setSnap(data as CharacterSnap)
+                setLiveOk(true)
+              } else if (event === 'quests') {
+                const log = Array.isArray(data.log) ? (data.log as QuestItem[]) : []
+                const available = Array.isArray(data.available) ? (data.available as QuestItem[]) : []
+                setQuestLog(log)
+                setQuestAvail(available)
+                setLiveOk(true)
+              }
+            } catch {
+              /* ignore malformed chunk */
+            }
+          }
+        }
+      } catch (err) {
+        if (ac.signal.aborted) return
+        setLiveOk(false)
+        // Don't toast on every disconnect; initial load still works via refreshCharRelated.
+        console.warn('mybots live SSE', err)
+      } finally {
+        if (liveAbortRef.current === ac) {
+          liveAbortRef.current = null
+          setLiveOk(false)
+        }
+      }
+    })()
+
+    return () => {
+      ac.abort()
+      if (liveAbortRef.current === ac) liveAbortRef.current = null
+    }
+  }, [activeChar, status?.configured, t])
 
   useEffect(() => {
     if (tab === 'patrols' && status?.configured) void loadPatrols()
@@ -598,15 +689,6 @@ export function MyBotsPage() {
         </label>
         <button
           type="button"
-          className="btn btn-sm"
-          disabled={!status?.configured || onlineLoading}
-          onClick={() => void loadOnlineCharacters()}
-          title={t('mybots.refreshOnline')}
-        >
-          {t('mybots.refreshOnline')}
-        </button>
-        <button
-          type="button"
           className="btn btn-sm btn-primary"
           disabled={!status?.configured || !charId}
           onClick={() => void refreshCharRelated(charId.trim())}
@@ -625,6 +707,12 @@ export function MyBotsPage() {
             {snap.online === false && <span className="badge badge-warning badge-sm">{t('mybots.offline')}</span>}
             {snap.selfbot && <span className="badge badge-success badge-sm">Selfbot</span>}
             {!snap.selfbot && <span className="badge badge-ghost badge-sm">{t('mybots.selfbotOff')}</span>}
+            {liveOk && (
+              <span className="badge badge-info badge-sm gap-1">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-info-content animate-pulse" />
+                {t('mybots.live')}
+              </span>
+            )}
             {gm && (
               <>
                 <button
@@ -749,13 +837,6 @@ export function MyBotsPage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => void loadQuests(snap.name || activeChar)}
-                  >
-                    {t('common.refresh')}
-                  </button>
                 </section>
               </div>
             ),

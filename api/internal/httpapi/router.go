@@ -189,6 +189,7 @@ func (s *Server) Router() *gin.Engine {
 		authed.GET("/mybots/status", s.mybotsStatus)
 		authed.GET("/mybots/health", s.mybotsHealth)
 		authed.GET("/mybots/characters/:id", s.mybotsGetCharacter)
+		authed.GET("/mybots/characters/:id/live", s.mybotsCharacterLive)
 		authed.POST("/mybots/characters/:id/selfbot", RequireRole(RoleGM), s.mybotsSelfbot)
 		authed.GET("/mybots/characters/:id/jobs", s.mybotsListJobs)
 		authed.POST("/mybots/characters/:id/jobs", RequireRole(RoleGM), s.mybotsCreateJob)
