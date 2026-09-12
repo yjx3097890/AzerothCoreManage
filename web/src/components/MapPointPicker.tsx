@@ -111,8 +111,8 @@ function croppedYToNative(croppedY: number, croppedH: number): number {
 }
 
 function worldToOverviewPercent(
-  x: number,
-  y: number,
+  worldX: number,
+  worldY: number,
   layer: OverviewLayer,
   imgW: number,
   imgH: number,
@@ -120,17 +120,19 @@ function worldToOverviewPercent(
   const dx = layer.maxX - layer.minX
   const dy = layer.maxY - layer.minY
   if (!dx || !dy) return { left: 50, top: 50, onMap: false }
-  const u = (x - layer.minX) / dx
-  const v = (layer.maxY - y) / dy // 0 = north/top
+  // WorldMapArea LocLeft/Right → horizontal (world Y); LocTop/Bottom → vertical (world X).
+  // index.json stores those as minX/maxX and minY/maxY respectively.
+  const u = (worldY - layer.minX) / dx
+  const v = (layer.maxY - worldX) / dy // 0 = north/top of parchment
   let left = u * 100
   let top = v * 100
-  // Seam-cropped exports keep width 1024 but shrink height; remap Y through native UV.
+  // Seam-cropped exports keep width 1024 but shrink height; remap parchment Y through native UV.
   if (imgW > 0 && imgH > 0 && imgH < WORLD_MAP_NATIVE_H - 8 && Math.abs(imgW - WORLD_MAP_NATIVE_W) < 8) {
     const nativeY = clamp01(v) * WORLD_MAP_NATIVE_H
     top = (nativeYToCropped(nativeY, imgH) / imgH) * 100
-    left = clamp01(u) * 100
+    left = u * 100
   }
-  const onMap = left >= 0 && left <= 100 && top >= 0 && top <= 100
+  const onMap = left >= -2 && left <= 102 && top >= -2 && top <= 102
   return {
     left: Math.min(98, Math.max(2, left)),
     top: Math.min(98, Math.max(2, top)),
@@ -151,8 +153,8 @@ function overviewClickToWorld(
     vv = croppedYToNative(croppedY, imgH) / WORLD_MAP_NATIVE_H
   }
   return {
-    x: layer.minX + clamp01(u) * (layer.maxX - layer.minX),
-    y: layer.maxY - clamp01(vv) * (layer.maxY - layer.minY),
+    x: layer.maxY - clamp01(vv) * (layer.maxY - layer.minY),
+    y: layer.minX + clamp01(u) * (layer.maxX - layer.minX),
   }
 }
 
