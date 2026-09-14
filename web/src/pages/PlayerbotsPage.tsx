@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage, hasMinRole } from '../api/client'
 import { ConfirmDanger } from '../components/ConfirmDanger'
+import {
+  CHAT_CMD_CATEGORIES,
+  PLAYERBOT_CHAT_COMMANDS,
+  pickLocaleText,
+  type ChatCmdCategoryId,
+} from '../data/playerbotChatCommands'
 import { classLabel } from '../utils/wowLabels'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
@@ -128,6 +134,8 @@ export function PlayerbotsPage() {
   const [accountResult, setAccountResult] = useState('')
   const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [pending, setPending] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null)
+  const [chatCmdQuery, setChatCmdQuery] = useState('')
+  const [chatCmdCategory, setChatCmdCategory] = useState<ChatCmdCategoryId | 'all'>('all')
 
   const [levelArg, setLevelArg] = useState('')
   const [botsAction, setBotsAction] = useState('add')
@@ -170,6 +178,33 @@ export function PlayerbotsPage() {
       toast.error(errorMessage(err, t))
     }
   }
+
+  const copyChatCmd = (cmd: string) => {
+    void navigator.clipboard?.writeText(cmd).then(
+      () => toast.success(t('playerbots.commandCopied')),
+      () => toast.success(t('playerbots.commandReady')),
+    )
+  }
+
+  const filteredChatCmds = useMemo(() => {
+    const q = chatCmdQuery.trim().toLowerCase()
+    return PLAYERBOT_CHAT_COMMANDS.filter((item) => {
+      if (chatCmdCategory !== 'all' && item.category !== chatCmdCategory) return false
+      if (!q) return true
+      const title = pickLocaleText(item.title, i18n.language).toLowerCase()
+      const desc = pickLocaleText(item.desc, i18n.language).toLowerCase()
+      return item.cmd.toLowerCase().includes(q) || title.includes(q) || desc.includes(q)
+    })
+  }, [chatCmdCategory, chatCmdQuery, i18n.language])
+
+  const chatCmdsByCategory = useMemo(() => {
+    const map = new Map<ChatCmdCategoryId, typeof PLAYERBOT_CHAT_COMMANDS>()
+    for (const cat of CHAT_CMD_CATEGORIES) map.set(cat, [])
+    for (const item of filteredChatCmds) {
+      map.get(item.category)!.push(item)
+    }
+    return map
+  }, [filteredChatCmds])
 
   const runAction = (action: string, needsConfirm: boolean, arg?: string) => {
     const exec = async () => {
@@ -582,6 +617,87 @@ export function PlayerbotsPage() {
                       </div>
                     )}
                   </section>
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'chatCmds',
+            label: t('playerbots.tabChatCmds'),
+            children: (
+              <div>
+                <PanelIntro>{t('playerbots.chatCmdsHint')}</PanelIntro>
+                <div className="alert alert-info mb-4 max-w-3xl">
+                  <span>{t('playerbots.chatCmdsHowTo')}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <input
+                    className="input input-bordered input-sm w-56"
+                    placeholder={t('playerbots.chatCmdsSearch')}
+                    value={chatCmdQuery}
+                    onChange={(e) => setChatCmdQuery(e.target.value)}
+                  />
+                  <Select
+                    className="w-44"
+                    value={chatCmdCategory}
+                    onChange={(v) => setChatCmdCategory((v as ChatCmdCategoryId | 'all') ?? 'all')}
+                    options={[
+                      { value: 'all', label: t('playerbots.chatCmdsAllCategories') },
+                      ...CHAT_CMD_CATEGORIES.map((cat) => ({
+                        value: cat,
+                        label: t(`playerbots.chatCmdCategories.${cat}`),
+                      })),
+                    ]}
+                  />
+                </div>
+                <div className="flex flex-col gap-5 max-w-4xl">
+                  {CHAT_CMD_CATEGORIES.map((cat) => {
+                    const items = chatCmdsByCategory.get(cat) ?? []
+                    if (items.length === 0) return null
+                    return (
+                      <section key={cat} className="rounded-lg border border-base-300 bg-base-100 p-4">
+                        <h3 className="text-sm font-semibold m-0 mb-3">
+                          {t(`playerbots.chatCmdCategories.${cat}`)}
+                        </h3>
+                        <div className="overflow-x-auto rounded-box border border-base-300">
+                          <table className="table table-zebra table-sm">
+                            <thead>
+                              <tr>
+                                <th className="w-40">{t('playerbots.chatCmdsColCmd')}</th>
+                                <th>{t('playerbots.chatCmdsColDesc')}</th>
+                                <th className="w-24">{t('common.actions')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((item) => (
+                                <tr key={item.id}>
+                                  <td>
+                                    <div className="font-medium">{pickLocaleText(item.title, i18n.language)}</div>
+                                    <code className="text-xs font-mono text-primary">{item.cmd}</code>
+                                  </td>
+                                  <td className="text-sm text-base-content/70">
+                                    {pickLocaleText(item.desc, i18n.language)}
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="btn btn-ghost btn-xs"
+                                      onClick={() => copyChatCmd(item.cmd)}
+                                    >
+                                      {t('common.copy')}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    )
+                  })}
+                  {filteredChatCmds.length === 0 && (
+                    <p className="text-sm text-base-content/55 m-0">{t('playerbots.chatCmdsEmpty')}</p>
+                  )}
                 </div>
               </div>
             ),
