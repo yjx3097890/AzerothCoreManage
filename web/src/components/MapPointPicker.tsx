@@ -316,17 +316,27 @@ function labelForMap(
   names: { maps: Map<number, string> },
   folder: string,
   englishFallback?: string,
+  zhUI = false,
 ): string {
-  return names.maps.get(mapId) || englishFallback || humanizeFolder(folder) || String(mapId)
+  const fromCatalog = names.maps.get(mapId)
+  if (fromCatalog) return fromCatalog
+  if (!zhUI && englishFallback) return englishFallback
+  if (!zhUI) return humanizeFolder(folder) || String(mapId)
+  // Chinese UI: avoid English folder leftovers when catalog missed the id.
+  return englishFallback && /[\u4e00-\u9fff]/.test(englishFallback)
+    ? englishFallback
+    : String(mapId)
 }
 
 function labelForArea(
   areaId: number | undefined,
   names: { areas: Map<number, string> },
   folder: string,
+  zhUI = false,
 ): string {
   if (areaId && names.areas.get(areaId)) return names.areas.get(areaId)!
-  return humanizeFolder(folder)
+  if (!zhUI) return humanizeFolder(folder)
+  return areaId ? String(areaId) : folder
 }
 
 export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled, className }: Props) {
@@ -369,13 +379,13 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       if (wm?.byMapId) {
         const continentEntries = Object.values(wm.byMapId).sort((a, b) => a.mapId - b.mapId)
         for (const continent of continentEntries) {
-          const display = labelForMap(continent.mapId, names, continent.folder)
+          const display = labelForMap(continent.mapId, names, continent.folder, undefined, zhUI)
           const layer = entryToLayer(continent, 'continent')
           const zones: ZoneOpt[] = Object.values(wm.byAreaId || {})
             .filter((e) => e.mapId === continent.mapId)
             .map((entry) => {
               const areaId = entry.areaId ?? 0
-              const zoneLabel = labelForArea(areaId || undefined, names, entry.folder)
+              const zoneLabel = labelForArea(areaId || undefined, names, entry.folder, zhUI)
               return {
                 key: `zone:${areaId || entry.folder}`,
                 label: zoneLabel,
@@ -410,10 +420,10 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           const display =
             names.maps.get(instMapId) ||
             (primary.areaId ? names.areas.get(primary.areaId) : undefined) ||
-            labelForMap(instMapId, names, primary.folder)
+            labelForMap(instMapId, names, primary.folder, undefined, zhUI)
           const zones: ZoneOpt[] = entries.map((entry) => {
             const areaId = entry.areaId ?? 0
-            const zoneLabel = labelForArea(areaId || undefined, names, entry.folder)
+            const zoneLabel = labelForArea(areaId || undefined, names, entry.folder, zhUI)
             return {
               key: `zone:${areaId || entry.folder}`,
               label: zoneLabel,
@@ -436,7 +446,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         const dungeonOpts: ContinentOpt[] = []
         for (const entry of Object.values(dungeonIdx.byMapId)) {
           if (coveredMapIds.has(entry.mapId) || !entry.floors?.length) continue
-          const display = labelForMap(entry.mapId, names, entry.name, entry.name)
+          const display = labelForMap(entry.mapId, names, entry.name, entry.name, zhUI)
           const primary = entry.floors[0]
           const zones: ZoneOpt[] = entry.floors.slice(1).map((floor, idx) => {
             const floorLabel = t('mybots.mapFloor', { n: idx + 2 })

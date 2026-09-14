@@ -5,6 +5,7 @@ import { ConfirmDanger } from '../components/ConfirmDanger'
 import { MapPointPicker, type MapPick, type MapPoint } from '../components/MapPointPicker'
 import { CreatureSelect } from '../components/PlaceSelect'
 import { currentLocale } from '../i18n'
+import { isZhLocale, pickLocalizedName } from '../utils/localeLabel'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type Status = {
@@ -74,7 +75,17 @@ type QuestItem = {
   heuristic?: boolean
 }
 
-type TeleHit = { id: number; name: string; map: number; map_name?: string; x: number; y: number; z: number }
+type TeleHit = {
+  id: number
+  name: string
+  name_zh?: string
+  display_name?: string
+  map: number
+  map_name?: string
+  x: number
+  y: number
+  z: number
+}
 
 type OnlineChar = {
   guid: number
@@ -105,7 +116,8 @@ function StatCard({ title, desc, value }: { title: string; desc: string; value: 
 }
 
 export function MyBotsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const zhUI = isZhLocale(i18n.language)
   const gm = hasMinRole('gm')
   const [tab, setTab] = useState('command')
   const [status, setStatus] = useState<Status | null>(null)
@@ -465,13 +477,18 @@ export function MyBotsPage() {
     () =>
       telePoints.map((p) => ({
         id: String(p.id),
-        label: p.name,
+        label: pickLocalizedName(zhUI, {
+          name: p.name,
+          name_zh: p.name_zh,
+          name_en: p.name,
+          display_name: p.display_name,
+        }),
         x: p.x,
         y: p.y,
         z: p.z,
         map: p.map,
       })),
-    [telePoints],
+    [telePoints, zhUI],
   )
 
   const buildJobBody = (): Record<string, unknown> | null => {

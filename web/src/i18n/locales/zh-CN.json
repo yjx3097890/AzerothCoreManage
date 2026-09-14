@@ -867,7 +867,7 @@
     "itemEmpty": "没有匹配的物品",
     "mapPlaceholder": "搜索地图名称或 ID",
     "areaPlaceholder": "搜索区域名称或 ID",
-    "telePlaceholder": "搜索传送点中文名（如 暴风城）",
+    "telePlaceholder": "搜索传送点（中英文均可）",
     "creaturePlaceholder": "搜索 NPC 名称或 entry"
   },
   "events": {

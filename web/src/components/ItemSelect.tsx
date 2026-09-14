@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
 import { SearchSelect, toast } from '../ui'
+import { isZhLocale, localizedSearchText, pickLocalizedName } from '../utils/localeLabel'
 
 type ItemHit = { id: number; entry: number; name: string; name_en: string; name_zh: string }
 
@@ -13,11 +14,12 @@ type Props = {
 }
 
 export function ItemSelect({ value, onChange, disabled, className }: Props) {
-  const { t } = useTranslation()
-  const [options, setOptions] = useState<{ value: number; label: string }[]>([])
+  const { t, i18n } = useTranslation()
+  const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
   const [loading, setLoading] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seq = useRef(0)
+  const zhUI = isZhLocale(i18n.language)
 
   const fetchItems = useCallback(
     async (q: string) => {
@@ -29,10 +31,14 @@ export function ItemSelect({ value, onChange, disabled, className }: Props) {
         const data = await api<{ items: ItemHit[] }>(`/api/v1/catalog/items?${params}`)
         if (my !== seq.current) return
         setOptions(
-          data.items.map((i) => ({
-            value: i.entry,
-            label: `#${i.entry} ${i.name}`,
-          })),
+          data.items.map((i) => {
+            const name = pickLocalizedName(zhUI, i)
+            return {
+              value: i.entry,
+              label: `#${i.entry} ${name}`,
+              searchText: localizedSearchText(i, [i.entry, i.id]),
+            }
+          }),
         )
       } catch (err) {
         if (my !== seq.current) return
@@ -41,7 +47,7 @@ export function ItemSelect({ value, onChange, disabled, className }: Props) {
         if (my === seq.current) setLoading(false)
       }
     },
-    [t],
+    [t, zhUI],
   )
 
   const searchDebounced = useCallback(
@@ -66,7 +72,7 @@ export function ItemSelect({ value, onChange, disabled, className }: Props) {
 
   const merged = useMemo(() => {
     if (value && !options.some((o) => o.value === value)) {
-      return [{ value, label: `#${value}` }, ...options]
+      return [{ value, label: `#${value}`, searchText: String(value) }, ...options]
     }
     return options
   }, [options, value])

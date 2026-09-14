@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
 import { SearchSelect, toast } from '../ui'
+import { isZhLocale, localizedSearchText, pickLocalizedName } from '../utils/localeLabel'
 
 type MapHit = { id: number; name: string; name_zh?: string; name_en?: string }
 type AreaHit = { id: number; name: string; name_zh?: string; name_en?: string }
@@ -27,8 +28,9 @@ type NumProps = {
 
 export function MapSelect({ value, onChange, disabled, className }: NumProps) {
   const { t, i18n } = useTranslation()
-  const [options, setOptions] = useState<{ value: number; label: string }[]>([])
+  const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const zhUI = isZhLocale(i18n.language)
 
   const search = useCallback(
     async (q: string) => {
@@ -37,11 +39,14 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
         const params = new URLSearchParams({ limit: '80' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: MapHit[] }>(`/api/v1/catalog/maps?${params}`)
-        const zh = i18n.language?.toLowerCase().startsWith('zh')
         setOptions(
           data.items.map((i) => {
-            const name = zh ? i.name_zh || i.name : i.name_en || i.name
-            return { value: i.id, label: `#${i.id} ${name}` }
+            const name = pickLocalizedName(zhUI, i)
+            return {
+              value: i.id,
+              label: `#${i.id} ${name}`,
+              searchText: localizedSearchText(i, [i.id]),
+            }
           }),
         )
       } catch (err) {
@@ -50,7 +55,7 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
         setLoading(false)
       }
     },
-    [t, i18n.language],
+    [t, zhUI],
   )
 
   useEffect(() => {
@@ -59,7 +64,7 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
-      return [{ value, label: `#${value}` }, ...options]
+      return [{ value, label: `#${value}`, searchText: String(value) }, ...options]
     }
     return options
   }, [options, value])
@@ -81,8 +86,9 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
 
 export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
   const { t, i18n } = useTranslation()
-  const [options, setOptions] = useState<{ value: number; label: string }[]>([])
+  const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const zhUI = isZhLocale(i18n.language)
 
   const search = useCallback(
     async (q: string) => {
@@ -91,11 +97,14 @@ export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
         const params = new URLSearchParams({ limit: '80' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: AreaHit[] }>(`/api/v1/catalog/areas?${params}`)
-        const zh = i18n.language?.toLowerCase().startsWith('zh')
         setOptions(
           data.items.map((i) => {
-            const name = zh ? i.name_zh || i.name : i.name_en || i.name
-            return { value: i.id, label: `#${i.id} ${name}` }
+            const name = pickLocalizedName(zhUI, i)
+            return {
+              value: i.id,
+              label: `#${i.id} ${name}`,
+              searchText: localizedSearchText(i, [i.id]),
+            }
           }),
         )
       } catch (err) {
@@ -104,7 +113,7 @@ export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
         setLoading(false)
       }
     },
-    [t, i18n.language],
+    [t, zhUI],
   )
 
   useEffect(() => {
@@ -113,7 +122,7 @@ export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
-      return [{ value, label: `#${value}` }, ...options]
+      return [{ value, label: `#${value}`, searchText: String(value) }, ...options]
     }
     return options
   }, [options, value])
@@ -142,12 +151,12 @@ type TeleProps = {
   className?: string
 }
 
-/** Teleport destination picker (game_tele.name); ZH UI shows/search Chinese labels. */
+/** Teleport destination picker (game_tele.name); labels follow UI language only. */
 export function TeleSelect({ value, onChange, onSelectHit, mapFilter, disabled, className }: TeleProps) {
   const { t, i18n } = useTranslation()
   const [hits, setHits] = useState<TeleHit[]>([])
   const [loading, setLoading] = useState(false)
-  const zhUI = i18n.language.toLowerCase().startsWith('zh')
+  const zhUI = isZhLocale(i18n.language)
 
   const search = useCallback(
     async (q: string) => {
@@ -171,17 +180,27 @@ export function TeleSelect({ value, onChange, onSelectHit, mapFilter, disabled, 
     void search('')
   }, [search, i18n.language])
 
-  const options = hits.map((i) => {
-    const labelName = zhUI ? i.display_name || i.name_zh || i.name : i.name
-    const mapPart = i.map_name ? `${i.map_name} (#${i.map})` : `#${i.map}`
-    const label =
-      zhUI && i.name_zh && i.name_zh !== i.name
-        ? `${labelName} · ${mapPart}`
-        : i.map_name
-          ? `${labelName} · ${mapPart}`
-          : t('characters.teleMapLabel', { name: labelName, map: i.map })
-    return { value: i.name, label }
-  })
+  const options = useMemo(
+    () =>
+      hits.map((i) => {
+        const labelName = pickLocalizedName(zhUI, {
+          name: i.name,
+          name_zh: i.name_zh,
+          name_en: i.name,
+          display_name: i.display_name,
+        })
+        const mapPart = i.map_name ? `${i.map_name} (#${i.map})` : `#${i.map}`
+        return {
+          value: i.name,
+          label: `${labelName} · ${mapPart}`,
+          searchText: localizedSearchText(
+            { name: i.name, name_zh: i.name_zh, display_name: i.display_name },
+            [i.map, i.map_name, i.id],
+          ),
+        }
+      }),
+    [hits, zhUI],
+  )
 
   return (
     <SearchSelect
@@ -215,11 +234,12 @@ type CreatureProps = {
 }
 
 export function CreatureSelect({ value, onChange, disabled, className }: CreatureProps) {
-  const { t } = useTranslation()
-  const [options, setOptions] = useState<{ value: number; label: string }[]>([])
+  const { t, i18n } = useTranslation()
+  const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
   const [loading, setLoading] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seq = useRef(0)
+  const zhUI = isZhLocale(i18n.language)
 
   const fetchItems = useCallback(
     async (q: string) => {
@@ -230,7 +250,16 @@ export function CreatureSelect({ value, onChange, disabled, className }: Creatur
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: CreatureHit[] }>(`/api/v1/catalog/creatures?${params}`)
         if (my !== seq.current) return
-        setOptions(data.items.map((i) => ({ value: i.entry, label: `#${i.entry} ${i.name}` })))
+        setOptions(
+          data.items.map((i) => {
+            const name = pickLocalizedName(zhUI, i)
+            return {
+              value: i.entry,
+              label: `#${i.entry} ${name}`,
+              searchText: localizedSearchText(i, [i.entry, i.id]),
+            }
+          }),
+        )
       } catch (err) {
         if (my !== seq.current) return
         toast.error(errorMessage(err, t))
@@ -238,7 +267,7 @@ export function CreatureSelect({ value, onChange, disabled, className }: Creatur
         if (my === seq.current) setLoading(false)
       }
     },
-    [t],
+    [t, zhUI],
   )
 
   const searchDebounced = useCallback(
@@ -263,7 +292,7 @@ export function CreatureSelect({ value, onChange, disabled, className }: Creatur
 
   const merged = useMemo(() => {
     if (value && !options.some((o) => o.value === value)) {
-      return [{ value, label: `#${value}` }, ...options]
+      return [{ value, label: `#${value}`, searchText: String(value) }, ...options]
     }
     return options
   }, [options, value])
@@ -287,23 +316,23 @@ type EventHit = { id: number; name: string; name_zh: string; name_en: string }
 
 /** World event picker (game_event id + localized name). */
 export function EventSelect({ value, onChange, disabled, className }: NumProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string; searchText: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const zhUI = isZhLocale(i18n.language)
 
   const search = useCallback(
     async (q: string) => {
       setLoading(true)
       try {
-        // Full catalog is small (~180); load all so local SearchSelect filter covers everything.
         const params = new URLSearchParams({ limit: '500' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: EventHit[] }>(`/api/v1/catalog/events?${params}`)
         setOptions(
           data.items.map((i) => ({
             value: i.id,
-            label: `#${i.id} ${i.name}`,
-            searchText: `${i.id} ${i.name} ${i.name_zh || ''} ${i.name_en || ''}`,
+            label: `#${i.id} ${pickLocalizedName(zhUI, i)}`,
+            searchText: localizedSearchText(i, [i.id]),
           })),
         )
       } catch (err) {
@@ -312,13 +341,12 @@ export function EventSelect({ value, onChange, disabled, className }: NumProps) 
         setLoading(false)
       }
     },
-    [t],
+    [t, zhUI],
   )
 
   useEffect(() => {
-    // Always load full list once; typing filters locally in SearchSelect.
     void search('')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search])
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
