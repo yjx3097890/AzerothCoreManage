@@ -202,6 +202,7 @@ func playerbotsEditableConfKeys() []string {
 		"AiPlayerbot.AutoEquipUpgradeLoot",
 		"AiPlayerbot.EquipUpgradeThreshold",
 		"AiPlayerbot.EnableRandomBotTrading",
+		"AiPlayerbot.EnableNewRpgStrategy",
 		"AiPlayerbot.RandomBotNonCombatStrategies",
 		"AiPlayerbot.NonCombatStrategies",
 		// Battlegrounds & arenas

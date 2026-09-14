@@ -434,7 +434,7 @@
       },
       "loot": {
         "title": "拾取与交易",
-        "hint": "队伍掷骰、拾取距离、掉落自动装载，以及随机机器人与玩家交易。细粒度「只捡有用」没有独立 conf，需游戏内对机器人说 ll normal / ll quest / ll skill；卖垃圾用 s * 或装 Mod Junk To Gold。"
+        "hint": "队伍掷骰、拾取距离、掉落自动装载。卖灰色/废品：模块内置 AI——背包约 >80% 满且有可卖给商人的物品时会去找 NPC 卖掉；也可游戏内对机器人说 s gray / s *。没有单独的 AutoSellGray 开关。「随机机器人交易」是玩家↔机器人交易窗，不是卖给 NPC。"
       },
       "battleground": {
         "title": "战场",
@@ -534,13 +534,17 @@
         "label": "随机机器人交易",
         "desc": "与玩家交易窗口：关闭 / 买卖都开 / 只买 / 只卖。不是自动把灰色垃圾卖给 NPC。"
       },
+      "newRpgStrategy": {
+        "label": "新 RPG 行为（随机机器人）",
+        "desc": "开启后随机机器人更像真人逛城/找 NPC；背包偏满时会去商人卖掉废品（含灰色）。关闭会削弱这类自动卖货行为。小号 Altbot 主要跟主人，不依赖此项。"
+      },
       "rndNonCombatStrategies": {
         "label": "随机机器人非战斗策略",
         "desc": "追加/去掉全局非战斗策略，例如 +loot 开启拾取、-loot 关闭。改完通常需机器人重登或刷新策略。"
       },
       "altNonCombatStrategies": {
         "label": "小号非战斗策略",
-        "desc": "同上，作用于跟随玩家的 Altbot。"
+        "desc": "同上，作用于跟随玩家的 Altbot。可对机器人说 s gray 立即卖灰。"
       },
       "joinBG": {
         "label": "允许进战场/竞技场",

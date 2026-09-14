@@ -65,6 +65,7 @@ const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: 
   { key: 'AiPlayerbot.AutoEquipUpgradeLoot', id: 'autoEquipUpgradeLoot', control: 'toggle', section: 'loot' },
   { key: 'AiPlayerbot.EquipUpgradeThreshold', id: 'equipUpgradeThreshold', control: 'text', section: 'loot' },
   { key: 'AiPlayerbot.EnableRandomBotTrading', id: 'randomBotTrading', control: 'tradeMode', section: 'loot' },
+  { key: 'AiPlayerbot.EnableNewRpgStrategy', id: 'newRpgStrategy', control: 'toggle', section: 'loot' },
   { key: 'AiPlayerbot.RandomBotNonCombatStrategies', id: 'rndNonCombatStrategies', control: 'text', section: 'loot' },
   { key: 'AiPlayerbot.NonCombatStrategies', id: 'altNonCombatStrategies', control: 'text', section: 'loot' },
   // 战场

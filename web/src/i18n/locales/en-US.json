@@ -434,7 +434,7 @@
       },
       "loot": {
         "title": "Loot & trading",
-        "hint": "Group rolls, loot range, auto-equip from drops, and bot↔player trading. Fine-grained “loot only useful” has no conf key—tell bots ll normal / ll quest / ll skill in-game; sell junk with s * or Mod Junk To Gold."
+        "hint": "Group rolls, loot range, auto-equip. Selling gray/junk: built-in AI—when bags are ~>80% full and vendor junk exists, bots visit an NPC vendor; or tell them s gray / s * in-game. There is no AutoSellGray conf key. “Random bot trading” is the player↔bot trade window, not NPC vendors."
       },
       "battleground": {
         "title": "Battlegrounds",
@@ -534,13 +534,17 @@
         "label": "Random bot trading",
         "desc": "Trade window with players: off / buy+sell / buy only / sell only. Not NPC vendor junk autosell."
       },
+      "newRpgStrategy": {
+        "label": "New RPG behavior (random bots)",
+        "desc": "Random bots act more like real players in town; when bags are full they visit vendors to sell junk (including gray). Alt bots mostly follow the master and do not rely on this."
+      },
       "rndNonCombatStrategies": {
         "label": "Random bot non-combat strategies",
         "desc": "Add/remove global NC strategies, e.g. +loot / -loot. Usually needs bot re-login or strategy refresh."
       },
       "altNonCombatStrategies": {
         "label": "Altbot non-combat strategies",
-        "desc": "Same as above for player-following altbots."
+        "desc": "Same as above for player-following altbots. You can also tell them s gray to sell poor items immediately."
       },
       "joinBG": {
         "label": "Allow BG / arena",
