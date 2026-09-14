@@ -729,6 +729,7 @@
     "mapChoiceOverview": "Continent overview",
     "mapChoiceInstanceOverview": "Instance overview",
     "mapChoiceDungeonOverview": "Floor 1 / overview",
+    "mapFloor": "Floor {{n}}",
     "mapChoiceContinent": "Continent · {{name}}",
     "mapOtherContinentHint": "Viewing another map — map pick is disabled.",
     "mapNoCoordsHint": "This dungeon map has no aligned world bounds — position and map pick are hidden.",

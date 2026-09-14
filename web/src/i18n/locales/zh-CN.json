@@ -729,6 +729,7 @@
     "mapChoiceOverview": "大洲总览",
     "mapChoiceInstanceOverview": "副本总览",
     "mapChoiceDungeonOverview": "一层 / 总览",
+    "mapFloor": "第 {{n}} 层",
     "mapChoiceContinent": "大洲 · {{name}}",
     "mapOtherContinentHint": "当前查看的不是角色所在地图，点击选点已禁用。",
     "mapNoCoordsHint": "此副本地图与客户端坐标未对齐，不显示位置与地图选点。",

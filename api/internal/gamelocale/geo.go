@@ -136,8 +136,11 @@ func matchIDOrNames(id int, names []string, q string) bool {
 // SearchMaps filters embedded map names by locale (also matches the other language).
 func SearchMaps(q string, limit int, loc i18n.Locale) []NamedID {
 	loadGeo()
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 {
 		limit = 100
+	}
+	if limit > 5000 {
+		limit = 5000
 	}
 	q = strings.TrimSpace(q)
 	out := make([]NamedID, 0, limit)
@@ -165,8 +168,11 @@ func SearchMaps(q string, limit int, loc i18n.Locale) []NamedID {
 // SearchAreas filters embedded area/zone names by locale (also matches the other language).
 func SearchAreas(q string, limit int, loc i18n.Locale) []NamedID {
 	loadGeo()
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 {
 		limit = 100
+	}
+	if limit > 5000 {
+		limit = 5000
 	}
 	q = strings.TrimSpace(q)
 	out := make([]NamedID, 0, min(limit, len(areaIDs)))

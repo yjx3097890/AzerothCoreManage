@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { api, errorMessage } from '../api/client'
 import { SearchSelect, toast } from '../ui'
 
-type MapHit = { id: number; name: string; name_zh: string }
-type AreaHit = { id: number; name: string; name_zh: string }
+type MapHit = { id: number; name: string; name_zh?: string; name_en?: string }
+type AreaHit = { id: number; name: string; name_zh?: string; name_en?: string }
 type TeleHit = {
   id: number
   name: string
@@ -26,7 +26,7 @@ type NumProps = {
 }
 
 export function MapSelect({ value, onChange, disabled, className }: NumProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -37,19 +37,25 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
         const params = new URLSearchParams({ limit: '80' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: MapHit[] }>(`/api/v1/catalog/maps?${params}`)
-        setOptions(data.items.map((i) => ({ value: i.id, label: `#${i.id} ${i.name}` })))
+        const zh = i18n.language?.toLowerCase().startsWith('zh')
+        setOptions(
+          data.items.map((i) => {
+            const name = zh ? i.name_zh || i.name : i.name_en || i.name
+            return { value: i.id, label: `#${i.id} ${name}` }
+          }),
+        )
       } catch (err) {
         toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
     },
-    [t],
+    [t, i18n.language],
   )
 
   useEffect(() => {
     void search(value != null ? String(value) : '')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, value])
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {
@@ -74,7 +80,7 @@ export function MapSelect({ value, onChange, disabled, className }: NumProps) {
 }
 
 export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [options, setOptions] = useState<{ value: number; label: string }[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -85,19 +91,25 @@ export function AreaSelect({ value, onChange, disabled, className }: NumProps) {
         const params = new URLSearchParams({ limit: '80' })
         if (q.trim()) params.set('q', q.trim())
         const data = await api<{ items: AreaHit[] }>(`/api/v1/catalog/areas?${params}`)
-        setOptions(data.items.map((i) => ({ value: i.id, label: `#${i.id} ${i.name}` })))
+        const zh = i18n.language?.toLowerCase().startsWith('zh')
+        setOptions(
+          data.items.map((i) => {
+            const name = zh ? i.name_zh || i.name : i.name_en || i.name
+            return { value: i.id, label: `#${i.id} ${name}` }
+          }),
+        )
       } catch (err) {
         toast.error(errorMessage(err, t))
       } finally {
         setLoading(false)
       }
     },
-    [t],
+    [t, i18n.language],
   )
 
   useEffect(() => {
     void search(value != null ? String(value) : '')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, value])
 
   const merged = useMemo(() => {
     if (value != null && !options.some((o) => o.value === value)) {

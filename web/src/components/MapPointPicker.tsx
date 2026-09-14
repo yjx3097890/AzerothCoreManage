@@ -281,24 +281,58 @@ function dungeonFloorLayer(entry: DungeonEntry, floor: DungeonFloor): OverviewLa
   }
 }
 
-async function loadNameMaps(): Promise<{ maps: Map<number, string>; areas: Map<number, string> }> {
+async function loadNameMaps(zhUI: boolean): Promise<{ maps: Map<number, string>; areas: Map<number, string> }> {
   const maps = new Map<number, string>()
   const areas = new Map<number, string>()
   try {
     const [mapData, areaData] = await Promise.all([
-      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/maps?limit=500`),
-      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/areas?limit=2000`),
+      api<{ items: { id: number; name: string; name_en?: string; name_zh?: string }[] }>(
+        `/api/v1/catalog/maps?limit=500`,
+      ),
+      api<{ items: { id: number; name: string; name_en?: string; name_zh?: string }[] }>(
+        `/api/v1/catalog/areas?limit=5000`,
+      ),
     ])
-    for (const row of mapData.items || []) maps.set(row.id, row.name)
-    for (const row of areaData.items || []) areas.set(row.id, row.name)
+    const pick = (row: { name: string; name_en?: string; name_zh?: string }) => {
+      if (zhUI) return row.name_zh || row.name || row.name_en || ''
+      return row.name_en || row.name || row.name_zh || ''
+    }
+    for (const row of mapData.items || []) {
+      const label = pick(row)
+      if (label) maps.set(row.id, label)
+    }
+    for (const row of areaData.items || []) {
+      const label = pick(row)
+      if (label) areas.set(row.id, label)
+    }
   } catch {
     /* labels fall back to folder names */
   }
   return { maps, areas }
 }
 
+function labelForMap(
+  mapId: number,
+  names: { maps: Map<number, string> },
+  folder: string,
+  englishFallback?: string,
+): string {
+  return names.maps.get(mapId) || englishFallback || humanizeFolder(folder) || String(mapId)
+}
+
+function labelForArea(
+  areaId: number | undefined,
+  names: { areas: Map<number, string> },
+  folder: string,
+): string {
+  if (areaId && names.areas.get(areaId)) return names.areas.get(areaId)!
+  return humanizeFolder(folder)
+}
+
 export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled, className }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const zhUI = i18n.language?.toLowerCase().startsWith('zh')
+  const sortLocale = zhUI ? 'zh-CN' : 'en'
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const [continents, setContinents] = useState<ContinentOpt[]>([])
   const [selectedContinentId, setSelectedContinentId] = useState<number | null>(null)
@@ -325,7 +359,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         loadWorldMapIndex(),
         loadDungeonIndex(),
         loadManifest(mapId),
-        loadNameMaps(),
+        loadNameMaps(zhUI),
       ])
       if (cancelled) return
 
@@ -335,20 +369,20 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       if (wm?.byMapId) {
         const continentEntries = Object.values(wm.byMapId).sort((a, b) => a.mapId - b.mapId)
         for (const continent of continentEntries) {
-          const display = names.maps.get(continent.mapId) || humanizeFolder(continent.folder)
+          const display = labelForMap(continent.mapId, names, continent.folder)
           const layer = entryToLayer(continent, 'continent')
           const zones: ZoneOpt[] = Object.values(wm.byAreaId || {})
             .filter((e) => e.mapId === continent.mapId)
             .map((entry) => {
               const areaId = entry.areaId ?? 0
-              const zoneLabel = (areaId && names.areas.get(areaId)) || humanizeFolder(entry.folder)
+              const zoneLabel = labelForArea(areaId || undefined, names, entry.folder)
               return {
                 key: `zone:${areaId || entry.folder}`,
                 label: zoneLabel,
                 layer: { ...entryToLayer(entry, 'zone'), name: zoneLabel },
               }
             })
-            .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+            .sort((a, b) => a.label.localeCompare(b.label, sortLocale, { sensitivity: 'base' }))
 
           list.push({
             mapId: continent.mapId,
@@ -373,11 +407,10 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         for (const [instMapId, entries] of [...byInst.entries()].sort((a, b) => a[0] - b[0])) {
           entries.sort((a, b) => (a.areaId ?? 0) - (b.areaId ?? 0))
           const primary = entries[0]
-          const display =
-            names.maps.get(instMapId) || humanizeFolder(primary.folder) || `Map ${instMapId}`
+          const display = labelForMap(instMapId, names, primary.folder)
           const zones: ZoneOpt[] = entries.map((entry) => {
             const areaId = entry.areaId ?? 0
-            const zoneLabel = (areaId && names.areas.get(areaId)) || humanizeFolder(entry.folder)
+            const zoneLabel = labelForArea(areaId || undefined, names, entry.folder)
             return {
               key: `zone:${areaId || entry.folder}`,
               label: zoneLabel,
@@ -400,13 +433,16 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         const dungeonOpts: ContinentOpt[] = []
         for (const entry of Object.values(dungeonIdx.byMapId)) {
           if (coveredMapIds.has(entry.mapId) || !entry.floors?.length) continue
-          const display = names.maps.get(entry.mapId) || entry.name || `Map ${entry.mapId}`
+          const display = labelForMap(entry.mapId, names, entry.name, entry.name)
           const primary = entry.floors[0]
-          const zones: ZoneOpt[] = entry.floors.slice(1).map((floor) => ({
-            key: floor.key,
-            label: floor.label,
-            layer: { ...dungeonFloorLayer(entry, floor), name: floor.label },
-          }))
+          const zones: ZoneOpt[] = entry.floors.slice(1).map((floor, idx) => {
+            const floorLabel = t('mybots.mapFloor', { n: idx + 2 })
+            return {
+              key: floor.key,
+              label: floorLabel,
+              layer: { ...dungeonFloorLayer(entry, floor), name: floorLabel },
+            }
+          })
           dungeonOpts.push({
             mapId: entry.mapId,
             label: display,
@@ -415,7 +451,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           })
           coveredMapIds.add(entry.mapId)
         }
-        dungeonOpts.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+        dungeonOpts.sort((a, b) => a.label.localeCompare(b.label, sortLocale, { sensitivity: 'base' }))
         list.push(...dungeonOpts)
       }
 
@@ -456,7 +492,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     return () => {
       cancelled = true
     }
-  }, [mapId, zoneId])
+  }, [mapId, zoneId, zhUI, sortLocale, t])
 
   const activeContinent = useMemo(
     () => continents.find((c) => c.mapId === selectedContinentId) ?? null,
