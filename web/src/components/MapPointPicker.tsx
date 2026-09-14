@@ -59,14 +59,35 @@ type WorldMapIndex = {
 }
 
 type OverviewLayer = {
-  kind: 'zone' | 'continent' | 'manifest'
+  kind: 'zone' | 'continent' | 'manifest' | 'dungeon'
   name: string
   imageUrl: string
+  /** When false, show map art only — no world XY marker / pick / cursor HUD. */
+  hasCoords: boolean
   minX: number
   maxX: number
   minY: number
   maxY: number
 }
+
+type DungeonFloor = {
+  key: string
+  label: string
+  image: string
+}
+
+type DungeonEntry = {
+  mapId: number
+  name: string
+  hasCoords: boolean
+  floors: DungeonFloor[]
+}
+
+type DungeonIndex = {
+  byMapId?: Record<string, DungeonEntry>
+}
+
+const CONTINENT_MAP_IDS = new Set([0, 1, 530, 571])
 
 type ZoneOpt = {
   key: string
@@ -229,10 +250,34 @@ function entryToLayer(entry: WorldMapEntry, kind: 'zone' | 'continent'): Overvie
     kind,
     name: entry.folder,
     imageUrl: `/maps/worldmap/${entry.image}`,
+    hasCoords: true,
     minX: entry.minX,
     maxX: entry.maxX,
     minY: entry.minY,
     maxY: entry.maxY,
+  }
+}
+
+async function loadDungeonIndex(): Promise<DungeonIndex | null> {
+  try {
+    const res = await fetch('/maps/dungeons/index.json', { cache: 'no-cache' })
+    if (!res.ok) return null
+    return (await res.json()) as DungeonIndex
+  } catch {
+    return null
+  }
+}
+
+function dungeonFloorLayer(entry: DungeonEntry, floor: DungeonFloor): OverviewLayer {
+  return {
+    kind: 'dungeon',
+    name: floor.label || entry.name,
+    imageUrl: `/maps/dungeons/${floor.image}`,
+    hasCoords: Boolean(entry.hasCoords),
+    minX: 0,
+    maxX: 0,
+    minY: 0,
+    maxY: 0,
   }
 }
 
@@ -241,8 +286,8 @@ async function loadNameMaps(): Promise<{ maps: Map<number, string>; areas: Map<n
   const areas = new Map<number, string>()
   try {
     const [mapData, areaData] = await Promise.all([
-      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/maps?limit=80`),
-      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/areas?limit=500`),
+      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/maps?limit=500`),
+      api<{ items: { id: number; name: string }[] }>(`/api/v1/catalog/areas?limit=2000`),
     ])
     for (const row of mapData.items || []) maps.set(row.id, row.name)
     for (const row of areaData.items || []) areas.set(row.id, row.name)
@@ -276,14 +321,16 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     setCursorXY(null)
 
     void (async () => {
-      const [wm, man, names] = await Promise.all([
+      const [wm, dungeonIdx, man, names] = await Promise.all([
         loadWorldMapIndex(),
+        loadDungeonIndex(),
         loadManifest(mapId),
         loadNameMaps(),
       ])
       if (cancelled) return
 
       const list: ContinentOpt[] = []
+      const coveredMapIds = new Set<number>()
 
       if (wm?.byMapId) {
         const continentEntries = Object.values(wm.byMapId).sort((a, b) => a.mapId - b.mapId)
@@ -309,7 +356,67 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
             layer: { ...layer, name: display },
             zones,
           })
+          coveredMapIds.add(continent.mapId)
         }
+      }
+
+      // Instance / BG WorldMapArea entries (WotLK etc.) — not under continent byMapId.
+      if (wm?.byAreaId) {
+        const byInst = new Map<number, WorldMapEntry[]>()
+        for (const entry of Object.values(wm.byAreaId)) {
+          if (CONTINENT_MAP_IDS.has(entry.mapId)) continue
+          const arr = byInst.get(entry.mapId) || []
+          arr.push(entry)
+          byInst.set(entry.mapId, arr)
+        }
+        const instOpts: ContinentOpt[] = []
+        for (const [instMapId, entries] of [...byInst.entries()].sort((a, b) => a[0] - b[0])) {
+          entries.sort((a, b) => (a.areaId ?? 0) - (b.areaId ?? 0))
+          const primary = entries[0]
+          const display =
+            names.maps.get(instMapId) || humanizeFolder(primary.folder) || `Map ${instMapId}`
+          const zones: ZoneOpt[] = entries.map((entry) => {
+            const areaId = entry.areaId ?? 0
+            const zoneLabel = (areaId && names.areas.get(areaId)) || humanizeFolder(entry.folder)
+            return {
+              key: `zone:${areaId || entry.folder}`,
+              label: zoneLabel,
+              layer: { ...entryToLayer(entry, 'zone'), name: zoneLabel },
+            }
+          })
+          instOpts.push({
+            mapId: instMapId,
+            label: display,
+            layer: { ...entryToLayer(primary, 'continent'), name: display },
+            zones: zones.length > 1 ? zones : [],
+          })
+          coveredMapIds.add(instMapId)
+        }
+        list.push(...instOpts)
+      }
+
+      // Classic/TBC journal DGMaps (no reliable world bounds → hasCoords false).
+      if (dungeonIdx?.byMapId) {
+        const dungeonOpts: ContinentOpt[] = []
+        for (const entry of Object.values(dungeonIdx.byMapId)) {
+          if (coveredMapIds.has(entry.mapId) || !entry.floors?.length) continue
+          const display = names.maps.get(entry.mapId) || entry.name || `Map ${entry.mapId}`
+          const primary = entry.floors[0]
+          const zones: ZoneOpt[] = entry.floors.slice(1).map((floor) => ({
+            key: floor.key,
+            label: floor.label,
+            layer: { ...dungeonFloorLayer(entry, floor), name: floor.label },
+          }))
+          dungeonOpts.push({
+            mapId: entry.mapId,
+            label: display,
+            layer: { ...dungeonFloorLayer(entry, primary), name: display },
+            zones,
+          })
+          coveredMapIds.add(entry.mapId)
+        }
+        dungeonOpts.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+        list.push(...dungeonOpts)
       }
 
       if (!list.length && man?.mode === 'overview' && man.overview) {
@@ -317,6 +424,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
           kind: 'manifest',
           name: man.name || String(mapId),
           imageUrl: `/maps/${mapId}/${man.overview.image}`,
+          hasCoords: true,
           minX: man.overview.minX,
           maxX: man.overview.maxX,
           minY: man.overview.minY,
@@ -367,7 +475,8 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   }, [worldLayer?.imageUrl])
 
   const sameMapAsPlayer = selectedContinentId == null || selectedContinentId === mapId
-  const pickBlocked = disabled || !sameMapAsPlayer
+  const layerHasCoords = Boolean(worldLayer?.hasCoords)
+  const pickBlocked = disabled || !sameMapAsPlayer || !layerHasCoords
 
   const continentOptions = useMemo(
     () => continents.map((c) => ({ value: c.mapId, label: c.label })),
@@ -376,8 +485,14 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
 
   const zoneOptions = useMemo(() => {
     if (!activeContinent) return []
+    const overviewLabel =
+      activeContinent.layer.kind === 'dungeon'
+        ? t('mybots.mapChoiceDungeonOverview')
+        : CONTINENT_MAP_IDS.has(activeContinent.mapId)
+          ? t('mybots.mapChoiceOverview')
+          : t('mybots.mapChoiceInstanceOverview')
     return [
-      { value: ZONE_OVERVIEW_KEY, label: t('mybots.mapChoiceOverview') },
+      { value: ZONE_OVERVIEW_KEY, label: overviewLabel },
       ...activeContinent.zones.map((z) => ({ value: z.key, label: z.label })),
     ]
   }, [activeContinent, t])
@@ -431,7 +546,10 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   const clearCursorXY = useCallback(() => setCursorXY(null), [])
 
   const handleOverviewPointer = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!worldLayer) return
+    if (!worldLayer?.hasCoords) {
+      setCursorXY(null)
+      return
+    }
     const rect = e.currentTarget.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
     const u = (e.clientX - rect.left) / rect.width
@@ -441,7 +559,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   }
 
   const handleOverviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (pickBlocked || !worldLayer) return
+    if (pickBlocked || !worldLayer?.hasCoords) return
     const rect = e.currentTarget.getBoundingClientRect()
     const u = (e.clientX - rect.left) / rect.width
     const v = (e.clientY - rect.top) / rect.height
@@ -468,9 +586,9 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   }
 
   const playerOverviewPos = useMemo(() => {
-    if (!player || !worldLayer) return null
+    if (!player || !worldLayer?.hasCoords || !sameMapAsPlayer) return null
     return worldToOverviewPercent(player.x, player.y, worldLayer, imgSize?.w ?? 0, imgSize?.h ?? 0)
-  }, [player, worldLayer, imgSize])
+  }, [player, worldLayer, imgSize, sameMapAsPlayer])
 
   const overviewAspect =
     imgSize && imgSize.w > 0 && imgSize.h > 0
@@ -539,7 +657,7 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
   }
 
   const cursorHud =
-    cursorXY != null ? (
+    cursorXY != null && layerHasCoords ? (
       <div className="absolute bottom-2 right-2 z-30 pointer-events-none rounded bg-base-100/90 px-2 py-1 font-mono text-[11px] leading-none text-base-content shadow border border-base-300/60 tabular-nums">
         {t('mybots.mapCursorXY', {
           x: cursorXY.x.toFixed(1),
@@ -564,7 +682,17 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
     if (mode === 'scatter') return t('mybots.mapModeScatter')
     if (mode === 'minimap') return t('mybots.mapModeTiles', { name: manifest?.name || mapId })
     if (worldLayer?.kind === 'zone') return t('mybots.mapModeZone', { name: worldLayer.name })
-    if (worldLayer?.kind === 'continent') return t('mybots.mapModeContinent', { name: worldLayer.name })
+    if (worldLayer?.kind === 'dungeon') {
+      return layerHasCoords
+        ? t('mybots.mapModeDungeon', { name: worldLayer.name })
+        : t('mybots.mapModeDungeonNoCoords', { name: worldLayer.name })
+    }
+    if (worldLayer?.kind === 'continent') {
+      if (!CONTINENT_MAP_IDS.has(selectedContinentId ?? -1)) {
+        return t('mybots.mapModeInstance', { name: worldLayer.name })
+      }
+      return t('mybots.mapModeContinent', { name: worldLayer.name })
+    }
     return t('mybots.mapModeOverview', { name: worldLayer?.name || mapId })
   })()
 
@@ -610,6 +738,9 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
       </div>
       {!sameMapAsPlayer && mode === 'overview' && (
         <p className="text-xs text-warning mb-2 m-0">{t('mybots.mapOtherContinentHint')}</p>
+      )}
+      {sameMapAsPlayer && mode === 'overview' && worldLayer && !layerHasCoords && (
+        <p className="text-xs text-base-content/55 mb-2 m-0">{t('mybots.mapNoCoordsHint')}</p>
       )}
 
       <div className={disabled ? 'pointer-events-none select-none' : undefined}>
@@ -667,7 +798,9 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
 
       {mode === 'overview' && worldLayer && (
         <div
-          className="relative w-full max-w-[720px] mx-auto rounded-lg border border-base-300 overflow-hidden bg-neutral cursor-crosshair"
+          className={`relative w-full max-w-[720px] mx-auto rounded-lg border border-base-300 overflow-hidden bg-neutral ${
+            layerHasCoords && !pickBlocked ? 'cursor-crosshair' : 'cursor-default'
+          }`}
           style={{ aspectRatio: overviewAspect }}
           onClick={handleOverviewClick}
           onMouseMove={handleOverviewPointer}

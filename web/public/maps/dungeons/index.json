@@ -1,0 +1,607 @@
+{
+  "version": 1,
+  "source": "huijiwiki DGMap (1.0/2.0/3.0)",
+  "byMapId": {
+    "33": {
+      "mapId": 33,
+      "name": "Shadowfang Keep",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Silverpine Shadowfang01",
+          "image": "33/DGMap_Silverpine_Shadowfang01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Silverpine Shadowfang02",
+          "image": "33/DGMap_Silverpine_Shadowfang02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "Silverpine Shadowfang03",
+          "image": "33/DGMap_Silverpine_Shadowfang03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "Silverpine Shadowfang04",
+          "image": "33/DGMap_Silverpine_Shadowfang04.jpg"
+        },
+        {
+          "key": "floor:4",
+          "label": "Silverpine Shadowfang05",
+          "image": "33/DGMap_Silverpine_Shadowfang05.jpg"
+        },
+        {
+          "key": "floor:5",
+          "label": "Silverpine Shadowfang06",
+          "image": "33/DGMap_Silverpine_Shadowfang06.jpg"
+        },
+        {
+          "key": "floor:6",
+          "label": "Silverpine Shadowfang07",
+          "image": "33/DGMap_Silverpine_Shadowfang07.jpg"
+        }
+      ]
+    },
+    "34": {
+      "mapId": 34,
+      "name": "The Stockade",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Stormwind Stockade",
+          "image": "34/DGMap_Stormwind_Stockade.jpg"
+        }
+      ]
+    },
+    "36": {
+      "mapId": 36,
+      "name": "Deadmines",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Westfall Deadmines",
+          "image": "36/DGMap_Westfall_Deadmines.jpg"
+        }
+      ]
+    },
+    "43": {
+      "mapId": 43,
+      "name": "Wailing Caverns",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "NBarrens WailingCaverns",
+          "image": "43/DGMap_NBarrens_WailingCaverns.jpg"
+        }
+      ]
+    },
+    "47": {
+      "mapId": 47,
+      "name": "Razorfen Kraul",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "TNeedles RazKraul",
+          "image": "47/DGMap_TNeedles_RazKraul.jpg"
+        }
+      ]
+    },
+    "48": {
+      "mapId": 48,
+      "name": "Blackfathom Deeps",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "AshenV BlackfDeep01",
+          "image": "48/DGMap_AshenV_BlackfDeep01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "AshenV BlackfDeep02",
+          "image": "48/DGMap_AshenV_BlackfDeep02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "AshenV BlackfDeep03",
+          "image": "48/DGMap_AshenV_BlackfDeep03.jpg"
+        }
+      ]
+    },
+    "70": {
+      "mapId": 70,
+      "name": "Uldaman",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Badlands Uldaman01",
+          "image": "70/DGMap_Badlands_Uldaman01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Badlands Uldaman02",
+          "image": "70/DGMap_Badlands_Uldaman02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "Badlands Uldaman03",
+          "image": "70/DGMap_Badlands_Uldaman03.jpg"
+        }
+      ]
+    },
+    "90": {
+      "mapId": 90,
+      "name": "Gnomeregan",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "DunMorogh Gnomeregan01",
+          "image": "90/DGMap_DunMorogh_Gnomeregan01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "DunMorogh Gnomeregan02",
+          "image": "90/DGMap_DunMorogh_Gnomeregan02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "DunMorogh Gnomeregan03",
+          "image": "90/DGMap_DunMorogh_Gnomeregan03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "DunMorogh Gnomeregan04",
+          "image": "90/DGMap_DunMorogh_Gnomeregan04.jpg"
+        }
+      ]
+    },
+    "129": {
+      "mapId": 129,
+      "name": "Razorfen Downs",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "TNeedles RazDowns",
+          "image": "129/DGMap_TNeedles_RazDowns.jpg"
+        }
+      ]
+    },
+    "189": {
+      "mapId": 189,
+      "name": "Scarlet Monastery",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Original SMonastery Armory",
+          "image": "189/DGMap_Original_SMonastery_Armory.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Original SMonastery Cathedral",
+          "image": "189/DGMap_Original_SMonastery_Cathedral.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "Original SMonastery Graveyard",
+          "image": "189/DGMap_Original_SMonastery_Graveyard.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "Original SMonastery Library",
+          "image": "189/DGMap_Original_SMonastery_Library.jpg"
+        }
+      ]
+    },
+    "229": {
+      "mapId": 229,
+      "name": "Blackrock Spire",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "BRMountain BRCavern01",
+          "image": "229/DGMap_BRMountain_BRCavern01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "BRMountain BRSDown01",
+          "image": "229/DGMap_BRMountain_BRSDown01.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "BRMountain BRCavern02",
+          "image": "229/DGMap_BRMountain_BRCavern02.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "BRMountain BRSDown02",
+          "image": "229/DGMap_BRMountain_BRSDown02.jpg"
+        },
+        {
+          "key": "floor:4",
+          "label": "BRMountain BRSDown03",
+          "image": "229/DGMap_BRMountain_BRSDown03.jpg"
+        },
+        {
+          "key": "floor:5",
+          "label": "BRMountain BRSDown04",
+          "image": "229/DGMap_BRMountain_BRSDown04.jpg"
+        },
+        {
+          "key": "floor:6",
+          "label": "BRMountain BRSDown05",
+          "image": "229/DGMap_BRMountain_BRSDown05.jpg"
+        },
+        {
+          "key": "floor:7",
+          "label": "BRMountain BRSDown06",
+          "image": "229/DGMap_BRMountain_BRSDown06.jpg"
+        },
+        {
+          "key": "floor:8",
+          "label": "BRMountain BRSDown07",
+          "image": "229/DGMap_BRMountain_BRSDown07.jpg"
+        }
+      ]
+    },
+    "230": {
+      "mapId": 230,
+      "name": "Blackrock Depths",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "BRMountain BDepth01",
+          "image": "230/DGMap_BRMountain_BDepth01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "BRMountain BDepth02",
+          "image": "230/DGMap_BRMountain_BDepth02.jpg"
+        }
+      ]
+    },
+    "269": {
+      "mapId": 269,
+      "name": "The Black Morass",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "CaveTime BlackMorass",
+          "image": "269/DGMap_CaveTime_BlackMorass.jpg"
+        }
+      ]
+    },
+    "289": {
+      "mapId": 289,
+      "name": "Scholomance",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "WPlague Scholomance01",
+          "image": "289/DGMap_WPlague_Scholomance01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "WPlague Scholomance02",
+          "image": "289/DGMap_WPlague_Scholomance02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "WPlague Scholomance03",
+          "image": "289/DGMap_WPlague_Scholomance03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "WPlague Scholomance04",
+          "image": "289/DGMap_WPlague_Scholomance04.jpg"
+        }
+      ]
+    },
+    "329": {
+      "mapId": 329,
+      "name": "Stratholme",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "EPla Stra BDoor",
+          "image": "329/DGMap_EPla_Stra_BDoor.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "EPla Stra FDoor",
+          "image": "329/DGMap_EPla_Stra_FDoor.jpg"
+        }
+      ]
+    },
+    "349": {
+      "mapId": 349,
+      "name": "Maraudon",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Desolace Maraudon01",
+          "image": "349/DGMap_Desolace_Maraudon01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Desolace Maraudon02",
+          "image": "349/DGMap_Desolace_Maraudon02.jpg"
+        }
+      ]
+    },
+    "389": {
+      "mapId": 389,
+      "name": "Ragefire Chasm",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Orgrimmar RagefireChasm",
+          "image": "389/DGMap_Orgrimmar_RagefireChasm.jpg"
+        }
+      ]
+    },
+    "429": {
+      "mapId": 429,
+      "name": "Dire Maul",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Feralas DireM01",
+          "image": "429/DGMap_Feralas_DireM01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Feralas DireM02",
+          "image": "429/DGMap_Feralas_DireM02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "Feralas DireM03",
+          "image": "429/DGMap_Feralas_DireM03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "Feralas DireM04",
+          "image": "429/DGMap_Feralas_DireM04.jpg"
+        },
+        {
+          "key": "floor:4",
+          "label": "Feralas DireM05",
+          "image": "429/DGMap_Feralas_DireM05.jpg"
+        },
+        {
+          "key": "floor:5",
+          "label": "Feralas DireM06",
+          "image": "429/DGMap_Feralas_DireM06.jpg"
+        }
+      ]
+    },
+    "469": {
+      "mapId": 469,
+      "name": "Blackwing Lair",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "BRMountain BlackLair01",
+          "image": "469/DGMap_BRMountain_BlackLair01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "BRMountain BlackLair02",
+          "image": "469/DGMap_BRMountain_BlackLair02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "BRMountain BlackLair03",
+          "image": "469/DGMap_BRMountain_BlackLair03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "BRMountain BlackLair04",
+          "image": "469/DGMap_BRMountain_BlackLair04.jpg"
+        }
+      ]
+    },
+    "531": {
+      "mapId": 531,
+      "name": "Temple of Ahn'Qiraj",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Silithus TemAhnQiraj01",
+          "image": "531/DGMap_Silithus_TemAhnQiraj01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "Silithus TemAhnQiraj02",
+          "image": "531/DGMap_Silithus_TemAhnQiraj02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "Silithus TemAhnQiraj03",
+          "image": "531/DGMap_Silithus_TemAhnQiraj03.jpg"
+        }
+      ]
+    },
+    "534": {
+      "mapId": 534,
+      "name": "Hyjal Summit",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Hyjal BatMHyjal",
+          "image": "534/DGMap_Hyjal_BatMHyjal.jpg"
+        }
+      ]
+    },
+    "548": {
+      "mapId": 548,
+      "name": "Serpentshrine Cavern",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "Zanga Serpentshrine",
+          "image": "548/DGMap_Zanga_Serpentshrine.jpg"
+        }
+      ]
+    },
+    "558": {
+      "mapId": 558,
+      "name": "Auchenai Crypts",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "BoneW AuchenaiCrypts01",
+          "image": "558/DGMap_BoneW_AuchenaiCrypts01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "BoneW AuchenaiCrypts02",
+          "image": "558/DGMap_BoneW_AuchenaiCrypts02.jpg"
+        }
+      ]
+    },
+    "560": {
+      "mapId": 560,
+      "name": "Old Hillsbrad Foothills",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "CaveTime OldHillsbrad",
+          "image": "560/DGMap_CaveTime_OldHillsbrad.jpg"
+        }
+      ]
+    },
+    "564": {
+      "mapId": 564,
+      "name": "Black Temple",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "SMoon BTemple01",
+          "image": "564/DGMap_SMoon_BTemple01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "SMoon BTemple02",
+          "image": "564/DGMap_SMoon_BTemple02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "SMoon BTemple03",
+          "image": "564/DGMap_SMoon_BTemple03.jpg"
+        },
+        {
+          "key": "floor:3",
+          "label": "SMoon BTemple04",
+          "image": "564/DGMap_SMoon_BTemple04.jpg"
+        },
+        {
+          "key": "floor:4",
+          "label": "SMoon BTemple05",
+          "image": "564/DGMap_SMoon_BTemple05.jpg"
+        },
+        {
+          "key": "floor:5",
+          "label": "SMoon BTemple06",
+          "image": "564/DGMap_SMoon_BTemple06.jpg"
+        },
+        {
+          "key": "floor:6",
+          "label": "SMoon BTemple07",
+          "image": "564/DGMap_SMoon_BTemple07.jpg"
+        },
+        {
+          "key": "floor:7",
+          "label": "SMoon BTemple08",
+          "image": "564/DGMap_SMoon_BTemple08.jpg"
+        },
+        {
+          "key": "floor:8",
+          "label": "SMoon BTem Top",
+          "image": "564/DGMap_SMoon_BTem_Top.jpg"
+        }
+      ]
+    },
+    "595": {
+      "mapId": 595,
+      "name": "Culling of Stratholme",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "CaveTime OldStratholme01",
+          "image": "595/DGMap_CaveTime_OldStratholme01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "CaveTime OldStratholme02",
+          "image": "595/DGMap_CaveTime_OldStratholme02.jpg"
+        }
+      ]
+    },
+    "601": {
+      "mapId": 601,
+      "name": "Azjol-Nerub",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "DragonB AzjNer01",
+          "image": "601/DGMap_DragonB_AzjNer01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "DragonB AzjNer02",
+          "image": "601/DGMap_DragonB_AzjNer02.jpg"
+        },
+        {
+          "key": "floor:2",
+          "label": "DragonB AzjNer03",
+          "image": "601/DGMap_DragonB_AzjNer03.jpg"
+        }
+      ]
+    },
+    "619": {
+      "mapId": 619,
+      "name": "Ahn'kahet",
+      "hasCoords": false,
+      "floors": [
+        {
+          "key": "floor:0",
+          "label": "DragonB Ahnkahet01",
+          "image": "619/DGMap_DragonB_Ahnkahet01.jpg"
+        },
+        {
+          "key": "floor:1",
+          "label": "DragonB Ahnkahet02",
+          "image": "619/DGMap_DragonB_Ahnkahet02.jpg"
+        }
+      ]
+    }
+  }
+}
