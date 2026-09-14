@@ -41,8 +41,73 @@ type BotRow = {
 
 type BotGuild = { id: number; name: string; bot_members: number }
 
-type ConfigControl = 'text' | 'toggle' | 'gearQuality' | 'tradeMode' | 'rollLevel'
+type ConfigControl =
+  | 'text'
+  | 'toggle'
+  | 'gearQuality'
+  | 'tradeMode'
+  | 'rollLevel'
+  | 'bgBrackets'
+  | 'arenaBracket'
 type ConfigSection = 'login' | 'population' | 'accounts' | 'loot' | 'battleground' | 'arena'
+type BgBracketId = 'icBrackets' | 'eyBrackets' | 'avBrackets' | 'abBrackets' | 'wsBrackets'
+
+/** mod-playerbots conf: bracket index → level range (per BG, from min level). */
+const BG_BRACKET_LEVELS: Record<BgBracketId, { value: string; levels: string }[]> = {
+  wsBrackets: [
+    { value: '0', levels: '10–19' },
+    { value: '1', levels: '20–29' },
+    { value: '2', levels: '30–39' },
+    { value: '3', levels: '40–49' },
+    { value: '4', levels: '50–59' },
+    { value: '5', levels: '60–69' },
+    { value: '6', levels: '70–79' },
+    { value: '7', levels: '80' },
+  ],
+  abBrackets: [
+    { value: '0', levels: '20–29' },
+    { value: '1', levels: '30–39' },
+    { value: '2', levels: '40–49' },
+    { value: '3', levels: '50–59' },
+    { value: '4', levels: '60–69' },
+    { value: '5', levels: '70–79' },
+    { value: '6', levels: '80' },
+  ],
+  avBrackets: [
+    { value: '0', levels: '51–60' },
+    { value: '1', levels: '61–70' },
+    { value: '2', levels: '71–79' },
+    { value: '3', levels: '80' },
+  ],
+  eyBrackets: [
+    { value: '0', levels: '61–69' },
+    { value: '1', levels: '70–79' },
+    { value: '2', levels: '80' },
+  ],
+  icBrackets: [
+    { value: '0', levels: '71–79' },
+    { value: '1', levels: '80' },
+  ],
+}
+
+const ARENA_BRACKET_LEVELS = Array.from({ length: 15 }, (_, i) => {
+  const lo = 10 + i * 5
+  const hi = lo + 4
+  return { value: String(i), levels: `${lo}–${hi}` }
+})
+
+function parseBracketList(raw?: string): string[] {
+  return String(raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function joinBracketList(ids: string[]): string {
+  return [...new Set(ids)]
+    .sort((a, b) => Number(a) - Number(b))
+    .join(',')
+}
 
 const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: ConfigSection }[] = [
   // 登录
@@ -77,11 +142,11 @@ const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: 
   // 战场
   { key: 'AiPlayerbot.RandomBotJoinBG', id: 'joinBG', control: 'toggle', section: 'battleground' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBG', id: 'autoJoinBG', control: 'toggle', section: 'battleground' },
-  { key: 'AiPlayerbot.RandomBotAutoJoinICBrackets', id: 'icBrackets', control: 'text', section: 'battleground' },
-  { key: 'AiPlayerbot.RandomBotAutoJoinEYBrackets', id: 'eyBrackets', control: 'text', section: 'battleground' },
-  { key: 'AiPlayerbot.RandomBotAutoJoinAVBrackets', id: 'avBrackets', control: 'text', section: 'battleground' },
-  { key: 'AiPlayerbot.RandomBotAutoJoinABBrackets', id: 'abBrackets', control: 'text', section: 'battleground' },
-  { key: 'AiPlayerbot.RandomBotAutoJoinWSBrackets', id: 'wsBrackets', control: 'text', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinICBrackets', id: 'icBrackets', control: 'bgBrackets', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinEYBrackets', id: 'eyBrackets', control: 'bgBrackets', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinAVBrackets', id: 'avBrackets', control: 'bgBrackets', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinABBrackets', id: 'abBrackets', control: 'bgBrackets', section: 'battleground' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinWSBrackets', id: 'wsBrackets', control: 'bgBrackets', section: 'battleground' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGICCount', id: 'icCount', control: 'text', section: 'battleground' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGEYCount', id: 'eyCount', control: 'text', section: 'battleground' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGAVCount', id: 'avCount', control: 'text', section: 'battleground' },
@@ -89,7 +154,7 @@ const CONFIG_ITEMS: { key: string; id: string; control: ConfigControl; section: 
   { key: 'AiPlayerbot.RandomBotAutoJoinBGWSCount', id: 'wsCount', control: 'text', section: 'battleground' },
   { key: 'AiPlayerbot.FastReactInBG', id: 'fastReactInBG', control: 'toggle', section: 'battleground' },
   // 竞技场
-  { key: 'AiPlayerbot.RandomBotAutoJoinArenaBracket', id: 'arenaBracket', control: 'text', section: 'arena' },
+  { key: 'AiPlayerbot.RandomBotAutoJoinArenaBracket', id: 'arenaBracket', control: 'arenaBracket', section: 'arena' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena2v2Count', id: 'arena2v2Count', control: 'text', section: 'arena' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena3v3Count', id: 'arena3v3Count', control: 'text', section: 'arena' },
   { key: 'AiPlayerbot.RandomBotAutoJoinBGRatedArena5v5Count', id: 'arena5v5Count', control: 'text', section: 'arena' },
@@ -280,6 +345,16 @@ export function PlayerbotsPage() {
     value: v,
     label: t(`playerbots.rollLevelOptions.${v}`),
   }))
+  const arenaBracketOptions = ARENA_BRACKET_LEVELS.map((b) => ({
+    value: b.value,
+    label: t('playerbots.bracketOption', { levels: b.levels, id: b.value }),
+  }))
+  const bgBracketOptions = (id: BgBracketId) =>
+    BG_BRACKET_LEVELS[id].map((b) => ({
+      value: b.value,
+      label: t('playerbots.bracketOption', { levels: b.levels, id: b.value }),
+      levels: b.levels,
+    }))
   const toggleOptions = [
     { value: '1', label: t('playerbots.configOn') },
     { value: '0', label: t('playerbots.configOff') },
@@ -297,6 +372,22 @@ export function PlayerbotsPage() {
       const key = `playerbots.${ns}.${raw}`
       const label = t(key)
       return label === key ? raw : label
+    }
+    if (item.control === 'arenaBracket') {
+      const hit = ARENA_BRACKET_LEVELS.find((b) => b.value === String(raw).trim())
+      return hit ? t('playerbots.bracketOption', { levels: hit.levels, id: hit.value }) : raw
+    }
+    if (item.control === 'bgBrackets') {
+      const levels = BG_BRACKET_LEVELS[item.id as BgBracketId]
+      if (!levels) return raw
+      return (
+        parseBracketList(raw)
+          .map((id) => {
+            const hit = levels.find((b) => b.value === id)
+            return hit ? t('playerbots.bracketOption', { levels: hit.levels, id: hit.value }) : id
+          })
+          .join(', ') || '-'
+      )
     }
     return raw
   }
@@ -759,6 +850,20 @@ export function PlayerbotsPage() {
                           updates[item.key] = ['0', '1', '2'].includes(v) ? v : '1'
                           continue
                         }
+                        if (item.control === 'arenaBracket') {
+                          const allowed = new Set(ARENA_BRACKET_LEVELS.map((b) => b.value))
+                          const v = String(raw ?? '').trim()
+                          updates[item.key] = allowed.has(v) ? v : '14'
+                          continue
+                        }
+                        if (item.control === 'bgBrackets') {
+                          const allowed = new Set(
+                            (BG_BRACKET_LEVELS[item.id as BgBracketId] ?? []).map((b) => b.value),
+                          )
+                          const selected = parseBracketList(raw).filter((id) => allowed.has(id))
+                          updates[item.key] = joinBracketList(selected)
+                          continue
+                        }
                         // Allow empty string for strategy overrides (means "no extra strategies").
                         if (item.control === 'text' && (item.id === 'rndNonCombatStrategies' || item.id === 'altNonCombatStrategies')) {
                           updates[item.key] = String(raw ?? '').trim()
@@ -835,6 +940,53 @@ export function PlayerbotsPage() {
                                 }
                                 options={rollLevelOptions}
                               />
+                            ) : item.control === 'arenaBracket' ? (
+                              <Select
+                                className="w-full"
+                                value={configValues[item.key] || '14'}
+                                onChange={(v) =>
+                                  setConfigValues((prev) => ({ ...prev, [item.key]: v ?? '14' }))
+                                }
+                                options={arenaBracketOptions}
+                              />
+                            ) : item.control === 'bgBrackets' ? (
+                              <div className="rounded-lg border border-base-300 bg-base-100 p-2 flex flex-col gap-1">
+                                {bgBracketOptions(item.id as BgBracketId).map((o) => {
+                                  const selected = new Set(parseBracketList(configValues[item.key]))
+                                  return (
+                                    <label
+                                      key={o.value}
+                                      className="label cursor-pointer justify-start gap-2 py-1 min-h-0"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-sm"
+                                        checked={selected.has(o.value)}
+                                        onChange={(e) => {
+                                          const next = new Set(selected)
+                                          if (e.target.checked) next.add(o.value)
+                                          else next.delete(o.value)
+                                          setConfigValues((prev) => ({
+                                            ...prev,
+                                            [item.key]: joinBracketList([...next]),
+                                          }))
+                                        }}
+                                      />
+                                      <span className="label-text">
+                                        <span className="font-medium">
+                                          {t('playerbots.bracketLevels', { levels: o.levels })}
+                                        </span>
+                                        <span className="text-base-content/45 text-xs ml-1.5">
+                                          {t('playerbots.bracketIdHint', { id: o.value })}
+                                        </span>
+                                      </span>
+                                    </label>
+                                  )
+                                })}
+                                <p className="text-[11px] text-base-content/45 m-0 px-1 pt-1">
+                                  {t('playerbots.bgBracketsMultiHint')}
+                                </p>
+                              </div>
                             ) : (
                               <input
                                 className="input input-bordered w-full"

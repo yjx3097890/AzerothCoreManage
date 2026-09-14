@@ -574,23 +574,23 @@
       },
       "icBrackets": {
         "label": "征服之岛等级段",
-        "desc": "自动排队的 IC 等级段，逗号分隔（如 1）。"
+        "desc": "自动排队的 IC 等级段（可多选）。"
       },
       "eyBrackets": {
         "label": "风暴之眼等级段",
-        "desc": "自动排队的 EY 等级段，逗号分隔（如 2）。"
+        "desc": "自动排队的 EY 等级段（可多选）。"
       },
       "avBrackets": {
         "label": "奥特兰克等级段",
-        "desc": "自动排队的 AV 等级段，逗号分隔（如 3）。"
+        "desc": "自动排队的 AV 等级段（可多选）。"
       },
       "abBrackets": {
         "label": "阿拉希盆地等级段",
-        "desc": "自动排队的 AB 等级段，逗号分隔（如 6）。"
+        "desc": "自动排队的 AB 等级段（可多选）。"
       },
       "wsBrackets": {
         "label": "战歌峡谷等级段",
-        "desc": "WS：0=10–19 … 7=80；可逗号多选（如 7）。"
+        "desc": "自动排队的 WS 等级段（可多选）。"
       },
       "icCount": {
         "label": "征服之岛场次数",
@@ -614,7 +614,7 @@
       },
       "arenaBracket": {
         "label": "竞技场等级段",
-        "desc": "排位竞技场括号：0=10–14 … 14=80–84（默认 14）。低等级段通常需要额外改核心。"
+        "desc": "排位竞技场只用一个等级段；低等级段通常需要额外改核心。"
       },
       "arena2v2Count": {
         "label": "2v2 自动排位场次数",
@@ -659,6 +659,10 @@
     },
     "configOn": "开启",
     "configOff": "关闭",
+    "bracketOption": "{{levels}} 级",
+    "bracketLevels": "{{levels}} 级",
+    "bracketIdHint": "（配置值 {{id}}）",
+    "bgBracketsMultiHint": "每个战场等级段不同；可多选，保存为配置编号。",
     "gearQualityOptions": {
       "1": "1 · 白色（普通）",
       "2": "2 · 绿色（优秀）",

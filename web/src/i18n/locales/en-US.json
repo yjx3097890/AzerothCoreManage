@@ -574,23 +574,23 @@
       },
       "icBrackets": {
         "label": "Isle of Conquest brackets",
-        "desc": "IC level brackets to auto-join, comma-separated (e.g. 1)."
+        "desc": "IC level brackets to auto-join (multi-select)."
       },
       "eyBrackets": {
         "label": "Eye of the Storm brackets",
-        "desc": "EY level brackets to auto-join, comma-separated (e.g. 2)."
+        "desc": "EY level brackets to auto-join (multi-select)."
       },
       "avBrackets": {
         "label": "Alterac Valley brackets",
-        "desc": "AV level brackets to auto-join, comma-separated (e.g. 3)."
+        "desc": "AV level brackets to auto-join (multi-select)."
       },
       "abBrackets": {
         "label": "Arathi Basin brackets",
-        "desc": "AB level brackets to auto-join, comma-separated (e.g. 6)."
+        "desc": "AB level brackets to auto-join (multi-select)."
       },
       "wsBrackets": {
         "label": "Warsong Gulch brackets",
-        "desc": "WS: 0=10–19 … 7=80; comma-separated list allowed (e.g. 7)."
+        "desc": "WS level brackets to auto-join (multi-select)."
       },
       "icCount": {
         "label": "Isle of Conquest count",
@@ -614,7 +614,7 @@
       },
       "arenaBracket": {
         "label": "Arena bracket",
-        "desc": "Rated arena bracket: 0=10–14 … 14=80–84 (default 14). Lower brackets often need core changes."
+        "desc": "Rated arena uses a single bracket; lower brackets often need core changes."
       },
       "arena2v2Count": {
         "label": "2v2 rated auto-queue count",
@@ -659,6 +659,10 @@
     },
     "configOn": "On",
     "configOff": "Off",
+    "bracketOption": "Levels {{levels}}",
+    "bracketLevels": "Levels {{levels}}",
+    "bracketIdHint": "(config id {{id}})",
+    "bgBracketsMultiHint": "Each battleground has its own brackets; multi-select saves config ids.",
     "gearQualityOptions": {
       "1": "1 · White (Normal)",
       "2": "2 · Green (Uncommon)",
