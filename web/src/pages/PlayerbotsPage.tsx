@@ -9,6 +9,7 @@ import {
   type ChatCmdCategoryId,
 } from '../data/playerbotChatCommands'
 import { classLabel } from '../utils/wowLabels'
+import { copyToClipboard } from '../utils/clipboard'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type Overview = {
@@ -245,9 +246,8 @@ export function PlayerbotsPage() {
   }
 
   const copyChatCmd = (cmd: string) => {
-    void navigator.clipboard?.writeText(cmd).then(
-      () => toast.success(t('playerbots.commandCopied')),
-      () => toast.success(t('playerbots.commandReady')),
+    void copyToClipboard(cmd).then((ok) =>
+      toast.success(ok ? t('playerbots.commandCopied') : t('playerbots.commandReady')),
     )
   }
 
@@ -602,9 +602,8 @@ export function PlayerbotsPage() {
                         else if (botsAction === 'addaccount') cmd = `.playerbots bot addaccount ${botsAccount.trim()}`
                         else cmd = `.playerbots bot addclass ${botsClass.trim()}`
                         setAccountResult(cmd)
-                        void navigator.clipboard?.writeText(cmd).then(
-                          () => toast.success(t('playerbots.commandCopied')),
-                          () => toast.success(t('playerbots.commandReady')),
+                        void copyToClipboard(cmd).then((ok) =>
+                          toast.success(ok ? t('playerbots.commandCopied') : t('playerbots.commandReady')),
                         )
                       }}
                     >
@@ -645,6 +644,12 @@ export function PlayerbotsPage() {
                         {t('playerbots.copyCommand')}
                       </button>
                     </form>
+                    {accountResult.startsWith('.playerbots bot') && (
+                      <div className="alert alert-info block">
+                        <div className="font-semibold mb-1">{t('playerbots.ingameCommand')}</div>
+                        <pre className="m-0 whitespace-pre-wrap text-sm font-mono">{accountResult}</pre>
+                      </div>
+                    )}
                   </section>
 
                   <section className="space-y-2 pt-4 border-t border-base-300">
@@ -667,9 +672,8 @@ export function PlayerbotsPage() {
                           cmd = `.playerbots account setKey ${accountKey.trim()}`
                         }
                         setAccountResult(cmd)
-                        void navigator.clipboard?.writeText(cmd).then(
-                          () => toast.success(t('playerbots.commandCopied')),
-                          () => toast.success(t('playerbots.commandReady')),
+                        void copyToClipboard(cmd).then((ok) =>
+                          toast.success(ok ? t('playerbots.commandCopied') : t('playerbots.commandReady')),
                         )
                       }}
                     >

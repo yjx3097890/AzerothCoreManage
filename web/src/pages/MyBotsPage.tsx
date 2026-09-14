@@ -6,6 +6,8 @@ import { MapPointPicker, type MapPick, type MapPoint } from '../components/MapPo
 import { CreatureSelect } from '../components/PlaceSelect'
 import { currentLocale } from '../i18n'
 import { isZhLocale, pickLocalizedName } from '../utils/localeLabel'
+import { parseEventMessage, type EventTone } from '../utils/mybotsEvents'
+import { copyToClipboard } from '../utils/clipboard'
 import { DataTable, Select, Tabs, toast, type Column } from '../ui'
 
 type Status = {
@@ -131,6 +133,7 @@ export function MyBotsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobDetail, setJobDetail] = useState<Job | null>(null)
   const [events, setEvents] = useState<EventRow[]>([])
+  const [eventOpenId, setEventOpenId] = useState<number | null>(null)
   const [patrols, setPatrols] = useState<Patrol[]>([])
   const [telePoints, setTelePoints] = useState<TeleHit[]>([])
   const [questLog, setQuestLog] = useState<QuestItem[]>([])
@@ -641,11 +644,96 @@ export function MyBotsPage() {
     },
   ]
 
+  const eventToneClass = (tone: EventTone) => {
+    switch (tone) {
+      case 'ok':
+        return 'badge-success'
+      case 'warn':
+        return 'badge-warning'
+      case 'error':
+        return 'badge-error'
+      case 'nav':
+        return 'badge-info'
+      case 'llm':
+        return 'badge-secondary'
+      case 'job':
+        return 'badge-neutral'
+      default:
+        return 'badge-ghost'
+    }
+  }
+
+  const eventKindLabel = (kind: string) => {
+    const key = `mybots.eventKinds.${kind}`
+    const label = t(key)
+    return label === key ? kind : label
+  }
+
+  const copyText = (text: string) => {
+    void copyToClipboard(text).then((ok) =>
+      toast.success(ok ? t('mybots.copied') : t('mybots.copyReady')),
+    )
+  }
+
   const eventColumns: Column<EventRow>[] = [
-    { key: 'id', title: 'ID', dataIndex: 'id', width: 70 },
-    { key: 'kind', title: t('mybots.eventKind'), dataIndex: 'kind', width: 140 },
-    { key: 'message', title: t('mybots.eventMessage'), dataIndex: 'message' },
-    { key: 'jobId', title: 'Job', dataIndex: 'jobId', width: 140 },
+    { key: 'id', title: 'ID', dataIndex: 'id', width: 64 },
+    {
+      key: 'kind',
+      title: t('mybots.eventKind'),
+      width: 168,
+      render: (_v, r) => {
+        const parsed = parseEventMessage(r.kind, r.message)
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className={`badge badge-sm ${eventToneClass(parsed.tone)}`}>{eventKindLabel(r.kind)}</span>
+            <code className="text-[11px] text-base-content/45 font-mono">{r.kind}</code>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'message',
+      title: t('mybots.eventMessage'),
+      render: (_v, r) => {
+        const parsed = parseEventMessage(r.kind, r.message)
+        const open = eventOpenId === r.id
+        const body = parsed.pretty ?? r.message ?? ''
+        return (
+          <div className="min-w-0">
+            <div className="text-sm leading-snug break-all">{parsed.summary}</div>
+            {parsed.steps && parsed.steps.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {parsed.steps.map((s, i) => (
+                  <span key={`${r.id}-${i}`} className="badge badge-ghost badge-xs font-mono">
+                    {s.op || '?'}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(parsed.pretty || (r.message && r.message.length > 80)) && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setEventOpenId(open ? null : r.id)}
+                >
+                  {open ? t('mybots.collapse') : t('mybots.expand')}
+                </button>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => copyText(r.message ?? '')}>
+                  {t('common.copy')}
+                </button>
+              </div>
+            )}
+            {open && (
+              <pre className="mt-1 m-0 p-2 rounded-lg border border-base-300 bg-base-200 text-xs overflow-auto max-h-64 whitespace-pre-wrap break-all">
+                {body}
+              </pre>
+            )}
+          </div>
+        )
+      },
+    },
+    { key: 'jobId', title: 'Job', dataIndex: 'jobId', width: 150 },
     {
       key: 'createdAt',
       title: t('mybots.time'),
@@ -910,10 +998,11 @@ export function MyBotsPage() {
               <p className="text-sm text-base-content/50 m-0">{t('mybots.loadFirst')}</p>
             ) : (
               <>
+                <PanelIntro>{t('mybots.eventsHint')}</PanelIntro>
                 <button type="button" className="btn btn-sm mb-3" onClick={() => void loadEvents(activeChar)}>
                   {t('common.refresh')}
                 </button>
-                <DataTable columns={eventColumns} dataSource={events} rowKey={(r) => String(r.id)} />
+                <DataTable columns={eventColumns} dataSource={events} rowKey={(r) => String(r.id)} pagination={{ pageSize: 25 }} />
               </>
             ),
           },
