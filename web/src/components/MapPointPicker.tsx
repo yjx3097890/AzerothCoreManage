@@ -407,7 +407,10 @@ export function MapPointPicker({ mapId, zoneId, player, points, onPick, disabled
         for (const [instMapId, entries] of [...byInst.entries()].sort((a, b) => a[0] - b[0])) {
           entries.sort((a, b) => (a.areaId ?? 0) - (b.areaId ?? 0))
           const primary = entries[0]
-          const display = labelForMap(instMapId, names, primary.folder)
+          const display =
+            names.maps.get(instMapId) ||
+            (primary.areaId ? names.areas.get(primary.areaId) : undefined) ||
+            labelForMap(instMapId, names, primary.folder)
           const zones: ZoneOpt[] = entries.map((entry) => {
             const areaId = entry.areaId ?? 0
             const zoneLabel = labelForArea(areaId || undefined, names, entry.folder)

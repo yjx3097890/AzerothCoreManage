@@ -39,15 +39,31 @@ func loadGeo() {
 		areasZH = decodeIDStringMap(areaZHCNJSON)
 		mapsEN = decodeIDStringMap(mapENUSJSON)
 		areasEN = decodeIDStringMap(areaENUSJSON)
-		// Prefer ZH id set for stable ordering (covers live client extract).
-		mapIDs = sortedKeys(mapsZH)
-		if len(mapIDs) == 0 {
-			mapIDs = sortedKeys(mapsEN)
+		// Union ZH+EN ids so late WotLK maps missing from ZH extracts still catalog.
+		idSet := map[int]struct{}{}
+		for id := range mapsZH {
+			idSet[id] = struct{}{}
 		}
-		areaIDs = sortedKeys(areasZH)
-		if len(areaIDs) == 0 {
-			areaIDs = sortedKeys(areasEN)
+		for id := range mapsEN {
+			idSet[id] = struct{}{}
 		}
+		mapIDs = make([]int, 0, len(idSet))
+		for id := range idSet {
+			mapIDs = append(mapIDs, id)
+		}
+		sort.Ints(mapIDs)
+		areaSet := map[int]struct{}{}
+		for id := range areasZH {
+			areaSet[id] = struct{}{}
+		}
+		for id := range areasEN {
+			areaSet[id] = struct{}{}
+		}
+		areaIDs = make([]int, 0, len(areaSet))
+		for id := range areaSet {
+			areaIDs = append(areaIDs, id)
+		}
+		sort.Ints(areaIDs)
 	})
 }
 
